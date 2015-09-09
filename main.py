@@ -10,6 +10,7 @@ d20 = 20
 dead = 0
 potion_hit_point = 10
 starting_potion_count = 3
+number_of_rooms = randint(2, 6)
 
 
 def main():
@@ -18,9 +19,7 @@ def main():
     monsters = {}
 
     player_one = Player(player_name, player_hit_points, player_defense, player_attack)
-    """monster = GameActor(monster_name, monster_hit_points, monster_defense, monster_attack)"""
 
-    number_of_rooms = randint(2, 5)
     print "Number of Rooms: " + str(number_of_rooms)
 
     for room in range(number_of_rooms):
