@@ -3,30 +3,31 @@ __author__ = 'scott.harrison'
 
 from gameobjects import *
 from settings import *
+from random import random
 
 
 def main():
 
-    dungeon_rooms = {}
     monsters = {}
 
     player_one = Player(player_name, player_hit_points, player_defense, player_attack)
 
     print "Number of Rooms: " + str(number_of_rooms)
 
-    for room in range(number_of_rooms):
-        dungeon_rooms[room] = DungeonRoom()
+    dungeon_rooms = create_dungeon_rooms()
 
     print 'Player One Initialized with %s' % player_one.stats
     print 'You are standing in front of a large wooden door.'
+    print 'Rooms: %s' % len(dungeon_rooms)
 
     for room in dungeon_rooms:
 
         if player_one.stats["Hit Points"] <= dead:
             break
 
-        print "Room %s has %s Doors, %s Monsters, %s Traps, and %s loot" \
-              % (room + 1, dungeon_rooms[room].doors, dungeon_rooms[room].monsters, dungeon_rooms[room].traps, dungeon_rooms[room].loot)
+        print "Room %s has %s Doors, %s Monsters, is %s on Traps, and %s Loot" \
+              % (room + 1, dungeon_rooms[room].doors, dungeon_rooms[room].monsters,
+                 dungeon_rooms[room].traps, dungeon_rooms[room].loot)
 
         if raw_input("Press 1 to enter the door: ") == "1":
             print 'You step inside the door, there is a large dimly lit room.'
@@ -102,14 +103,16 @@ def combat(player_one, monster, combat_choice):
 
     elif combat_choice == "defend":
 
-        defend_attack, modified_attack, player_one.stats["Hit Points"] = player_one.defend(player_one.stats, monster.stats)
+        defend_attack, modified_attack, player_one.stats["Hit Points"] = \
+            player_one.defend(player_one.stats, monster.stats)
         print 'A %s attacks for %s but you defend (%s) and take %s damage' \
               % (monster.stats["Name"], monster.stats["Attack"], defend_attack, modified_attack)
         print 'You have %s health left!' % (player_one.stats["Hit Points"])
 
     elif combat_choice == "health potion":
 
-        player_one.stats["Hit Points"] = player_one.health_potion(player_one.stats, player_one.stats["Potion Count"], potion_hit_point)
+        player_one.stats["Hit Points"] = \
+            player_one.health_potion(player_one.stats, player_one.stats["Potion Count"], potion_hit_point)
         print 'You have drank a health potion you now have %s health!' % player_one.stats["Hit Points"]
         player_one.stats["Potion Count"] -= 1
         print 'You have %s potions left!' % player_one.stats["Potion Count"]
@@ -117,6 +120,15 @@ def combat(player_one, monster, combat_choice):
     else:
 
         print 'You have not entered a valid choice!'
+
+
+def create_dungeon_rooms():
+
+    dungeon_rooms = {}
+    for room in range(number_of_rooms):
+        dungeon_rooms[room] = DungeonRoom()
+
+    return dungeon_rooms
 
 
 class DungeonRoom(object):
@@ -127,7 +139,10 @@ class DungeonRoom(object):
         self.length = randint(5, 12)
         self.width = randint(5, 12)
         self.doors = randint(2, 4)
-        self.traps = randint(0, 2)
+        if random() < trap_percentage:
+            self.traps = True
+        else:
+            self.traps = False
         self.monsters = randint(0, 3)
         self.loot = randint(1, 3)
 

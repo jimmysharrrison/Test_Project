@@ -11,4 +11,5 @@ dead = 0
 potion_hit_point = 10
 starting_potion_count = 3
 number_of_rooms = randint(2, 6)
+trap_percentage = 0.3
 
