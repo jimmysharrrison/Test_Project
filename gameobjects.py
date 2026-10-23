@@ -1,7 +1,9 @@
-#!/usr/bin/python
+#!/usr/bin/env python3
 __author__ = 'scott.harrison'
 
-from settings import *
+from random import choice, randint
+
+from settings import base_roll, d20, starting_potion_count
 
 class GameActor(object):
 
@@ -32,11 +34,12 @@ class GameActor(object):
 
         if potion_count > 0:
             drinker_stats["Hit Points"] += life_to_restore
-            print "You have restored %s life!" % life_to_restore
+            print("You have restored %s life!" % life_to_restore)
             return drinker_stats["Hit Points"]
 
         else:
-            print "You do not have anymore Health Potions!"
+            print("You do not have anymore Health Potions!")
+            return drinker_stats["Hit Points"]
 
     def defend(self, defender_stats, attacker_stats):
 
@@ -56,7 +59,7 @@ class Monster(GameActor):
         monster_names = ["spider", "goblin", "rat", "gelatinous cube", "skeleton", "whisp"]
         super(Monster, self).__init__(a_name, a_monster_hit_points, a_monster_defense, a_monster_attack)
         self.stats["Hit Points"] += randint(0, 10)
-        self.stats["Name"] = monster_names[randint(0, len(monster_names))]
+        self.stats["Name"] = choice(monster_names)
         #self.stats.update({'Poison': 5})
 
 

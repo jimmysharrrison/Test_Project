@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python3
 __author__ = 'scott.harrison'
 
 from random import randint
@@ -12,4 +12,3 @@ potion_hit_point = 10
 starting_potion_count = 3
 number_of_rooms = randint(2, 6)
 trap_percentage = 0.3
-

@@ -1,7 +1,9 @@
-#!/usr/bin/python
+#!/usr/bin/env python3
 __author__ = 'scott.harrison'
 
-from gameobjects import *
+from random import randint
+
+from gameobjects import Monster
 
 def main():
 
@@ -14,7 +16,6 @@ class Spider(Monster):
         #monster_names = ["spider", "goblin", "rat", "gelatinous cube", "skeleton", "whisp"]
         super(Spider, self).__init__(spider_name, spider_hit_points, spider_defense, spider_attack)
         self.stats["Hit Points"] += randint(0, 10)
-        """self.stats["Name"] = "spider"""""
         self.stats.update({"Name": "spider", "Poison": 5})
 
 
