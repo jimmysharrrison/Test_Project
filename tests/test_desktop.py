@@ -75,6 +75,26 @@ class DesktopTests(unittest.TestCase):
             app.main()
         return worlds, frames
 
+    def test_entering_portal_loads_forest_floor_and_resets_input(self):
+        layouts, floors = [], []
+        def observer(frame, world, renderer):
+            layouts.append(world.layout)
+            floors.append(pygame.image.tobytes(renderer.floor, "RGBA"))
+            if frame == 1:
+                world.spawners.clear()
+                world.player.pos = world.exit
+        script = [[key(pygame.K_RETURN)], [], [key(pygame.K_RETURN)],
+                  [click(1, (1054, 823))], [key(pygame.K_ESCAPE)], [key(pygame.K_i)], [key(pygame.K_ESCAPE)]]
+        worlds, frames = self.run_app(script, observer)
+        world = worlds[0]
+        self.assertEqual(world.level, 2)
+        self.assertEqual(world.level_data.name, "Thornveil Forest")
+        self.assertNotEqual(layouts[0], layouts[2])
+        self.assertNotEqual(floors[0], floors[2])
+        self.assertEqual(floors[2], floors[-1])
+        self.assertEqual(frames[5][0], "inventory")
+        self.assertEqual(frames[-1][0], "playing")
+
     def test_ultimate_pause_focus_resume_and_enter_restart(self):
         ultimate_seen = []
         def observer(frame, world, renderer):

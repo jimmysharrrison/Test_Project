@@ -8,27 +8,20 @@ from random import Random
 from .abilities import ABILITIES
 from .geometry import Vec
 from .items import BLANK_COST, Inventory, Item, SLOTS
+from .levels import FROSTFALL, level_for_depth
 from .navigation import find_path, flood, neighbors
 
-LAYOUT = (
-    "#################",
-    "#...............#",
-    "#...##..........#",
-    "#...##....##....#",
-    "#.........##....#",
-    "#...............#",
-    "#..##...........#",
-    "#..##.....##....#",
-    "#.........##....#",
-    "#...............#",
-    "#.....##........#",
-    "#.....##....##..#",
-    "#...........##..#",
-    "#...............#",
-    "#...............#",
-    "#...............#",
-    "#################",
-)
+LAYOUT = FROSTFALL.layout
+ENEMY_STATS = {
+    "husk": ("Molten Skeleton", 44, 1.05, 10),
+    "skitter": ("Ember Skitter", 26, 1.65, 6),
+    "tree": ("Darkroot Treant", 44, 1.05, 10),
+    "spider": ("Thornwood Spider", 26, 1.65, 6),
+    "archer": ("Briarbone Archer", 34, 1.15, 8),
+}
+ARCHER_RANGE = 7.5
+ARCHER_WINDUP = .65
+ARCHER_COOLDOWN = 2.8
 
 
 @dataclass(slots=True)
@@ -80,15 +73,17 @@ class Enemy:
     chilled: float = 0
     frozen: float = 0
     level: int = 1
+    windup: float = 0
+    shot_target: Vec | None = None
 
     @property
     def max_hp(self):
-        base = 26 if self.kind == "skitter" else 44
+        base = ENEMY_STATS[self.kind][1]
         return round(base * (1 + .15 * (self.level - 1)))
 
     @property
     def name(self):
-        return "Ember Skitter" if self.kind == "skitter" else "Molten Skeleton"
+        return ENEMY_STATS[self.kind][0]
 
     @property
     def statuses(self):
@@ -102,6 +97,7 @@ class Spawner:
     timer: float = 6
     flash: float = 0
     level: int = 1
+    forest: bool = False
 
     @property
     def max_hp(self):
@@ -109,7 +105,7 @@ class Spawner:
 
     @property
     def name(self):
-        return "Molten Rift"
+        return "Blighted Heart" if self.forest else "Molten Rift"
 
     @property
     def statuses(self):
@@ -128,6 +124,7 @@ class Projectile:
     velocity: Vec
     life: float = 1.05
     damage: int = 24
+    hostile: bool = False
 
 
 @dataclass(slots=True)
@@ -156,18 +153,17 @@ class World:
         self.loot_rng = Random(None if seed is None else seed + 1937)
         self.player = player if player is not None else Player()
         self.level = level
+        self.level_data = level_for_depth(level)
+        self.layout = self.level_data.layout
         self.level_completed = False
-        self.walls = {(x, y) for y, row in enumerate(LAYOUT) for x, tile in enumerate(row) if tile == "#"}
+        self.walls = {(x, y) for y, row in enumerate(self.layout) for x, tile in enumerate(row) if tile == "#"}
         self.ice_walls = []
         self._ice_cells = set()
-        self.spawners = [
-            Spawner(Vec(4.5, 4.5), timer=5), Spawner(Vec(13.5, 4.5), timer=8),
-            Spawner(Vec(12.5, 13.5), timer=11),
-        ]
-        self.enemies = [Enemy(Vec(7.5, 5.5)), Enemy(Vec(12.5, 5.5)),
-                        Enemy(Vec(10.5, 12.5), "skitter", 26)]
-        self.pickups = [Pickup(Vec(7.5, 13.5), "food", 25), Pickup(Vec(12.5, 8.5), "food", 25),
-                        Pickup(Vec(8.5, 6.5), "gold", 25), Pickup(Vec(5.5, 9.5), "gold", 25)]
+        self.spawners = [Spawner(Vec(x, y), timer=5 + i * 3, forest=self.level_data.forest)
+                         for i, (x, y) in enumerate(self.level_data.spawners)]
+        self.enemies = [Enemy(Vec(x, y), kind, cooldown=1 + i * .25 if kind == "archer" else 0)
+                        for i, (x, y, kind) in enumerate(self.level_data.enemies)]
+        self.pickups = [Pickup(Vec(x, y), kind, value) for x, y, kind, value in self.level_data.pickups]
         for actor in self.enemies + self.spawners:
             actor.level = level
             actor.hp = actor.max_hp
@@ -180,7 +176,8 @@ class World:
         self.exit = Vec(8.5, 1.5)
         self.state = "playing"
         self.time = 0.0
-        self.message = "Right click to move. QWER to cast. Seal the three rifts."
+        self.message = ("Thornveil Forest: purge three Blighted Hearts. Dodge archer aim lines; Ice Wall blocks arrows."
+                        if self.level_data.forest else "Right click to move. QWER to cast. Seal the three rifts.")
         self.message_time = 7.0
         self.selected = None
         self.path = []
@@ -391,6 +388,63 @@ class World:
             target = Vec(best[0] + 0.5, best[1] + 0.5)
         return (target - enemy.pos).unit()
 
+    def _move_enemy(self, enemy, dt, direction=None):
+        if direction is None:
+            direction = self._enemy_direction(enemy)
+        separation = Vec()
+        for other in self.enemies:
+            offset = enemy.pos - other.pos
+            length = offset.length()
+            if other is not enemy and 0 < length < .5:
+                separation = separation + offset.unit() * ((.5 - length) * 2)
+        direction = (direction + separation).unit()
+        speed = ENEMY_STATS[enemy.kind][2]
+        if enemy.chilled > 0:
+            speed *= 1 - ABILITIES["q"].slow
+        enemy.pos = self.move(enemy.pos, direction * speed * dt)
+
+    def _archer(self, enemy, dt):
+        if enemy.windup > 0:
+            # Aim locks at draw time: arrows never home in on a moving player.
+            if not self._line_clear(enemy.pos, enemy.shot_target):
+                enemy.windup, enemy.shot_target = 0, None
+                enemy.cooldown = .4
+                return
+            enemy.windup = max(0, enemy.windup - dt)
+            if enemy.windup == 0:
+                direction = (enemy.shot_target - enemy.pos).unit()
+                damage = round(ENEMY_STATS["archer"][3] * (1 + .12 * (enemy.level - 1)))
+                self.projectiles.append(Projectile(enemy.pos + direction * .4, direction * 5.5,
+                                                   life=1.7, damage=damage, hostile=True))
+                enemy.shot_target = None
+                enemy.cooldown = ARCHER_COOLDOWN
+                self.events.append("arrow")
+            return
+        distance = (self.player.pos - enemy.pos).length()
+        if distance <= ARCHER_RANGE and self._line_clear(enemy.pos, self.player.pos):
+            if enemy.cooldown <= 0:
+                enemy.shot_target = self.player.pos
+                enemy.windup = ARCHER_WINDUP
+            elif distance < 2.6:
+                self._move_enemy(enemy, dt, (enemy.pos - self.player.pos).unit() if distance else Vec(1, 0))
+        else:
+            self._move_enemy(enemy, dt)
+
+    def _hurt_player(self, amount):
+        player = self.player
+        if self.state != "playing" or player.invincible > 0 or player.stasis > 0:
+            return False
+        damage = max(1, amount - player.inventory.stats.armor)
+        player.hp = max(0, player.hp - damage)
+        player.invincible = .65
+        player.flash = .2
+        self.events.append("hurt")
+        self.effects.append(Effect(player.pos, "hurt", .4, .4))
+        if player.hp <= 0:
+            self.state = "dead"
+            self.events.append("dead")
+        return True
+
     def _hit(self, target, damage):
         critical = self.combat_rng.random() < self.player.crit_chance
         amount = damage * (1 + self.player.inventory.stats.damage)
@@ -410,7 +464,8 @@ class World:
                 self.events.append("break")
                 self.pickups.append(Pickup(target.pos, "gold", self.gold_value(75)))
                 self._drop_equipment(target.pos, guaranteed=True)
-                self.announce(f"Rift sealed. {len(self.spawners)} remaining.")
+                label = "Blighted Heart purged" if target.forest else "Rift sealed"
+                self.announce(f"{label}. {len(self.spawners)} remaining.")
                 if not self.spawners:
                     self._complete_level()
             else:
@@ -422,15 +477,27 @@ class World:
                     self.pickups.append(Pickup(target.pos + Vec(0.3, 0), "food", 15))
 
     def _projectiles(self, dt):
+        if dt <= 0:
+            return
         for shot in self.projectiles[:]:
+            travel = min(dt, max(0, shot.life))
             shot.life -= dt
-            steps = max(1, ceil(shot.velocity.length() * dt / 0.1))
+            if travel == 0:
+                self.projectiles.remove(shot)
+                continue
+            steps = max(1, ceil(shot.velocity.length() * travel / 0.1))
             for _ in range(steps):
-                shot.pos = shot.pos + shot.velocity * (dt / steps)
+                shot.pos = shot.pos + shot.velocity * (travel / steps)
                 if not self.walkable(shot.pos, 0.06):
                     shot.life = 0
                     self.effects.append(Effect(shot.pos, "spark", 0.2, 0.2))
                     break
+                if shot.hostile:
+                    if (self.player.pos - shot.pos).length() < .32:
+                        self._hurt_player(shot.damage)
+                        shot.life = 0
+                        break
+                    continue
                 target = next((item for item in self.enemies + self.spawners
                                if (item.pos - shot.pos).length() < (0.55 if isinstance(item, Spawner) else 0.38)), None)
                 if target is not None:
@@ -441,6 +508,8 @@ class World:
                     break
             if shot.life <= 0:
                 self.projectiles.remove(shot)
+            if self.state == "dead":
+                return
 
     def _spawn(self, dt):
         for spawner in self.spawners:
@@ -455,8 +524,12 @@ class World:
                 for offset in options:
                     pos = spawner.pos + offset
                     if self.walkable(pos):
-                        skitter = self.rng.random() < 0.35
-                        enemy = Enemy(pos, "skitter" if skitter else "husk", level=self.level)
+                        if self.level_data.forest:
+                            kind = self.rng.choices(self.level_data.spawn_kinds,
+                                                    weights=self.level_data.spawn_weights)[0]
+                        else:
+                            kind = "skitter" if self.rng.random() < .35 else "husk"
+                        enemy = Enemy(pos, kind, level=self.level, cooldown=1 if kind == "archer" else 0)
                         enemy.hp = enemy.max_hp
                         self.enemies.append(enemy)
                         self.effects.append(Effect(pos, "spawn", 0.6, 0.6))
@@ -506,33 +579,23 @@ class World:
             enemy.frozen = max(0, enemy.frozen - dt)
             enemy.chilled = max(0, enemy.chilled - dt)
             if was_frozen:
+                enemy.windup, enemy.shot_target = 0, None
+                continue
+            if enemy.kind == "archer":
+                self._archer(enemy, dt)
                 continue
             distance = (player.pos - enemy.pos).length()
             if distance > 0.5:
-                direction = self._enemy_direction(enemy)
-                separation = Vec()
-                for other in self.enemies:
-                    offset = enemy.pos - other.pos
-                    length = offset.length()
-                    if other is not enemy and 0 < length < 0.5:
-                        separation = separation + offset.unit() * ((0.5 - length) * 2)
-                direction = (direction + separation).unit()
-                speed = (1.65 if enemy.kind == "skitter" else 1.05) * ((1 - ABILITIES["q"].slow) if enemy.chilled > 0 else 1)
-                enemy.pos = self.move(enemy.pos, direction * speed * dt)
-            elif enemy.cooldown <= 0 and player.invincible <= 0 and player.stasis <= 0:
-                base_damage = 6 if enemy.kind == "skitter" else 10
-                damage = max(1, round(base_damage * (1 + .12 * (enemy.level - 1))) - player.inventory.stats.armor)
-                player.hp = max(0, player.hp - damage)
-                player.invincible = 0.65
-                player.flash = 0.2
-                self.events.append("hurt")
-                enemy.cooldown = 0.9
-                self.effects.append(Effect(player.pos, "hurt", 0.4, 0.4))
-                if player.hp <= 0:
-                    self.state = "dead"
-                    self.events.append("dead")
+                self._move_enemy(enemy, dt)
+            elif enemy.cooldown <= 0:
+                base_damage = ENEMY_STATS[enemy.kind][3]
+                if self._hurt_player(round(base_damage * (1 + .12 * (enemy.level - 1)))):
+                    enemy.cooldown = .9
+                if self.state == "dead":
                     return
         self._projectiles(dt)
+        if self.state == "dead":
+            return
         for pickup in self.pickups[:]:
             if (pickup.pos - player.pos).length() < 0.65:
                 if pickup.kind == "food":
@@ -609,7 +672,7 @@ class World:
         seed = None if self.seed is None else self.seed + 1
         fresh = World(seed, player=player, level=self.level + 1)
         self.__dict__.update(fresh.__dict__)
-        self.announce(f"Depth {self.level}. Your equipment and gold carry forward.")
+        self.announce(f"Level {self.level}: {self.level_data.name}. Your equipment and gold carry forward.")
         return True
 
     def _can_manage_gear(self):

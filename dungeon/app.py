@@ -16,11 +16,14 @@ def main():
     parser.add_argument("--frames", type=int, help="Exit after this many frames")
     parser.add_argument("--screenshot", type=Path, help="Save the final frame as a PNG")
     parser.add_argument("--seed", type=int, help="Use a repeatable simulation")
+    parser.add_argument("--level", type=int, help="Start at a specific level instead of your unlocked depth")
     parser.add_argument("--no-save", action="store_true", help="Do not load or save a local character")
     parser.add_argument("--profile", type=Path, help="Use an explicit character profile path")
     args = parser.parse_args()
     if args.frames is not None and args.frames <= 0:
         parser.error("--frames must be positive")
+    if args.level is not None and args.level <= 0:
+        parser.error("--level must be positive")
     if args.headless:
         os.environ["SDL_VIDEODRIVER"] = "dummy"
         os.environ["SDL_AUDIODRIVER"] = "dummy"
@@ -33,12 +36,13 @@ def main():
     pygame.display.init()
     pygame.font.init()
     window = pygame.display.set_mode((1280, 800), pygame.RESIZABLE)
-    pygame.display.set_caption("Embervault · Ice Mage · Frostbound Armory")
+    pygame.display.set_caption("Embervault · Ice Mage · Thornveil Forest")
     canvas = pygame.Surface((WIDTH, HEIGHT))
     audio = Audio()
     store = None if args.no_save or (args.headless and args.profile is None) else ProfileStore(args.profile)
     player = store.load() if store else None
-    world = World(args.seed, player=player, level=player.unlocked_level) if player else World(args.seed)
+    start_level = args.level if args.level is not None else player.unlocked_level if player else 1
+    world = World(args.seed, player=player, level=start_level)
     controls = Controls(world)
     renderer = Renderer(canvas, world)
     clock = pygame.time.Clock()
@@ -60,7 +64,8 @@ def main():
             earned.stasis = earned.cast_time = earned.flash = 0
             earned.invincible = 1
             earned.cooldowns = dict.fromkeys(earned.cooldowns, 0.0)
-            world = World(args.seed, player=earned, level=earned.unlocked_level)
+            retry_level = args.level if args.level is not None else earned.unlocked_level
+            world = World(args.seed, player=earned, level=retry_level)
             controls = Controls(world)
         mode = "playing"
 

@@ -105,10 +105,12 @@ and the first-level boot reward is granted at that moment. Surviving enemies
 can still attack while the mage heads to the exit, but do not keep the gate shut.
 
 At the gate, choose **Enter / Next Depth**. Gear, gold, potions, and kills carry
-forward; health and mana refill, and spell cooldowns reset. Later depths reuse
-the current arena with 15% more enemy/rift health and gold value per additional
-depth, and 12% more enemy attack damage per additional depth. Each new room has
-its own rifts and enemies. Distinct maps and bosses are future work.
+forward; health and mana refill, and spell cooldowns reset. Level 2 enters a
+distinct forest map with treants, spiders, skeletal archers, and three Blighted
+Hearts in place of molten rifts. Forest drops use the same equipment rules.
+Depths 3 onward reuse the forest. Each additional depth adds 15% to base enemy/
+spawner health and gold, and 12% to base enemy attack damage. Each new room has
+its own spawners and enemies. More chapters and bosses are future work.
 
 Equipment, enchantments, gold, potions, kills, unlocked depth, and the claimed
 boot reward are saved locally. A new session starts a fresh room at the highest

@@ -9,7 +9,6 @@ from .abilities import ABILITIES
 from .armory import Armory, item_icon
 from .items import RANK_COLORS
 from .geometry import Vec, project
-from .world import LAYOUT
 
 WIDTH, HEIGHT = 1440, 900
 ORIGIN = Vec(857, 226)
@@ -24,6 +23,8 @@ RED = (215, 96, 99)
 VIOLET = (240, 136, 91)
 ICE = (139, 216, 248)
 SILVER = (203, 219, 229)
+LEAF = (130, 191, 104)
+BLIGHT = (177, 111, 214)
 LOW_HEALTH_THRESHOLD = 0.35
 
 
@@ -50,6 +51,7 @@ class Renderer:
         self.button = pygame.Rect(669, 529, 366, 51)
         self.floor = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
         self._build_floor(world)
+        self.foliage = self._build_foliage()
         self.health_vignette = self._build_health_vignette()
         rng = Random(21)
         self.dust = [(rng.uniform(340, 1395), rng.uniform(190, 760), rng.uniform(0, 6)) for _ in range(45)]
@@ -102,20 +104,36 @@ class Renderer:
         self.screen.blit(self.glows[key], (x - radius, y - radius))
 
     def _build_floor(self, world):
+        self.floor.fill((0, 0, 0, 0))
+        self.floor_key = (world.layout, world.level_data.theme)
+        forest = world.level_data.forest
         rng = Random(42)
         corners = [iso(Vec(0, 0)), iso(Vec(17, 0)), iso(Vec(17, 17)), iso(Vec(0, 17))]
         for drop in range(30, 0, -1):
             pygame.draw.polygon(self.floor, (15 + drop // 6, 21 + drop // 5, 27 + drop // 5),
                                 [(x, y + drop) for x, y in corners])
-        for y, row in enumerate(LAYOUT):
+        for y, row in enumerate(world.layout):
             for x, _ in enumerate(row):
                 polygon = [iso(Vec(x, y)), iso(Vec(x + 1, y)), iso(Vec(x + 1, y + 1)), iso(Vec(x, y + 1))]
                 noise = rng.randrange(-5, 6)
-                base = (40 + noise, 51 + noise, 59 + noise)
+                path = abs(x - (3 + (14 - y) * .42)) < 1.4
+                base = ((56 + noise, 56 + noise, 39 + noise) if path else
+                        (34 + noise, 54 + noise, 37 + noise)) if forest else (40 + noise, 51 + noise, 59 + noise)
                 if (x, y) in world.walls:
-                    base = (28, 37, 45)
+                    base = (25, 39, 28) if forest else (28, 37, 45)
                 pygame.draw.polygon(self.floor, base, polygon)
-                pygame.draw.polygon(self.floor, (26, 36, 44), polygon, 1)
+                pygame.draw.polygon(self.floor, (32, 46, 31) if forest else (26, 36, 44), polygon, 1)
+                if forest and (x, y) not in world.walls:
+                    px, py = iso(Vec(x + rng.uniform(.15, .85), y + rng.uniform(.15, .85)))
+                    for i in range(3):
+                        pygame.draw.line(self.floor, (57, 86 + i * 9, 46),
+                                         (px + i * 3, py), (px - 3 + i * 5, py - 4 - i), 1)
+                    if rng.random() < .3:
+                        pygame.draw.ellipse(self.floor, (123, 111, 60), (px + 7, py + 2, 5, 2))
+                    if (x + y) % 11 == 0:
+                        for i in range(3):
+                            pygame.draw.line(self.floor, (125, 124, 97), (px + i * 4, py), (px + i * 4, py - 4), 1)
+                            pygame.draw.ellipse(self.floor, (162, 114, 159), (px - 2 + i * 4, py - 6, 5, 3))
                 if rng.random() < 0.15 and (x, y) not in world.walls:
                     px, py = iso(Vec(x + 0.5, y + 0.5))
                     pygame.draw.lines(self.floor, (30, 41, 48), False,
@@ -136,6 +154,9 @@ class Renderer:
         pygame.draw.ellipse(self.screen, (22, 29, 35), (x - width // 2, y - 4, width, 10))
 
     def wall(self, tile, world):
+        if world.level_data.forest:
+            self.forest_obstacle(tile, world)
+            return
         x, y = tile
         front = x == 16 or y == 16
         height = 9 if front else 38 if x in (0, 16) or y in (0, 16) else 31
@@ -151,6 +172,42 @@ class Renderer:
             pygame.draw.lines(self.screen, (29, 40, 49), False,
                               [(ground[3][0], ground[3][1] - middle), (ground[2][0], ground[2][1] - middle),
                                (ground[1][0], ground[1][1] - middle)], 1)
+
+    @staticmethod
+    def _build_foliage():
+        surface = pygame.Surface((88, 104), pygame.SRCALPHA)
+        for dx, dy, radius in ((-12, 9, 15), (12, 5, 18), (0, -8, 19), (-3, 5, 20)):
+            pygame.draw.circle(surface, (24 + (dx % 7), 55 + (dy % 8), 35), (44 + dx, 40 + dy), radius)
+            pygame.draw.arc(surface, (57, 91, 48), (44 + dx - radius, 40 + dy - radius, radius * 2, radius * 2), .5, 2.4, 1)
+        return surface
+
+    def forest_obstacle(self, tile, world):
+        tx, ty = tile
+        x, y = iso(Vec(tx + .5, ty + .5))
+        front = tx == 16 or ty == 16
+        self.shadow(x, y, 38)
+        for side in (-1, 1):
+            pygame.draw.lines(self.screen, (72, 64, 43), False,
+                              [(x, y - 8), (x + side * 11, y - 1), (x + side * 23, y + 3)], 3)
+        height = 13 if front else 45 + (tx * 7 + ty * 3) % 17
+        pygame.draw.polygon(self.screen, (66, 58, 40),
+                            [(x - 9, y), (x - 6, y - height), (x + 6, y - height), (x + 11, y + 2)])
+        pygame.draw.line(self.screen, (103, 88, 53), (x - 3, y - height + 4), (x - 1, y - 6), 2)
+        if front:
+            pygame.draw.ellipse(self.screen, (113, 100, 61), (x - 6, y - height - 3, 13, 6))
+            return
+        canopy = pygame.Rect(x - 34, y - height - 28, 68, 67)
+        obscures_actor = False
+        for actor in [world.player] + world.enemies + world.spawners:
+            if actor.pos.x + actor.pos.y < tx + ty + 1:
+                ax, ay = iso(actor.pos)
+                if canopy.colliderect(pygame.Rect(ax - 15, ay - 46, 30, 48)):
+                    obscures_actor = True
+                    break
+        self.foliage.set_alpha(85 if obscures_actor else 255)
+        self.screen.blit(self.foliage, (x - 44, y - height - 40))
+        pygame.draw.lines(self.screen, (88, 68, 112), False,
+                          [(x + 6, y - 5), (x + 2, y - 17), (x + 8, y - 27)], 2)
 
     def player(self, player, time, at=None, scale=1):
         x, y = at or iso(player.pos)
@@ -198,10 +255,17 @@ class Renderer:
         x, y = iso(enemy.pos)
         self.shadow(x, y, 24)
         frozen = enemy.frozen > 0
-        ember = ICE if frozen or enemy.chilled > 0 else (245, 120, 61)
+        forest = enemy.kind in ("tree", "spider", "archer")
+        ember = ICE if frozen or enemy.chilled > 0 else BLIGHT if enemy.kind == "tree" else LEAF if forest else (245, 120, 61)
         color = WHITE if enemy.flash > 0 else (150, 178, 193) if frozen else (133, 104, 93)
         self.glow(x, y - 15, ember, 30, 24)
-        if enemy.kind == "skitter":
+        if enemy.kind == "tree":
+            self.treant(enemy, time, ember)
+        elif enemy.kind == "spider":
+            self.spider(enemy, time, ember)
+        elif enemy.kind == "archer":
+            self.archer(enemy, time, ember)
+        elif enemy.kind == "skitter":
             for side in (-1, 1):
                 for leg in range(3):
                     wave = 0 if frozen else sin(time * 14 + leg) * 2
@@ -236,9 +300,102 @@ class Renderer:
         elif enemy.chilled > 0:
             pygame.draw.ellipse(self.screen, ICE, (x - 15, y - 5, 30, 14), 1)
         if enemy.hp < enemy.max_hp:
-            self.bar(x - 15, y - 44, 30, 3, enemy.hp / enemy.max_hp, ember)
+            self.bar(x - 15, y - (62 if enemy.kind == "tree" else 49 if enemy.kind == "archer" else 44),
+                     30, 3, enemy.hp / enemy.max_hp, ember)
+
+    def treant(self, enemy, time, magic):
+        x, y = iso(enemy.pos)
+        frozen = enemy.frozen > 0
+        bark = WHITE if enemy.flash > 0 else (132, 171, 182) if frozen else (110, 85, 57)
+        sway = 0 if frozen else round(sin(time * 3 + enemy.phase) * 2)
+        for side in (-1, 1):
+            pygame.draw.lines(self.screen, bark, False,
+                              [(x + side * 5, y - 13), (x + side * 9, y - 2), (x + side * 17, y + 2)], 5)
+            pygame.draw.lines(self.screen, bark, False,
+                              [(x + side * 7, y - 31), (x + side * 20, y - 25 + sway),
+                               (x + side * 26, y - 39 + sway)], 4)
+            pygame.draw.lines(self.screen, bark, False,
+                              [(x + side * 23, y - 31 + sway), (x + side * 31, y - 33 + sway),
+                               (x + side * 32, y - 40 + sway)], 2)
+        pygame.draw.polygon(self.screen, bark, [(x - 10, y - 4), (x - 12, y - 34),
+                             (x - 6, y - 48), (x + 8, y - 47), (x + 13, y - 30), (x + 10, y - 3)])
+        pygame.draw.lines(self.screen, (58, 48, 44), False,
+                          [(x - 5, y - 43), (x - 2, y - 29), (x - 5, y - 8)], 2)
+        pygame.draw.lines(self.screen, magic, False,
+                          [(x + 4, y - 41), (x + 1, y - 26), (x + 7, y - 16), (x + 3, y - 5)], 2)
+        for side in (-1, 1):
+            pygame.draw.polygon(self.screen, magic, [(x + side * 2, y - 34), (x + side * 9, y - 37), (x + side * 6, y - 31)])
+            pygame.draw.lines(self.screen, bark, False,
+                              [(x + side * 5, y - 45), (x + side * 14, y - 54), (x + side * 12, y - 61)], 3)
+            pygame.draw.ellipse(self.screen, (70, 108, 71) if frozen else (57, 87, 44),
+                                (x + side * 13 - 8, y - 58, 15, 8))
+        pygame.draw.lines(self.screen, magic, False, [(x - 6, y - 25), (x - 2, y - 28), (x + 2, y - 24), (x + 7, y - 27)], 2)
+
+    def spider(self, enemy, time, magic):
+        x, y = iso(enemy.pos)
+        frozen = enemy.frozen > 0
+        body = WHITE if enemy.flash > 0 else (135, 168, 186) if frozen else (70, 51, 83)
+        legs = (139, 173, 187) if frozen else (133, 109, 135)
+        for side in (-1, 1):
+            for leg in range(4):
+                wave = 0 if frozen else sin(time * 13 + leg * 1.6) * 2
+                pygame.draw.lines(self.screen, legs, False,
+                                  [(x + side * 4, y - 10), (x + side * (15 + leg), y - 19 + leg * 6),
+                                   (x + side * (24 + wave), y - 12 + leg * 5)], 2)
+        pygame.draw.ellipse(self.screen, body, (x - 10, y - 26, 20, 18))
+        pygame.draw.ellipse(self.screen, (107, 78, 118) if not frozen else body, (x - 7, y - 14, 14, 12))
+        pygame.draw.polygon(self.screen, magic, [(x, y - 22), (x + 4, y - 17), (x, y - 12), (x - 4, y - 17)], 1)
+        for dx in (-4, -1, 2, 5):
+            pygame.draw.circle(self.screen, magic, (x + dx, y - 7), 1)
+        for side in (-1, 1):
+            pygame.draw.line(self.screen, SILVER, (x + side * 3, y - 3), (x + side * 5, y + 2), 1)
+
+    def archer(self, enemy, time, magic):
+        x, y = iso(enemy.pos)
+        bone = WHITE if enemy.flash > 0 else (158, 192, 204) if enemy.frozen > 0 else (192, 193, 153)
+        cloak = (79, 118, 130) if enemy.frozen > 0 else (44, 78, 49)
+        pygame.draw.polygon(self.screen, cloak, [(x - 9, y - 28), (x + 6, y - 27), (x + 10, y - 3), (x - 12, y)])
+        for side in (-1, 1):
+            pygame.draw.line(self.screen, bone, (x + side * 3, y - 10), (x + side * 6, y), 3)
+            pygame.draw.line(self.screen, bone, (x + side * 3, y - 25), (x + side * 8, y - 18), 2)
+        pygame.draw.line(self.screen, bone, (x, y - 28), (x, y - 9), 2)
+        for rib in range(3):
+            pygame.draw.lines(self.screen, bone, False, [(x - 5, y - 24 + rib * 4),
+                              (x, y - 22 + rib * 4), (x + 5, y - 24 + rib * 4)], 1)
+        pygame.draw.polygon(self.screen, cloak, [(x - 9, y - 30), (x - 6, y - 42), (x + 3, y - 45), (x + 9, y - 32)])
+        pygame.draw.circle(self.screen, bone, (x, y - 33), 6)
+        for side in (-1, 1):
+            pygame.draw.circle(self.screen, magic, (x + side * 2, y - 34), 1)
+            pygame.draw.lines(self.screen, (113, 103, 70), False,
+                              [(x + side * 6, y - 39), (x + side * 12, y - 48), (x + side * 9, y - 51)], 2)
+            pygame.draw.ellipse(self.screen, LEAF, (x + side * 10 - 3, y - 45, 7, 3))
+        # A drawn bow and visible arrow distinguish the ranged skeleton at a glance.
+        pull = 4 if enemy.windup > 0 else 0
+        pygame.draw.lines(self.screen, (163, 130, 76), False,
+                          [(x + 12, y - 37), (x + 19, y - 28), (x + 20, y - 19), (x + 12, y - 9)], 2)
+        pygame.draw.lines(self.screen, GOLD, False,
+                          [(x + 12, y - 37), (x + 10 - pull, y - 23), (x + 12, y - 9)], 1)
+        pygame.draw.line(self.screen, bone, (x + 6, y - 25), (x + 16, y - 23), 2)
+        pygame.draw.line(self.screen, LEAF, (x + 5 - pull, y - 23), (x + 25, y - 23), 1)
+        pygame.draw.polygon(self.screen, magic, [(x + 29, y - 23), (x + 23, y - 26), (x + 23, y - 20)])
+
+    def archer_aim(self, enemy):
+        if enemy.windup <= 0 or enemy.shot_target is None or enemy.frozen > 0:
+            return
+        start, end = Vec(*iso(enemy.pos)), Vec(*iso(enemy.shot_target))
+        delta = end - start
+        length = delta.length()
+        direction = delta.unit()
+        color = GOLD if enemy.windup < .25 else (139, 132, 81)
+        for offset in range(15, round(length), 12):
+            a, b = start + direction * offset, start + direction * min(offset + 6, length)
+            pygame.draw.line(self.screen, color, (a.x, a.y - 15), (b.x, b.y - 15), 1)
+        pygame.draw.circle(self.screen, color, (round(end.x), round(end.y - 15)), 7, 1)
 
     def spawner(self, spawner, time):
+        if spawner.forest:
+            self.blighted_heart(spawner, time)
+            return
         x, y = iso(spawner.pos)
         pulse = sin(time * 3 + spawner.pos.x)
         self.glow(x, y - 22, VIOLET, 65, 56)
@@ -257,6 +414,32 @@ class Renderer:
         pygame.draw.ellipse(self.screen, color, (x - 9, y - 48 + pulse * 2, 18, 34), 2)
         pygame.draw.ellipse(self.screen, (255, 214, 160), (x - 3, y - 43 + pulse * 2, 6, 25))
         self.bar(x - 25, y - 61, 50, 3, spawner.hp / spawner.max_hp, VIOLET)
+
+    def blighted_heart(self, spawner, time):
+        x, y = iso(spawner.pos)
+        magic = WHITE if spawner.flash > 0 else BLIGHT
+        pulse = round(sin(time * 3 + spawner.pos.x) * 2)
+        self.glow(x, y - 22, BLIGHT, 65, 56)
+        pygame.draw.ellipse(self.screen, (115, 75, 137), (x - 29, y - 12, 58, 27), 1)
+        for side in (-1, 1):
+            pygame.draw.lines(self.screen, (109, 85, 60), False,
+                              [(x + side * 28, y + 5), (x + side * 14, y - 3),
+                               (x + side * 17, y - 25), (x + side * 7, y - 45)], 7)
+            pygame.draw.lines(self.screen, magic, False,
+                              [(x + side * 26, y + 3), (x + side * 12, y - 6), (x + side * 15, y - 26)], 1)
+        pygame.draw.polygon(self.screen, (77, 64, 49), [(x - 12, y), (x - 11, y - 34), (x + 7, y - 39), (x + 14, y - 1)])
+        pygame.draw.ellipse(self.screen, magic, (x - 8, y - 37 + pulse, 16, 25))
+        pygame.draw.ellipse(self.screen, (230, 186, 248), (x - 3, y - 31 + pulse, 6, 13))
+        for dx, dy in ((-19, -29), (14, -38), (-7, -43)):
+            pygame.draw.ellipse(self.screen, (67, 104, 52), (x + dx - 7, y + dy, 15, 6))
+        self.bar(x - 25, y - 58, 50, 3, spawner.hp / spawner.max_hp, BLIGHT)
+
+    def wisp(self, pos, time):
+        x, y = iso(pos)
+        bob = round(sin(time * 2 + pos.x) * 4)
+        self.glow(x, y - 15 + bob, LEAF, 53, 27)
+        pygame.draw.circle(self.screen, LEAF, (x, y - 15 + bob), 3)
+        pygame.draw.circle(self.screen, (219, 239, 171), (x, y - 16 + bob), 1)
 
     def torch(self, pos, time):
         x, y = iso(pos)
@@ -279,6 +462,11 @@ class Renderer:
             pygame.draw.rect(self.screen, (92, 104, 106), (sx - 7, y - 57, 14, 7))
             pygame.draw.line(self.screen, color, (sx, y - 45), (sx, y - 13), 2)
         pygame.draw.arc(self.screen, color, (x - 24, y - 77, 48, 49), 0, pi, 4)
+        if world.level_data.forest:
+            for side in (-1, 1):
+                pygame.draw.lines(self.screen, (83, 112, 63), False,
+                                  [(x + side * 29, y - 4), (x + side * 20, y - 23),
+                                   (x + side * 27, y - 44), (x + side * 19, y - 59)], 3)
         if world.exit_open:
             for i in range(5):
                 yy = y - 8 - ((time * 25 + i * 10) % 50)
@@ -310,6 +498,17 @@ class Renderer:
         x, y = iso(shot.pos)
         direction = project(shot.velocity).unit()
         side = Vec(-direction.y, direction.x)
+        if shot.hostile:
+            tail, tip = Vec(x, y - 15) - direction * 15, Vec(x, y - 15) + direction * 7
+            pygame.draw.line(self.screen, GOLD, (tail.x, tail.y), (tip.x, tip.y), 2)
+            pygame.draw.polygon(self.screen, LEAF, [(tip.x + direction.x * 5, tip.y + direction.y * 5),
+                                (tip.x + side.x * 3, tip.y + side.y * 3),
+                                (tip.x - side.x * 3, tip.y - side.y * 3)])
+            for sign in (-1, 1):
+                feather = tail - direction * 4 + side * (sign * 4)
+                pygame.draw.line(self.screen, SILVER, (tail.x + direction.x * 3, tail.y + direction.y * 3),
+                                 (feather.x, feather.y), 1)
+            return
         self.glow(x, y - 15, ICE, 28, 44)
         pygame.draw.line(self.screen, (76, 139, 183), (x - direction.x * 22, y - 15 - direction.y * 22), (x, y - 15), 3)
         pygame.draw.polygon(self.screen, ICE, [(x + direction.x * 12, y - 15 + direction.y * 12),
@@ -388,7 +587,10 @@ class Renderer:
         targets = []
         for target in world.enemies + world.spawners:
             x, y = iso(target.pos)
-            width, height = (52, 68) if target in world.spawners else (34, 46)
+            width, height = ((52, 68) if target in world.spawners else
+                             (60, 63) if target.kind == "tree" else
+                             (50, 30) if target.kind == "spider" else
+                             (34, 52) if target.kind == "archer" else (34, 46))
             if pygame.Rect(x - width // 2, y - height, width, height + 9).collidepoint(point):
                 targets.append(target)
         return max(targets, key=lambda target: target.pos.x + target.pos.y, default=None)
@@ -409,6 +611,8 @@ class Renderer:
             self.text(f"{name}  {seconds:.1f}s", 68, 598 + i * 21, 11, ICE)
         if not target.statuses:
             self.text("No active effects", 48, 604, 10, MUTED)
+        if getattr(target, "windup", 0) > 0:
+            self.text(f"Drawing bow  {target.windup:.1f}s", 48, 625, 10, GOLD)
 
     def hud(self, world):
         player = world.player
@@ -437,7 +641,9 @@ class Renderer:
         self.target_frame(world)
         pygame.draw.line(self.screen, LINE, (47, 648), (259, 648))
         self.spaced("THE OBJECTIVE", 48, 667, 10)
-        objectives = [("Seal the rifts", f"{3 - len(world.spawners)} / 3", not world.spawners),
+        total = len(world.level_data.spawners)
+        objectives = [("Purge the hearts" if world.level_data.forest else "Seal the rifts",
+                       f"{total - len(world.spawners)} / {total}", not world.spawners),
                       ("Survivors (optional)", str(len(world.enemies)), not world.enemies),
                       ("Reach the gate", "OPEN" if world.exit_open else "SEALED", world.exit_open)]
         for i, (label, value, done) in enumerate(objectives):
@@ -515,12 +721,13 @@ class Renderer:
             self.text(line, x + 14, yy, 11, WHITE)
             self.text(f"{world.player.cooldown_for(hover):.2f}s cooldown · {int(ability.mana)} mana", x + 14, 748, 10, MUTED)
 
-    def pine(self, x, y, size):
+    def pine(self, x, y, size, forest=False):
         pygame.draw.line(self.screen, (27, 36, 34), (x, y - size * 0.2), (x, y + 10), 5)
         for i in range(4):
             top = y - size + i * size * 0.2
             spread = size * (0.18 + i * 0.07)
-            pygame.draw.polygon(self.screen, (19 + i * 2, 36 + i * 3, 38 + i * 2),
+            color = (20 + i * 2, 42 + i * 4, 28 + i * 2) if forest else (19 + i * 2, 36 + i * 3, 38 + i * 2)
+            pygame.draw.polygon(self.screen, color,
                                 [(x, top), (x + spread, top + size * 0.48), (x - spread, top + size * 0.48)])
             pygame.draw.line(self.screen, (40, 62, 63), (x, top), (x - spread, top + size * 0.48), 1)
 
@@ -543,16 +750,19 @@ class Renderer:
                 pygame.draw.line(self.screen, (93, 166, 207), (start[0], start[1] - 15), (end[0], end[1] - 15), 1)
 
     def draw(self, world, mouse=None, mode="playing"):
+        if self.floor_key != (world.layout, world.level_data.theme):
+            self._build_floor(world)
+        forest = world.level_data.forest
         self.screen.fill(INK)
-        pygame.draw.ellipse(self.screen, (15, 27, 32), (340, 166, 1060, 600))
+        pygame.draw.ellipse(self.screen, (17, 30, 23) if forest else (15, 27, 32), (340, 166, 1060, 600))
         self.screen.set_clip(pygame.Rect(300, 166, 1140, 610))
         for x, y, size in ((365, 400, 150), (434, 260, 104), (537, 228, 80), (1240, 235, 95),
                            (1358, 350, 156), (1403, 568, 152), (1307, 730, 100), (382, 712, 125)):
-            self.pine(x, y, size)
+            self.pine(x, y, size, forest)
         self.screen.set_clip(None)
-        self.spaced("CHAPTER I    /    WINTER AGAINST THE EMBER", 324, 39, 10, ICE, 2)
-        self.text("Frostfall Glade", 320, 64, 36, WHITE, serif=True)
-        self.text("The mountain calls its dead. Let winter answer.", 323, 116, 13, MUTED)
+        self.spaced(world.level_data.chapter, 324, 39, 10, LEAF if forest else ICE, 2)
+        self.text(world.level_data.name, 320, 64, 36, WHITE, serif=True)
+        self.text(world.level_data.subtitle, 323, 116, 13, MUTED)
         self.text("DEPTH", 1302, 49, 10, MUTED)
         self.text(f"{world.level:02d}", 1299, 65, 36, SILVER, serif=True)
         Armory.button(self, self.gear_button, "I GEAR / B SHOP")
@@ -563,7 +773,10 @@ class Renderer:
             self.radius(world.selected.pos, 0.55, GOLD, 2)
         for spawner in world.spawners:
             x, y = iso(spawner.pos)
-            self.glow(x, y, VIOLET, 95, 35)
+            self.glow(x, y, BLIGHT if forest else VIOLET, 95, 35)
+        for enemy in world.enemies:
+            if enemy.kind == "archer":
+                self.archer_aim(enemy)
         objects = [(x + y + 1, "wall", (x, y)) for x, y in world.walls]
         objects += [(x + y + 1, "icewall", (x, y)) for wall in world.ice_walls for x, y in wall.cells]
         objects += [(p.pos.x + p.pos.y, "pickup", p) for p in world.pickups]
@@ -572,7 +785,8 @@ class Renderer:
         objects += [(p.pos.x + p.pos.y, "projectile", p) for p in world.projectiles]
         objects.append((world.player.pos.x + world.player.pos.y, "player", world.player))
         objects.append((world.exit.x + world.exit.y, "gate", None))
-        objects += [(p.x + p.y, "torch", p) for p in (Vec(2.5, 7.5), Vec(7.5, 2.5), Vec(14.5, 10.5), Vec(8.5, 14.5))]
+        objects += [(p.x + p.y, "wisp" if forest else "torch", p)
+                    for p in (Vec(2.5, 7.5), Vec(7.5, 2.5), Vec(14.5, 10.5), Vec(8.5, 14.5))]
         for _, kind, obj in sorted(objects, key=lambda item: (item[0], item[1])):
             if kind == "wall":
                 self.wall(obj, world)
@@ -587,7 +801,7 @@ class Renderer:
         for x, y, phase in self.dust:
             px = round(x + sin(world.time * 0.15 + phase) * 10)
             py = round(y - (world.time * 3 + phase * 10) % 40)
-            pygame.draw.circle(self.screen, (92, 122, 131), (px, py), 1)
+            pygame.draw.circle(self.screen, (140, 169, 88) if forest else (92, 122, 131), (px, py), 1)
         if mode == "playing" and world.state == "playing":
             self.low_health_warning(world.player)
         self.targeting(world, mouse)
@@ -627,7 +841,8 @@ class Renderer:
             action = "ENTER  /  TRY AGAIN"
         elif world.state == "cleared":
             kicker, title = "THE GATE IS OPEN", f"Depth {world.level} complete."
-            subtitle = "Your equipment and gold will carry into the next level."
+            subtitle = ("Thornveil Forest awaits. Your equipment and gold carry forward." if world.level == 1 else
+                        "Your equipment and gold will carry into the next level.")
             action = "ENTER  /  NEXT DEPTH"
         elif world.state == "won":
             kicker, title, subtitle = "THE GLADE IS SILENT", "You made it out.", f"{world.player.kills} enemies slain. {world.player.gold} gold recovered."
@@ -636,7 +851,9 @@ class Renderer:
             kicker, title, subtitle = "TAKE A BREATH", "The descent can wait.", "Your adventure is paused."
             action = "ESC  /  RESUME"
         else:
-            kicker, title, subtitle = "YOUR FIRST DESCENT", "Enter the Embervault.", "A frozen oath. Three molten rifts. A forest worth saving."
+            kicker, title = "YOUR NEXT DESCENT", f"Enter {world.level_data.name}."
+            subtitle = ("Darkroot trees. Thornwood spiders. Beware the archers." if world.level_data.forest else
+                        "A frozen oath. Three molten rifts. A forest worth saving.")
             action = "ENTER  /  BEGIN DESCENT"
         self.text(kicker, center, 294, 11, GOLD, center=True)
         self.text(title, center, 333, 35, WHITE, serif=True, center=True)

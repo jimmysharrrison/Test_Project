@@ -1,9 +1,11 @@
-# Embervault — Frostbound Armory
+# Embervault — Thornveil Forest
 
 A Python 3.14 desktop action dungeon crawler inspired by Gauntlet and Diablo.
 Play a female Ice Mage in Frostfall Glade: move with the mouse, control crowds
 with ice, collect ranked equipment, enchant it, and destroy three molten rifts
-to open the gate to the next depth.
+to enter level 2: Thornveil Forest, with cursed trees, spiders, and skeletal archers.
+
+![Thornveil Forest, level 2](docs/forest.png)
 
 ![Equipment inventory](docs/inventory.png)
 
@@ -121,8 +123,32 @@ price, and drop rate. The menu displays your current effective character stats.
 Destroy all three rifts to complete the level and open the gate. Surviving
 monsters are optional. Remaining equipment and gold are banked on the clear.
 Reach the gate, then press Enter to continue. Gear and gold carry into the next
-depth. Health and mana refill, and spell cooldowns reset between depths. Later
-depths currently reuse the arena with stronger enemies and higher gold rewards.
+depth. Health and mana refill, and spell cooldowns reset between depths.
+
+**Level 1 — Frostfall Glade** keeps the original Molten Skeletons, Ember
+Skitters, and Molten Rifts. **Level 2 — Thornveil Forest** has a different layout,
+mossy earth, tree obstacles, roots, mushrooms, and drifting green wisps. Darkroot
+Treants replace the skeletons, Thornwood Spiders replace the skitters, and
+Briarbone Archers add ranged pressure. Destroy three **Blighted Hearts** to
+open the forest portal; surviving monsters remain optional.
+
+| Forest enemy | Level 2 health | Damage before armor | Behavior |
+| --- | --- | --- | --- |
+| Darkroot Treant | 51 | 11 | Slow melee attacker animated by dark magic |
+| Thornwood Spider | 30 | 7 | Fast melee attacker |
+| Briarbone Archer | 39 | 9 | Keeps its distance and periodically fires arrows |
+
+Archers show a dotted aim line during a **0.65-second bow draw**. Aim locks when
+the draw begins, so moving sideways can dodge the arrow. A shot travels at 5.5
+tiles per second, followed by a 2.8-second cooldown before the next draw. Terrain
+and Ice Wall block arrows; freeze interrupts a bow draw, and Glacial Prison
+absorbs incoming arrows. Armor and the shared brief protection after taking a
+hit apply to arrow damage too. Archers navigate around blocked sight lines.
+
+Depths 3 onward currently reuse the forest with stronger enemies and higher
+gold rewards. Each additional depth adds 15% to base enemy/spawner health and
+gold, and 12% to base attack damage. To try the forest immediately without
+changing your saved character, run `uv run main.py --level 2 --no-save`.
 
 Gold and equipment can be collected on contact before the clear. Food heals
 injured players. Potions restore up to 40 health, respect your equipped maximum
@@ -166,6 +192,7 @@ headless environment. `--frames` exits after the given frame count.
 - `dungeon/armory.py`: inventory, item tooltips, backpack pages, and enchanting UI.
 - `dungeon/profile.py`: local character saves.
 - `dungeon/abilities.py`: spell definitions and initial balance values.
+- `dungeon/levels.py`: chapter themes, distinct layouts, and enemy rosters.
 - `dungeon/controls.py`: mouse orders, button targeting, and hotkey casting.
 - `dungeon/navigation.py`: reachable destinations and smoothed grid paths.
 - `dungeon/world.py`: collision, spells, effects, enemies, spawning, and progression.

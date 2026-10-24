@@ -1,4 +1,4 @@
-# Embervault — Ice Mage and Frostbound Armory
+# Embervault — Ice Mage and Thornveil Forest
 
 ## Direction
 
@@ -13,7 +13,9 @@ The playable hero is a female Ice Mage who controls crowds through cold.
 3. Aim and cast QWER spells; select enemies with left click to inspect them.
 4. Destroy three rifts to open the gate. Surviving enemies are optional.
 5. Collect ranked gear, equip it with I, and spend gold with B.
-6. Reach the gate and continue to the next depth; equipment and gold persist.
+6. Reach the gate and enter Thornveil Forest; equipment and gold persist.
+7. Fight dark-magic treants, spiders, and skeletal archers; purge three Blighted
+   Hearts to open the next portal.
 
 ## Interaction rules
 
@@ -59,8 +61,25 @@ Chest swaps cannot heal the player. Saves preserve gear, enchants, gold, and
 unlocked depth locally. See `docs/EQUIPMENT.md` for the initial balance tables.
 
 On a clear, remaining equipment and gold are collected. At the exit, the mage
-can advance to another depth of the current arena with scaled enemies and gold.
-Distinct room layouts and bosses remain future milestones.
+advances from the original arena to the distinct forest layout. Depths 3 onward
+repeat the forest with scaled enemies and gold. Additional chapters and bosses
+remain future milestones.
+
+## Level 2: Thornveil Forest
+
+The forest uses tree obstacles, a worn earth path, undergrowth, roots, mushrooms,
+green wisps, and purple blight. Darkroot Treants replace Molten Skeletons and
+Thornwood Spiders replace Ember Skitters; their base melee roles are preserved.
+Briarbone Archers are nature-themed skeletons with bows and leaf-covered antlers.
+Blighted Hearts replace the three molten generators and spawn only forest mobs
+(45% treants, 35% spiders, 20% archers).
+
+Archers seek a clear shot within 7.5 tiles and retreat inside 2.6 tiles while
+their bow is on cooldown. A 0.65-second draw displays the locked aim direction;
+the arrow flies straight at 5.5 tiles/second and expires after 1.7 seconds.
+After firing, the archer waits 2.8 seconds before drawing again. Freeze cancels
+the draw. Terrain and Ice Wall block both sight and arrows. Arrows share the
+player's armor, post-hit immunity, and Glacial Prison protection with melee hits.
 
 ## Visual direction
 
@@ -95,6 +114,6 @@ time. Keyboard and UI actions share one casting path.
 
 ## Runtime
 
-Python 3.14.8 desktop application using Pygame CE, with one arena reused across
-progressive depths and one hero.
+Python 3.14.8 desktop application using Pygame CE, with two distinct arenas,
+progressive depth scaling, and one hero.
 The original console game remains available with `python main.py --text`.
