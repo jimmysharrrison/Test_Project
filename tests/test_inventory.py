@@ -1,0 +1,260 @@
+import json
+from pathlib import Path
+from tempfile import TemporaryDirectory
+import unittest
+from unittest.mock import patch
+
+from dungeon.geometry import Vec
+from dungeon.items import ENCHANT_COST, Inventory, Item, SLOTS, VALUES
+from dungeon.profile import ProfileStore
+from dungeon.world import Enemy, Player, Spawner, World
+
+
+class InventoryTests(unittest.TestCase):
+    def setUp(self):
+        self.world = World(7)
+        self.world.enemies.clear()
+        for rift in self.world.spawners:
+            rift.timer = 999
+
+    def wear(self, slot, rank):
+        item = self.world.player.inventory.create(slot, rank)
+        self.world.player.inventory.add(item)
+        self.world.equip_item(item.uid)
+        return item
+
+    def advance(self, seconds):
+        for _ in range(round(seconds * 60)):
+            self.world.update(1 / 60)
+
+    def test_each_slot_has_three_helpful_dropped_ranks_and_two_higher_enchantments(self):
+        for slot, stat in (("helm", "damage"), ("chest", "health"), ("legs", "armor"),
+                           ("gloves", "cooldown"), ("boots", "speed")):
+            for rank in range(1, 6):
+                inv = Inventory()
+                inv.add(inv.create(slot, rank))
+                self.assertGreater(getattr(inv.stats, stat), VALUES[stat][rank - 1])
+        self.assertGreater(ENCHANT_COST[5], ENCHANT_COST[4] * 5)
+
+    def test_swapping_replaces_bonus_and_preserves_previous_item(self):
+        first = self.wear("helm", 1)
+        second = self.wear("helm", 3)
+        inv = self.world.player.inventory
+        self.assertEqual(inv.stats.damage, .3)
+        self.assertEqual(inv.worn("helm").uid, second.uid)
+        self.assertIn(first, inv.backpack)
+        self.world.unequip_item("helm")
+        self.assertEqual(inv.stats.damage, 0)
+        self.assertEqual(len(inv.backpack), 2)
+        self.world.equip_item(first.uid)
+        self.assertEqual(inv.stats.damage, .1)
+
+    def test_chest_increases_maximum_health_without_swap_healing(self):
+        chest = self.wear("chest", 3)
+        player = self.world.player
+        self.assertEqual((player.hp, player.max_hp), (100, 160))
+        self.world.use_potion()
+        self.assertEqual(player.hp, 140)
+        self.world.unequip_item("chest")
+        self.assertEqual((player.hp, player.max_hp), (100, 100))
+        self.world.equip_item(chest.uid)
+        self.assertEqual((player.hp, player.max_hp), (100, 160))
+        self.world.use_potion()
+        self.world.use_potion()
+        self.assertEqual(player.hp, 160)
+
+    def test_helm_modifies_bolt_nova_and_ultimate_damage(self):
+        self.wear("helm", 3)
+        target = Spawner(Vec(5.5, 13.5), timer=999)
+        self.world.spawners = [target]
+        with patch.object(self.world.combat_rng, "random", return_value=.99):
+            self.world.cast("q", target.pos)
+            self.advance(.25)
+            self.assertEqual(target.hp, 145)
+            self.world.cast("w")
+            self.assertEqual(target.hp, 127)
+            self.advance(.25)
+            self.world.cast("r")
+            self.advance(2.6)
+            self.assertEqual(target.hp, 10)
+
+    def test_leg_armor_reduces_incoming_hits_with_a_one_damage_floor(self):
+        self.wear("legs", 3)
+        self.world.enemies = [Enemy(self.world.player.pos)]
+        self.world.update(1 / 60)
+        self.assertEqual(self.world.player.hp, 93)
+        self.wear("legs", 5)
+        self.world.player.invincible = 0
+        self.world.enemies = [Enemy(self.world.player.pos, "skitter", 26)]
+        self.world.update(1 / 60)
+        self.assertEqual(self.world.player.hp, 92)
+
+    def test_gloves_reduce_new_cast_cooldowns_without_reducing_an_existing_timer(self):
+        self.world.player.cooldowns["w"] = 8
+        self.wear("gloves", 3)
+        self.assertEqual(self.world.player.cooldowns["w"], 8)
+        self.world.cast("r")
+        self.assertAlmostEqual(self.world.player.cooldowns["r"], 38.25)
+
+    def test_boots_affect_real_movement_and_critical_hit_damage(self):
+        self.wear("boots", 3)
+        player = self.world.player
+        self.assertAlmostEqual(player.crit_chance, .11)
+        self.assertAlmostEqual(player.crit_multiplier, 2.35)
+        player.pos = Vec(2.5, 14.5)
+        self.world.request_move(Vec(10.5, 14.5))
+        self.advance(1)
+        self.assertAlmostEqual(player.pos.x, 6.065)
+        target = Spawner(Vec(12.5, 14.5), timer=999)
+        self.world.spawners = [target]
+        with patch.object(self.world.combat_rng, "random", return_value=.10):
+            self.world._hit(target, 24)
+        self.assertEqual(target.hp, 120)
+        self.assertTrue(any(effect.kind == "critical" for effect in self.world.effects))
+
+    def test_purchase_and_insufficient_funds_are_atomic(self):
+        self.world.player.gold = 50
+        item = self.world.buy_item("helm")
+        self.assertEqual(self.world.player.gold, 10)
+        self.assertEqual(item.rank, 0)
+        self.assertEqual(self.world.player.inventory.stats.damage, 0)
+        self.assertFalse(self.world.enchant_item(item.uid))
+        self.assertEqual(self.world.player.gold, 10)
+        self.assertEqual(self.world.player.inventory.get(item.uid).rank, 0)
+        self.assertFalse(self.world.buy_item("boots"))
+        self.assertEqual(len(self.world.player.inventory.items), 1)
+        self.world.player.gold = 50
+        self.assertTrue(self.world.enchant_item(item.uid))
+        self.assertEqual(self.world.player.gold, 0)
+        self.assertEqual(self.world.player.inventory.stats.damage, .1)
+
+    def test_all_enchantments_charge_each_rank_and_stop_at_five(self):
+        self.world.player.gold = sum(ENCHANT_COST.values()) + 40
+        item = self.world.buy_item("helm")
+        for rank in range(1, 6):
+            self.assertTrue(self.world.enchant_item(item.uid))
+            self.assertEqual(self.world.player.inventory.get(item.uid).rank, rank)
+        self.assertEqual(self.world.player.gold, 0)
+        self.assertFalse(self.world.enchant_item(item.uid))
+        self.assertEqual(self.world.player.inventory.get(item.uid).rank, 5)
+        self.assertFalse(self.world.enchant_item(999))
+        self.assertFalse(self.world.equip_item(999))
+
+    def test_stasis_prevents_gear_and_shop_exploits(self):
+        item = self.wear("helm", 1)
+        self.world.player.gold = 10000
+        self.world.cast("r")
+        self.assertFalse(self.world.unequip_item("helm"))
+        self.assertFalse(self.world.enchant_item(item.uid))
+        self.assertFalse(self.world.buy_item("chest"))
+        self.assertEqual(self.world.player.gold, 10000)
+
+    def test_drop_table_never_rolls_rank_four_or_five_and_boots_are_rarest(self):
+        for _ in range(1000):
+            self.world._drop_equipment(Vec(5.5, 5.5), guaranteed=True)
+        items = [p.item for p in self.world.pickups if p.kind == "item"]
+        self.assertEqual(len(items), 1000)
+        self.assertEqual({item.rank for item in items}, {1, 2, 3})
+        counts = {slot: sum(i.slot == slot for i in items) for slot in SLOTS}
+        self.assertGreater(counts["boots"], 0)
+        self.assertLess(counts["boots"], min(counts[slot] for slot in SLOTS[:-1]))
+
+    def test_first_clear_opens_gate_with_survivors_and_awards_boots_once(self):
+        self.world.enemies = [Enemy(Vec(14.5, 14.5))]
+        for rift in self.world.spawners[:]:
+            self.world._hit(rift, 10000)
+        self.assertTrue(self.world.exit_open)
+        self.assertEqual(len(self.world.enemies), 1)
+        reward = [i for i in self.world.player.inventory.items if i.source == "reward"]
+        self.assertEqual([(i.slot, i.rank) for i in reward], [("boots", 1)])
+        for _ in range(20):
+            self.world.update(1 / 60)
+        self.assertEqual(len([i for i in self.world.player.inventory.items if i.source == "reward"]), 1)
+        self.assertTrue(self.world.player.first_clear_rewarded)
+        self.assertEqual(self.world.player.unlocked_level, 2)
+        self.assertFalse(any(p.kind in ("item", "gold") for p in self.world.pickups))
+
+    def test_next_level_carries_gear_gold_and_scales_enemies(self):
+        self.wear("helm", 3)
+        self.world.player.gold = 777
+        self.world.spawners.clear()
+        self.world.player.pos = self.world.exit
+        self.world.update(1 / 60)
+        self.assertEqual(self.world.state, "cleared")
+        inv = self.world.player.inventory.to_dict()
+        gold = self.world.player.gold
+        player = self.world.player
+        player.hp = 20
+        self.assertTrue(self.world.next_level())
+        self.assertIs(self.world.player, player)
+        self.assertEqual(self.world.level, 2)
+        self.assertEqual(self.world.player.inventory.to_dict(), inv)
+        self.assertEqual(self.world.player.gold, gold)
+        self.assertEqual(self.world.player.hp, self.world.player.max_hp)
+        self.assertGreater(self.world.enemies[0].max_hp, 44)
+        self.assertGreater(self.world.gold_value(75), 75)
+        self.assertFalse(self.world.next_level())
+
+    def test_replaying_first_level_does_not_duplicate_clear_reward(self):
+        self.world.player.first_clear_rewarded = True
+        self.world.spawners.clear()
+        self.world.update(1 / 60)
+        self.assertFalse(any(item.source == "reward" for item in self.world.player.inventory.items))
+
+
+class ProfileTests(unittest.TestCase):
+    def test_profile_round_trip_preserves_ownership_enchants_gold_and_depth(self):
+        player = Player(gold=12345, unlocked_level=4, first_clear_rewarded=True)
+        for rank, slot in enumerate(SLOTS, 1):
+            player.inventory.add(player.inventory.create(slot, rank, "enchanted"))
+        player.inventory.add(player.inventory.create("helm", 2), auto_equip=False)
+        with TemporaryDirectory() as folder:
+            store = ProfileStore(Path(folder) / "profile.json")
+            self.assertIsNone(store.load())
+            self.assertTrue(store.save(player))
+            loaded = ProfileStore(store.path).load()
+            self.assertEqual(loaded.inventory.to_dict(), player.inventory.to_dict())
+            self.assertEqual(loaded.gold, 12345)
+            self.assertEqual(loaded.unlocked_level, 4)
+            self.assertTrue(loaded.first_clear_rewarded)
+            self.assertEqual(loaded.hp, loaded.max_hp)
+
+    def test_corrupt_or_future_profile_is_preserved_and_not_overwritten(self):
+        for contents in ("broken json", '{"version": 99}'):
+            with TemporaryDirectory() as folder:
+                path = Path(folder) / "profile.json"
+                path.write_text(contents)
+                store = ProfileStore(path)
+                self.assertIsNone(store.load())
+                self.assertFalse(store.save(Player()))
+                self.assertEqual(path.read_text(), contents)
+                self.assertTrue(store.error)
+
+    def test_failed_atomic_replace_preserves_previous_save(self):
+        with TemporaryDirectory() as folder:
+            store = ProfileStore(Path(folder) / "profile.json")
+            player = Player(gold=50)
+            self.assertTrue(store.save(player))
+            player.gold = 100
+            with patch.object(Path, "replace", side_effect=OSError("Disk unavailable")):
+                self.assertFalse(store.save(player))
+            self.assertEqual(json.loads(store.path.read_text())["gold"], 50)
+            self.assertTrue(store.error)
+
+    def test_inventory_rejects_duplicate_items_invalid_rank_and_wrong_equipment_slot(self):
+        inv = Inventory()
+        item = inv.create("helm", 1)
+        inv.add(item)
+        with self.assertRaises(ValueError):
+            inv.add(item)
+        for slot, rank in (("weapon", 1), ("helm", 6), ("helm", -1)):
+            with self.assertRaises(ValueError):
+                Item(1, slot, rank)
+        data = inv.to_dict()
+        data["equipped"]["boots"] = item.uid
+        with self.assertRaises(ValueError):
+            Inventory.from_dict(data)
+
+
+if __name__ == "__main__":
+    unittest.main()

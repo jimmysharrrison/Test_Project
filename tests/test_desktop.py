@@ -26,14 +26,14 @@ def click(button, point):
 
 
 class DesktopTests(unittest.TestCase):
-    def run_app(self, script, observer=None):
+    def run_app(self, script, observer=None, profile_path=None):
         worlds, frames = [], []
         pointer = [800, 480]
         buttons = [False, False, False]
         index = 0
 
-        def new_world(seed):
-            world = World(seed)
+        def new_world(seed, **kwargs):
+            world = World(seed, **kwargs)
             worlds.append(world)
             return world
 
@@ -61,8 +61,10 @@ class DesktopTests(unittest.TestCase):
             def __getitem__(self, code):
                 return False
 
+        args = ["main.py", "--frames", str(len(script)), "--seed", "7"]
+        args += ["--profile", str(profile_path)] if profile_path is not None else ["--no-save"]
         with (
-            patch.object(sys, "argv", ["main.py", "--frames", str(len(script)), "--seed", "7"]),
+            patch.object(sys, "argv", args),
             patch("dungeon.app.World", side_effect=new_world),
             patch("dungeon.render.Renderer", RecordingRenderer),
             patch("pygame.event.get", side_effect=events),
@@ -74,7 +76,10 @@ class DesktopTests(unittest.TestCase):
         return worlds, frames
 
     def test_ultimate_pause_focus_resume_and_enter_restart(self):
+        ultimate_seen = []
         def observer(frame, world, renderer):
+            if frame == 2:
+                ultimate_seen.append(world.player.stasis)
             if frame == 7:
                 world.state = "won"
         script = [
@@ -90,8 +95,7 @@ class DesktopTests(unittest.TestCase):
         self.assertEqual(frames[3][1], frames[4][1])
         self.assertEqual(len(worlds), 2)
         self.assertEqual(worlds[1].state, "playing")
-        self.assertGreater(worlds[0].player.cooldowns["r"], 40)
-        self.assertGreater(worlds[0].player.stasis, 0)
+        self.assertGreater(ultimate_seen[0], 0)
 
     def test_spell_button_target_selection_and_held_right_movement(self):
         from dungeon.geometry import Vec
@@ -126,6 +130,80 @@ class DesktopTests(unittest.TestCase):
         self.assertEqual(world.player.cooldowns["e"], 0)
         self.assertEqual(world.ice_walls, [])
         self.assertIsNone(world.destination)
+
+
+    def test_inventory_pauses_combat_and_shop_buy_enchant_equip_work(self):
+        def observer(frame, world, renderer):
+            if frame == 1:
+                world.player.gold = 1000
+        script = [
+            [key(pygame.K_RETURN)], [key(pygame.K_i)],
+            [key(pygame.K_q), click(3, (900, 500))],
+            [key(pygame.K_b), pygame.event.Event(pygame.MOUSEBUTTONUP, button=3)],
+            [click(1, (800, 295))], [click(1, (1060, 597))],
+            [key(pygame.K_i)], [click(1, (780, 757))],
+            [click(1, (780, 757))], [key(pygame.K_ESCAPE)],
+        ]
+        worlds, frames = self.run_app(script, observer)
+        world = worlds[0]
+        self.assertEqual([mode for mode, _ in frames], [
+            "playing", "inventory", "inventory", "shop", "shop", "shop",
+            "inventory", "inventory", "inventory", "playing",
+        ])
+        self.assertTrue(all(time == frames[0][1] for _, time in frames[1:9]))
+        self.assertEqual(world.player.gold, 910)
+        self.assertEqual(world.player.inventory.worn("helm").rank, 1)
+        self.assertEqual(world.player.inventory.stats.damage, .1)
+        self.assertEqual(world.projectiles, [])
+        self.assertIsNone(world.destination)
+
+    def test_gate_transition_preserves_player_and_opens_next_depth(self):
+        def observer(frame, world, renderer):
+            if frame == 1:
+                world.spawners.clear()
+                world.player.pos = world.exit
+                world.player.gold = 250
+        worlds, _ = self.run_app([[key(pygame.K_RETURN)], [], [key(pygame.K_RETURN)]], observer)
+        self.assertEqual(len(worlds), 1)
+        self.assertEqual(worlds[0].level, 2)
+        self.assertEqual(worlds[0].state, "playing")
+        self.assertTrue(worlds[0].player.first_clear_rewarded)
+        self.assertEqual(worlds[0].player.inventory.worn("boots").rank, 1)
+        self.assertGreaterEqual(worlds[0].player.gold, 250)
+
+    def test_backpack_paging_renders_and_keeps_all_items_accessible(self):
+        observed_pages = []
+        def observer(frame, world, renderer):
+            if frame == 1:
+                for _ in range(33):
+                    inv = world.player.inventory
+                    inv.add(inv.create("helm", 1), auto_equip=False)
+            elif frame in (2, 3, 4):
+                observed_pages.append([i.uid for i in renderer.armory.bag_page(world)])
+        script = [[key(pygame.K_RETURN)], [key(pygame.K_i)],
+                  [click(1, (829, 646))], [click(1, (829, 646))]]
+        worlds, _ = self.run_app(script, observer)
+        self.assertEqual([len(page) for page in observed_pages], [16, 16, 1])
+        self.assertEqual(len(set(uid for page in observed_pages for uid in page)), 33)
+        self.assertEqual(len(worlds[0].player.inventory.items), 33)
+
+    def test_desktop_profile_survives_close_and_loads_next_session(self):
+        from pathlib import Path
+        from tempfile import TemporaryDirectory
+        def observer(frame, world, renderer):
+            inv = world.player.inventory
+            inv.add(inv.create("helm", 3))
+            world.player.gold = 321
+            world.player.unlocked_level = 2
+            world.player.first_clear_rewarded = True
+        with TemporaryDirectory() as folder:
+            profile = Path(folder) / "profile.json"
+            self.run_app([[key(pygame.K_RETURN)]], observer, profile)
+            self.assertTrue(profile.exists())
+            worlds, _ = self.run_app([[key(pygame.K_RETURN)]], profile_path=profile)
+            self.assertEqual(worlds[0].player.gold, 321)
+            self.assertEqual(worlds[0].player.inventory.worn("helm").rank, 3)
+            self.assertEqual(worlds[0].level, 2)
 
 
 if __name__ == "__main__":

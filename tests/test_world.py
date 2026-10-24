@@ -130,7 +130,7 @@ class WorldTests(unittest.TestCase):
             self.advance(0.4)
         self.assertEqual(self.world.spawners, [])
         self.assertTrue(self.world.exit_open)
-        self.assertTrue(any(p.value == 75 for p in self.world.pickups))
+        self.assertGreaterEqual(self.world.player.gold, 75)
         self.advance(10)
         self.assertEqual(self.world.enemies, [])
 
@@ -158,14 +158,14 @@ class WorldTests(unittest.TestCase):
         self.assertEqual(self.world.player.hp, 100)
         self.assertEqual(self.world.pickups, [])
 
-    def test_gate_requires_rifts_and_enemies_to_be_cleared(self):
+    def test_gate_requires_rifts_to_be_cleared(self):
         self.world.player.pos = self.world.exit
         self.world.update(1 / 60)
         self.assertEqual(self.world.state, "playing")
         self.world.spawners.clear()
         self.world.enemies.clear()
         self.world.update(1 / 60)
-        self.assertEqual(self.world.state, "won")
+        self.assertEqual(self.world.state, "cleared")
         time = self.world.time
         self.world.update(1)
         self.assertEqual(self.world.time, time)

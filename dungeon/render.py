@@ -6,6 +6,8 @@ from random import Random
 import pygame
 
 from .abilities import ABILITIES
+from .armory import Armory, item_icon
+from .items import RANK_COLORS
 from .geometry import Vec, project
 from .world import LAYOUT
 
@@ -35,6 +37,9 @@ class Renderer:
         self.fonts = {}
         self.glows = {}
         self.sound_enabled = True
+        self.armory = Armory()
+        self.gear_button = pygame.Rect(1109, 113, 137, 28)
+        self.profile_notice = ""
         self.armed = None
         self.aim = world.player.pos + world.player.facing * 4
         self.bolt_aim = self.aim
@@ -229,7 +234,7 @@ class Renderer:
             pygame.draw.line(self.screen, (177, 109, 77), (sx, y - 38), (sx, y - 19), 1)
         pygame.draw.ellipse(self.screen, color, (x - 9, y - 48 + pulse * 2, 18, 34), 2)
         pygame.draw.ellipse(self.screen, (255, 214, 160), (x - 3, y - 43 + pulse * 2, 6, 25))
-        self.bar(x - 25, y - 61, 50, 3, spawner.hp / 176, VIOLET)
+        self.bar(x - 25, y - 61, 50, 3, spawner.hp / spawner.max_hp, VIOLET)
 
     def torch(self, pos, time):
         x, y = iso(pos)
@@ -263,7 +268,12 @@ class Renderer:
         x, y = iso(pickup.pos)
         bob = round(sin(time * 3 + pickup.pos.x) * 2)
         self.shadow(x, y, 16)
-        if pickup.kind == "gold":
+        if pickup.kind == "item":
+            color = RANK_COLORS[pickup.item.rank]
+            self.glow(x, y - 8, color, 34, 35)
+            pygame.draw.polygon(self.screen, color, [(x, y - 29), (x + 15, y - 12), (x, y + 1), (x - 15, y - 12)], 1)
+            item_icon(self.screen, pickup.item.slot, (x, y - 13 + bob), color, .42)
+        elif pickup.kind == "gold":
             self.glow(x, y - 4, GOLD, 25, 28)
             for dx, dy in ((-4, 0), (3, -2), (0, -5)):
                 pygame.draw.ellipse(self.screen, (142, 110, 57), (x + dx - 4, y + dy - 5 + bob, 8, 6))
@@ -315,7 +325,7 @@ class Renderer:
     def effect(self, effect):
         x, y = iso(effect.pos)
         age = 1 - effect.life / effect.duration
-        color = TEAL if effect.kind == "heal" else GOLD if effect.kind == "gold" else VIOLET if effect.kind in ("spawn", "burst") else RED if effect.kind == "hurt" else ICE
+        color = TEAL if effect.kind == "heal" else GOLD if effect.kind in ("gold", "critical") else VIOLET if effect.kind in ("spawn", "burst") else RED if effect.kind == "hurt" else ICE
         if effect.kind in ("nova", "shatter"):
             self.radius(effect.pos, effect.radius * min(1, age * 1.5), ICE, 2)
             self.radius(effect.pos, effect.radius * age * 0.8, (80, 140, 177))
@@ -327,7 +337,7 @@ class Renderer:
         if effect.kind in ("burst", "spawn", "heal", "cast", "hurt", "destination"):
             radius = round(8 + age * 29)
             pygame.draw.ellipse(self.screen, color, (x - radius, y - radius / 2, radius * 2, radius), 1)
-        if effect.kind in ("hit", "spark", "burst"):
+        if effect.kind in ("hit", "critical", "spark", "burst"):
             for i in range(6):
                 angle = i * pi / 3
                 distance = age * 27
@@ -392,8 +402,8 @@ class Renderer:
         self.text("The Ice Mage", 153, 280, 24, WHITE, serif=True, center=True)
         self.spaced("FOREVER FROZEN", 87, 318, 9, ICE, 1)
         self.spaced("VITALITY", 48, 346, 10)
-        self.text(f"{player.hp} / 100", 193, 343, 12, WHITE)
-        self.bar(48, 370, 210, 7, player.hp / 100, RED)
+        self.text(f"{player.hp} / {player.max_hp}", 193, 343, 12, WHITE)
+        self.bar(48, 370, 210, 7, player.hp / player.max_hp, RED)
         self.spaced("MANA", 48, 389, 10)
         self.text(f"{int(player.mana)} / 100", 193, 386, 12, ICE)
         self.bar(48, 414, 210, 7, player.mana / 100, (84, 151, 216))
@@ -406,7 +416,7 @@ class Renderer:
         pygame.draw.line(self.screen, LINE, (47, 648), (259, 648))
         self.spaced("THE OBJECTIVE", 48, 667, 10)
         objectives = [("Seal the rifts", f"{3 - len(world.spawners)} / 3", not world.spawners),
-                      ("Clear the glade", str(len(world.enemies)), not world.enemies),
+                      ("Survivors (optional)", str(len(world.enemies)), not world.enemies),
                       ("Reach the gate", "OPEN" if world.exit_open else "SEALED", world.exit_open)]
         for i, (label, value, done) in enumerate(objectives):
             yy = 696 + i * 27
@@ -443,7 +453,7 @@ class Renderer:
             self.text(f"{self.armed.upper()} / Choose target", 345, 826, 12, ICE)
         else:
             self.text("RMB move · LMB select", 345, 826, 11, MUTED)
-        self.text("Right click cancels" if self.armed else "S stop · Esc pause", 345, 851, 10, MUTED)
+        self.text("Right click cancels" if self.armed else "I gear · B shop · S stop", 345, 851, 10, MUTED)
         hover = None
         for key, rect in self.ability_rects.items():
             ability = ABILITIES[key]
@@ -460,7 +470,7 @@ class Renderer:
             self.text(ability.name, rect.x + 59, rect.y + 10, 13, MUTED if disabled else WHITE)
             if cooldown > 0:
                 self.text(f"{cooldown:.1f}s", rect.x + 59, rect.y + 37, 17, ICE)
-                self.bar(rect.x + 59, rect.y + 61, 130, 2, 1 - cooldown / ability.cooldown, ICE)
+                self.bar(rect.x + 59, rect.y + 61, 130, 2, 1 - cooldown / world.player.cooldown_for(key), ICE)
             else:
                 self.text(f"{int(ability.mana)} MANA" if ability.mana else "FREE · HOLD Q", rect.x + 59, rect.y + 42, 10, RED if world.player.mana < ability.mana else ICE)
         if hover:
@@ -481,7 +491,7 @@ class Renderer:
                 else:
                     line = candidate
             self.text(line, x + 14, yy, 11, WHITE)
-            self.text(f"{ability.cooldown:g}s cooldown · {int(ability.mana)} mana", x + 14, 748, 10, MUTED)
+            self.text(f"{world.player.cooldown_for(hover):.2f}s cooldown · {int(ability.mana)} mana", x + 14, 748, 10, MUTED)
 
     def pine(self, x, y, size):
         pygame.draw.line(self.screen, (27, 36, 34), (x, y - size * 0.2), (x, y + 10), 5)
@@ -522,7 +532,8 @@ class Renderer:
         self.text("Frostfall Glade", 320, 64, 36, WHITE, serif=True)
         self.text("The mountain calls its dead. Let winter answer.", 323, 116, 13, MUTED)
         self.text("DEPTH", 1302, 49, 10, MUTED)
-        self.text("01", 1299, 65, 36, SILVER, serif=True)
+        self.text(f"{world.level:02d}", 1299, 65, 36, SILVER, serif=True)
+        Armory.button(self, self.gear_button, "I GEAR / B SHOP")
         self.text("M / SOUND " + ("ON" if self.sound_enabled else "OFF"), 1266, 121, 10, MUTED)
         pygame.draw.line(self.screen, LINE, (324, 155), (1396, 155))
         self.screen.blit(self.floor, (0, 0))
@@ -564,8 +575,20 @@ class Renderer:
             color = ICE if self.armed else SILVER
             pygame.draw.circle(self.screen, color, (x, y), 8, 1)
             pygame.draw.circle(self.screen, color, (x, y), 2)
-        if mode != "playing" or world.state != "playing":
+        if self.profile_notice:
+            self.text(self.profile_notice, 325, 735, 10, GOLD)
+        if mode in ("inventory", "shop"):
+            self.armory.draw(self, world, mouse, mode)
+        elif mode != "playing" or world.state != "playing":
             self.overlay(world, mode)
+        elif mouse and self.world_area(mouse):
+            for pickup in reversed(world.pickups):
+                if pickup.kind == "item":
+                    x, y = iso(pickup.pos)
+                    if pygame.Rect(x - 18, y - 32, 36, 38).collidepoint(mouse):
+                        self.armory.tooltip(self, pickup.item, mouse,
+                                            current=world.player.inventory.worn(pickup.item.slot))
+                        break
 
     def overlay(self, world, mode):
         veil = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
@@ -578,6 +601,10 @@ class Renderer:
         if world.state == "dead":
             kicker, title, subtitle = "THE DUNGEON ENDURES", "Your watch has ended.", "Another descent. Another chance."
             action = "ENTER  /  TRY AGAIN"
+        elif world.state == "cleared":
+            kicker, title = "THE GATE IS OPEN", f"Depth {world.level} complete."
+            subtitle = "Your equipment and gold will carry into the next level."
+            action = "ENTER  /  NEXT DEPTH"
         elif world.state == "won":
             kicker, title, subtitle = "THE GLADE IS SILENT", "You made it out.", f"{world.player.kills} enemies slain. {world.player.gold} gold recovered."
             action = "ENTER  /  DESCEND AGAIN"
@@ -596,4 +623,4 @@ class Renderer:
         pygame.draw.rect(self.screen, (64, 77, 69), self.button, border_radius=4)
         pygame.draw.rect(self.screen, GOLD, self.button, 1, border_radius=4)
         self.text(action, center, 546, 12, GOLD, bold=True, center=True)
-        self.text("Click spell buttons to cast   ·   1 potion   ·   Esc pause", center, 606, 11, MUTED, center=True)
+        self.text("I inventory   ·   B shop & enchantments   ·   1 potion   ·   Esc pause", center, 606, 11, MUTED, center=True)

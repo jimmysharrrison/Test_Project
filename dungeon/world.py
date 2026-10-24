@@ -7,6 +7,7 @@ from random import Random
 
 from .abilities import ABILITIES
 from .geometry import Vec
+from .items import BLANK_COST, Inventory, Item, SLOTS
 from .navigation import find_path, flood, neighbors
 
 LAYOUT = (
@@ -44,6 +45,28 @@ class Player:
     stasis: float = 0
     invincible: float = 0
     flash: float = 0
+    inventory: Inventory = field(default_factory=Inventory)
+    first_clear_rewarded: bool = False
+    unlocked_level: int = 1
+
+    @property
+    def max_hp(self):
+        return 100 + self.inventory.stats.health
+
+    @property
+    def move_speed(self):
+        return 3.1 * (1 + self.inventory.stats.speed)
+
+    @property
+    def crit_chance(self):
+        return .05 + self.inventory.stats.crit_chance
+
+    @property
+    def crit_multiplier(self):
+        return 2 + self.inventory.stats.crit_damage
+
+    def cooldown_for(self, key):
+        return ABILITIES[key].cooldown * (1 - self.inventory.stats.cooldown)
 
 
 @dataclass(slots=True, eq=False)
@@ -56,10 +79,12 @@ class Enemy:
     phase: float = 0
     chilled: float = 0
     frozen: float = 0
+    level: int = 1
 
     @property
     def max_hp(self):
-        return 26 if self.kind == "skitter" else 44
+        base = 26 if self.kind == "skitter" else 44
+        return round(base * (1 + .15 * (self.level - 1)))
 
     @property
     def name(self):
@@ -76,10 +101,11 @@ class Spawner:
     hp: int = 176
     timer: float = 6
     flash: float = 0
+    level: int = 1
 
     @property
     def max_hp(self):
-        return 176
+        return round(176 * (1 + .15 * (self.level - 1)))
 
     @property
     def name(self):
@@ -109,6 +135,7 @@ class Pickup:
     pos: Vec
     kind: str = "gold"
     value: int = 10
+    item: Item | None = None
 
 
 @dataclass(slots=True)
@@ -122,9 +149,14 @@ class Effect:
 
 
 class World:
-    def __init__(self, seed=None):
+    def __init__(self, seed=None, player=None, level=1):
+        self.seed = seed
         self.rng = Random(seed)
-        self.player = Player()
+        self.combat_rng = Random(seed)
+        self.loot_rng = Random(None if seed is None else seed + 1937)
+        self.player = player if player is not None else Player()
+        self.level = level
+        self.level_completed = False
         self.walls = {(x, y) for y, row in enumerate(LAYOUT) for x, tile in enumerate(row) if tile == "#"}
         self.ice_walls = []
         self._ice_cells = set()
@@ -136,6 +168,12 @@ class World:
                         Enemy(Vec(10.5, 12.5), "skitter", 26)]
         self.pickups = [Pickup(Vec(7.5, 13.5), "food", 25), Pickup(Vec(12.5, 8.5), "food", 25),
                         Pickup(Vec(8.5, 6.5), "gold", 25), Pickup(Vec(5.5, 9.5), "gold", 25)]
+        for actor in self.enemies + self.spawners:
+            actor.level = level
+            actor.hp = actor.max_hp
+        for pickup in self.pickups:
+            if pickup.kind == "gold":
+                pickup.value = self.gold_value(pickup.value)
         self.projectiles = []
         self.effects = []
         self.events = []
@@ -150,13 +188,16 @@ class World:
         self._path_tile = None
         self._distances = {}
 
+    def gold_value(self, base):
+        return round(base * (1 + .15 * (self.level - 1)))
+
     @property
     def blocked(self):
         return self.walls | self._ice_cells
 
     @property
     def exit_open(self):
-        return not self.spawners and not self.enemies
+        return not self.spawners
 
     def walkable(self, pos, radius=0.23):
         if not (0 <= pos.x < 17 and 0 <= pos.y < 17):
@@ -199,7 +240,7 @@ class World:
         self.destination = None
 
     def _follow_path(self, dt):
-        distance = 3.1 * dt
+        distance = self.player.move_speed * dt
         while self.path and distance > 0:
             delta = self.path[0] - self.player.pos
             length = delta.length()
@@ -227,11 +268,11 @@ class World:
         player = self.player
         if self.state != "playing" or player.stasis > 0:
             return
-        if player.hp >= 100:
+        if player.hp >= player.max_hp:
             self.announce("Already at full health. Save your potions.")
         elif player.potions > 0:
             player.potions -= 1
-            restored = min(40, 100 - player.hp)
+            restored = min(40, player.max_hp - player.hp)
             player.hp += restored
             self.events.append("heal")
             self.effects.append(Effect(player.pos, "heal", 0.8, 0.8, f"+{restored}"))
@@ -294,7 +335,7 @@ class World:
         player = self.player
         ability = ABILITIES[key]
         player.mana -= ability.mana
-        player.cooldowns[key] = ability.cooldown
+        player.cooldowns[key] = player.cooldown_for(key)
         player.cast_time = 0.1 if key == "q" else 0.18
         if key == "q":
             direction = (target - player.pos).unit()
@@ -351,10 +392,15 @@ class World:
         return (target - enemy.pos).unit()
 
     def _hit(self, target, damage):
+        critical = self.combat_rng.random() < self.player.crit_chance
+        amount = damage * (1 + self.player.inventory.stats.damage)
+        if critical:
+            amount *= self.player.crit_multiplier
+        damage = max(1, round(amount))
         target.hp = max(0, target.hp - damage)
         target.flash = 0.12
         self.events.append("hit")
-        self.effects.append(Effect(target.pos, "hit", 0.5, 0.5, str(damage)))
+        self.effects.append(Effect(target.pos, "critical" if critical else "hit", 0.5, 0.5, str(damage) + ("!" if critical else "")))
         if target.hp <= 0:
             self.effects.append(Effect(target.pos, "burst", 0.7, 0.7))
             if self.selected is target:
@@ -362,12 +408,16 @@ class World:
             if isinstance(target, Spawner):
                 self.spawners.remove(target)
                 self.events.append("break")
-                self.pickups.append(Pickup(target.pos, "gold", 75))
+                self.pickups.append(Pickup(target.pos, "gold", self.gold_value(75)))
+                self._drop_equipment(target.pos, guaranteed=True)
                 self.announce(f"Rift sealed. {len(self.spawners)} remaining.")
+                if not self.spawners:
+                    self._complete_level()
             else:
                 self.enemies.remove(target)
                 self.player.kills += 1
-                self.pickups.append(Pickup(target.pos, "gold", 10))
+                self._drop_equipment(target.pos)
+                self.pickups.append(Pickup(target.pos, "gold", self.gold_value(10)))
                 if self.rng.random() < 0.12:
                     self.pickups.append(Pickup(target.pos + Vec(0.3, 0), "food", 15))
 
@@ -406,7 +456,9 @@ class World:
                     pos = spawner.pos + offset
                     if self.walkable(pos):
                         skitter = self.rng.random() < 0.35
-                        self.enemies.append(Enemy(pos, "skitter" if skitter else "husk", 26 if skitter else 44))
+                        enemy = Enemy(pos, "skitter" if skitter else "husk", level=self.level)
+                        enemy.hp = enemy.max_hp
+                        self.enemies.append(enemy)
                         self.effects.append(Effect(pos, "spawn", 0.6, 0.6))
                         break
 
@@ -468,7 +520,9 @@ class World:
                 speed = (1.65 if enemy.kind == "skitter" else 1.05) * ((1 - ABILITIES["q"].slow) if enemy.chilled > 0 else 1)
                 enemy.pos = self.move(enemy.pos, direction * speed * dt)
             elif enemy.cooldown <= 0 and player.invincible <= 0 and player.stasis <= 0:
-                player.hp = max(0, player.hp - (6 if enemy.kind == "skitter" else 10))
+                base_damage = 6 if enemy.kind == "skitter" else 10
+                damage = max(1, round(base_damage * (1 + .12 * (enemy.level - 1))) - player.inventory.stats.armor)
+                player.hp = max(0, player.hp - damage)
                 player.invincible = 0.65
                 player.flash = 0.2
                 self.events.append("hurt")
@@ -482,20 +536,132 @@ class World:
         for pickup in self.pickups[:]:
             if (pickup.pos - player.pos).length() < 0.65:
                 if pickup.kind == "food":
-                    if player.hp >= 100:
+                    if player.hp >= player.max_hp:
                         continue
-                    restored = min(pickup.value, 100 - player.hp)
+                    restored = min(pickup.value, player.max_hp - player.hp)
                     player.hp += restored
                     self.events.append("heal")
                     self.effects.append(Effect(player.pos, "heal", 0.7, 0.7, f"+{restored}"))
+                elif pickup.kind == "item":
+                    player.inventory.add(pickup.item)
+                    self.events.append("loot")
+                    self.announce(f"Found {pickup.item.name} — Rank {pickup.item.rank}. I opens inventory.")
                 else:
                     player.gold += pickup.value
                     self.events.append("gold")
                     self.effects.append(Effect(pickup.pos, "gold", 0.6, 0.6, f"+{pickup.value}"))
                 self.pickups.remove(pickup)
         if self.exit_open:
-            if self.message != "The way is clear. Reach the northern gate.":
-                self.announce("The way is clear. Reach the northern gate.")
+            self._complete_level()
             if (player.pos - self.exit).length() < 0.8:
-                self.state = "won"
+                self.state = "cleared"
+                self.stop()
+                # Collect remaining earned drops before the room is discarded.
+                self._collect_remaining_rewards()
                 self.events.append("win")
+
+    def _drop_equipment(self, pos, guaranteed=False):
+        if self.loot_rng.random() < .005:
+            slot = "boots"
+        elif guaranteed or self.loot_rng.random() < .12:
+            slot = self.loot_rng.choice(SLOTS[:-1])
+        else:
+            return
+        rank = self.loot_rng.choices((1, 2, 3), weights=(70, 25, 5))[0]
+        item = self.player.inventory.create(slot, rank)
+        self.pickups.append(Pickup(pos, "item", 0, item))
+
+    def _complete_level(self):
+        if self.level_completed:
+            return
+        self.level_completed = True
+        player = self.player
+        player.unlocked_level = max(player.unlocked_level, self.level + 1)
+        if self.level == 1 and not player.first_clear_rewarded:
+            reward = player.inventory.create("boots", 1, "reward")
+            player.inventory.add(reward)
+            player.first_clear_rewarded = True
+            self.announce("Level 1 cleared! Everfrost Treads awarded. The gate is open. I opens gear.")
+            self.events.append("loot")
+        else:
+            self.announce(f"Level {self.level} cleared! The gate is open. Your loot has been collected.")
+        self._collect_remaining_rewards()
+
+    def _collect_remaining_rewards(self):
+        # Never leave an earned equipment drop behind on a level transition.
+        for pickup in self.pickups[:]:
+            if pickup.kind == "item":
+                self.player.inventory.add(pickup.item)
+                self.pickups.remove(pickup)
+            elif pickup.kind == "gold":
+                self.player.gold += pickup.value
+                self.pickups.remove(pickup)
+
+    def next_level(self):
+        if self.state != "cleared":
+            return False
+        player = self.player
+        player.pos = Vec(3.5, 13.5)
+        player.hp, player.mana = player.max_hp, 100
+        player.stasis = player.cast_time = player.flash = 0
+        player.invincible = 1
+        player.cooldowns = dict.fromkeys(ABILITIES, 0.0)
+        seed = None if self.seed is None else self.seed + 1
+        fresh = World(seed, player=player, level=self.level + 1)
+        self.__dict__.update(fresh.__dict__)
+        self.announce(f"Depth {self.level}. Your equipment and gold carry forward.")
+        return True
+
+    def _can_manage_gear(self):
+        if self.state == "dead" or self.player.hp <= 0:
+            self.announce("Return to the glade before changing equipment.")
+            return False
+        if self.player.stasis > 0:
+            self.announce("Close the armory and wait for Glacial Prison to shatter before changing gear.")
+            return False
+        return True
+
+    def equip_item(self, uid):
+        if not self._can_manage_gear() or not self.player.inventory.equip(uid):
+            return False
+        self.player.hp = min(self.player.hp, self.player.max_hp)
+        self.announce("Equipment changed. Maximum health changes do not heal you.")
+        return True
+
+    def unequip_item(self, slot):
+        if not self._can_manage_gear() or not self.player.inventory.unequip(slot):
+            return False
+        self.player.hp = min(self.player.hp, self.player.max_hp)
+        return True
+
+    def buy_item(self, slot):
+        if slot not in SLOTS or not self._can_manage_gear():
+            return False
+        cost = BLANK_COST[slot]
+        if self.player.gold < cost:
+            self.announce(f"Need {cost:,} gold for this unranked {slot}.")
+            return False
+        self.player.gold -= cost
+        item = self.player.inventory.create(slot, 0, "shop")
+        self.player.inventory.add(item)
+        self.announce(f"Bought {item.name}. Select it to enchant.")
+        self.events.append("loot")
+        return item
+
+    def enchant_item(self, uid):
+        if not self._can_manage_gear():
+            return False
+        item = self.player.inventory.get(uid)
+        if item is None:
+            return False
+        if item.next_cost is None:
+            self.announce("Rank 5 is the maximum enchantment.")
+            return False
+        if self.player.gold < item.next_cost:
+            self.announce(f"Need {item.next_cost:,} gold to reach Rank {item.rank + 1}.")
+            return False
+        self.player.gold -= item.next_cost
+        self.player.inventory.upgrade(uid)
+        self.announce(f"{item.name} enchanted to Rank {item.rank + 1}.")
+        self.events.append("loot")
+        return True

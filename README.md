@@ -1,8 +1,11 @@
-# Embervault — Ice Mage build
+# Embervault — Frostbound Armory
 
 A Python 3.14 desktop action dungeon crawler inspired by Gauntlet and Diablo.
 Play a female Ice Mage in Frostfall Glade: move with the mouse, control crowds
-with ice, destroy three molten rifts, then clear the survivors and escape.
+with ice, collect ranked equipment, enchant it, and destroy three molten rifts
+to open the gate to the next depth.
+
+![Equipment inventory](docs/inventory.png)
 
 ![Ice Mage gameplay](docs/preview.png)
 
@@ -50,7 +53,9 @@ Descent** on the title screen.
 | S | Stop moving |
 | Escape | Pause / resume |
 | M | Mute / unmute effects |
-| Enter / click the end-screen button | Restart after death or victory |
+| I / click Gear | Open or close inventory |
+| B | Open or close the shop and enchanter |
+| Enter / click the end-screen button | Continue to the next depth, or restart after death |
 
 Left click selects enemies; it never performs an automatic attack. A selection
 does not redirect skill shots. Q aims where the cursor is pointing. Ice Wall's
@@ -69,6 +74,7 @@ are now spells; healing moved to 1 and restarting moved to Enter.
 | E | Ice Wall | Three-tile barrier lasting 6 seconds; blocks characters and projectiles | 30 | 14s |
 | R | Glacial Prison | Stationary and immune to damage for 2.5 seconds; shatters for 90 damage within 3.2 tiles and freezes survivors for 2 seconds | 45 | 45s |
 
+Spell values in the table are base values before equipment and critical hits.
 Mana regenerates at 8 per second, up to 100. Quick spells briefly interrupt
 movement, then the current movement order resumes. Glacial Prison prevents
 casting and potion use while encased; its explosion happens automatically.
@@ -84,11 +90,44 @@ The target frame shows real health and timed freeze/chill effects. Current
 enemies have no mana resource; no decorative mana bar is shown for them. Damage
 over time spells and further buff types are future work.
 
+## Equipment and enchantments
+
+Press **I** to inspect Helm, Chest, Legs, Gloves, and Boots, or **B** to visit the
+enchanter. Both menus pause combat. Hover an item for its stats, rank, and next
+enchantment price. Click a backpack item and then **Equip Item**; click an
+already-equipped item and **Unequip** to return it to the backpack.
+
+- Helm increases all spell damage; chest increases maximum health.
+- Legs add armor that reduces incoming hits; gloves shorten newly cast cooldowns.
+- Boots add movement speed, critical chance, and critical damage. They are the
+  rarest random drop and a guaranteed Rank 1 reward for clearing level 1.
+- Dropped equipment is Rank 1–3. Rank 3 has the best dropped stats.
+- The shop sells blank Rank 0 items. Enchant them one rank at a time through
+  Rank 5. The final upgrade costs **15,000 gold**.
+- Items fill empty slots automatically. Other pieces go into the paged backpack.
+- Maximum health increases do not heal you; use food or potions to fill it.
+
+See [the full equipment and economy tables](docs/EQUIPMENT.md) for every bonus,
+price, and drop rate. The menu displays your current effective character stats.
+
 ## Progression and presentation
 
-Destroy all three rifts to stop spawning, defeat the survivors, and reach the
-gate. Gold is collected on contact. Food heals injured players. Potions restore
-up to 40 health, cannot exceed 100 health, and are not consumed at full health.
+Destroy all three rifts to complete the level and open the gate. Surviving
+monsters are optional. Remaining equipment and gold are banked on the clear.
+Reach the gate, then press Enter to continue. Gear and gold carry into the next
+depth. Health and mana refill, and spell cooldowns reset between depths. Later
+depths currently reuse the arena with stronger enemies and higher gold rewards.
+
+Gold and equipment can be collected on contact before the clear. Food heals
+injured players. Potions restore up to 40 health, respect your equipped maximum
+health, and are not consumed at full health.
+
+The local character saves equipment, enchantments, gold, potions, kills, and
+unlocked depth automatically. On Windows the save is in
+`%LOCALAPPDATA%\Embervault\profile.json`. A new session starts a fresh room at
+the highest unlocked depth. Use `uv run main.py --no-save` for a temporary
+character, or `--profile PATH` to choose another save file. Profile errors appear
+in-game; an invalid profile is preserved instead of being overwritten.
 
 The visual direction follows the written prompts in the recent **Ice Mage Game
 Art** chat: a blue-and-silver female mage, pale fur collar, an original “forever
@@ -113,6 +152,9 @@ headless environment. `--frames` exits after the given frame count.
 
 ## Code layout
 
+- `dungeon/items.py`: ranked equipment, character bonuses, drop values, and prices.
+- `dungeon/armory.py`: inventory, item tooltips, backpack pages, and enchanting UI.
+- `dungeon/profile.py`: local character saves.
 - `dungeon/abilities.py`: spell definitions and initial balance values.
 - `dungeon/controls.py`: mouse orders, button targeting, and hotkey casting.
 - `dungeon/navigation.py`: reachable destinations and smoothed grid paths.

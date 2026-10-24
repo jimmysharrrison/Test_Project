@@ -1,4 +1,4 @@
-# Embervault — first Ice Mage build
+# Embervault — Ice Mage and Frostbound Armory
 
 ## Direction
 
@@ -11,8 +11,9 @@ The playable hero is a female Ice Mage who controls crowds through cold.
 1. Enter Frostfall Glade, a forest ruin occupied by molten skeletons and skitters.
 2. Right click to move, or hold right mouse to continually follow the cursor.
 3. Aim and cast QWER spells; select enemies with left click to inspect them.
-4. Destroy three rifts, clear the surviving enemies, and reach the gate.
-5. Restart with Enter after death or victory.
+4. Destroy three rifts to open the gate. Surviving enemies are optional.
+5. Collect ranked gear, equip it with I, and spend gold with B.
+6. Reach the gate and continue to the next depth; equipment and gold persist.
 
 ## Interaction rules
 
@@ -25,7 +26,8 @@ The playable hero is a female Ice Mage who controls crowds through cold.
 - Clicking W or R casts around the mage immediately.
 - Brief casts pause movement; the existing order resumes afterward.
 - Glacial Prison prevents movement, casting, potion use, and damage until it shatters.
-- Escape pauses, focus loss pauses, and Enter restarts a completed run.
+- Escape pauses, focus loss pauses, I opens inventory, and B opens the enchanter.
+- Enter advances a cleared level or restarts after death with earned gear retained.
 
 ## Provisional kit
 
@@ -40,6 +42,23 @@ Initial numerical values are centralized in `dungeon/abilities.py` and documente
 in README.md. Treat them as starting points for playtesting. Freeze stops movement
 and attacks; chill slows movement. Molten rifts take damage but cannot be frozen.
 Temporary walls must not overlap actors or cut a reachable area off from the map.
+
+## Equipment and progression
+
+Five slots: Helm (damage), Chest (maximum health), Legs (flat armor), Gloves
+(cooldown reduction), and Boots (speed and critical-hit bonuses). Dropped ranks
+are 1–3; enchanting purchased Rank 0 blanks or existing loot can reach Rank 5.
+The final upgrade costs 15,000 gold. Rank 1 boots are guaranteed once for the
+first level clear, while higher-rank boots remain rare drops or costly enchants.
+
+Inventory, tooltips, live effective stats, a paged backpack, and the enchanter
+are available in paused menus. Gear cannot be changed during Glacial Prison.
+Chest swaps cannot heal the player. Saves preserve gear, enchants, gold, and
+unlocked depth locally. See `docs/EQUIPMENT.md` for the initial balance tables.
+
+On a clear, remaining equipment and gold are collected. At the exit, the mage
+can advance to another depth of the current arena with scaled enemies and gold.
+Distinct room layouts and bosses remain future milestones.
 
 ## Visual direction
 
@@ -69,10 +88,11 @@ time. Keyboard and UI actions share one casting path.
 1. Tune click-to-move responsiveness, targeting, spell costs, and crowd pressure.
 2. Refine the mage silhouette and create directional animated sprites.
 3. Add more encounters, terrain, enemies, and a boss.
-4. Add meaningful equipment and progression once the basic kit feels good.
+4. Tune equipment, the enchanting economy, and depth scaling from playtesting.
 5. Evaluate co-op as a separate design and networking milestone.
 
 ## Runtime
 
-Python 3.14.8 desktop application using Pygame CE, with one room and one hero.
+Python 3.14.8 desktop application using Pygame CE, with one arena reused across
+progressive depths and one hero.
 The original console game remains available with `python main.py --text`.
