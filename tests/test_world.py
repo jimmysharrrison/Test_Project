@@ -34,8 +34,8 @@ class WorldTests(unittest.TestCase):
         self.assertTrue(all(self.world.walkable(point) for point in points))
 
     def test_fast_movement_cannot_tunnel_through_walls(self):
-        end = self.world.move(Vec(3.5, 3.5), Vec(8, 0))
-        self.assertLess(end.x, 4)
+        end = self.world.move(Vec(3.5, 5.5), Vec(8, 0))
+        self.assertLess(end.x, 5)
         self.assertTrue(self.world.walkable(end))
         self.assertEqual(self.world.move(Vec(1.3, 8.5), Vec(-10, 0)).x, 1.3)
 
@@ -51,8 +51,8 @@ class WorldTests(unittest.TestCase):
 
     def test_click_order_paths_around_obstacles_and_stops(self):
         self.peaceful()
-        self.world.player.pos = Vec(2.5, 7.5)
-        goal = Vec(7.5, 7.5)
+        self.world.player.pos = Vec(2.5, 5.5)
+        goal = Vec(8.5, 5.5)
         self.world.request_move(goal)
         self.assertGreater(len(self.world.path), 1)
         for _ in range(360):
@@ -63,7 +63,7 @@ class WorldTests(unittest.TestCase):
 
     def test_wall_click_resolves_to_reachable_floor(self):
         self.peaceful()
-        target = Vec(4.5, 3.5)
+        target = Vec(5.5, 5.5)
         self.world.request_move(target)
         destination = self.world.destination
         self.assertTrue(self.world.walkable(destination))
@@ -111,8 +111,8 @@ class WorldTests(unittest.TestCase):
         self.assertEqual(self.world.player.hp, 20)
 
     def test_projectiles_are_blocked_by_walls(self):
-        self.world.player.pos = Vec(3.5, 3.5)
-        target = Spawner(Vec(6.5, 3.5), timer=999)
+        self.world.player.pos = Vec(3.5, 5.5)
+        target = Spawner(Vec(7.5, 5.5), timer=999)
         self.world.spawners = [target]
         self.world.enemies.clear()
         self.world.cast("q", target.pos)
@@ -129,16 +129,20 @@ class WorldTests(unittest.TestCase):
             self.world.cast("q", target.pos)
             self.advance(0.4)
         self.assertEqual(self.world.spawners, [])
-        self.assertTrue(self.world.exit_open)
+        self.assertFalse(self.world.exit_open)
         self.assertGreaterEqual(self.world.player.gold, 75)
-        self.advance(10)
+        self.advance(1)
         self.assertEqual(self.world.enemies, [])
+        self.advance(3)
+        self.assertEqual(self.world.phase, 2)
+        self.assertEqual(len(self.world.spawners), 3)
+        self.assertNotIn(target, self.world.spawners)
 
     def test_enemies_navigate_around_obstacles(self):
-        self.world.player.pos = Vec(7.5, 7.5)
-        enemy = Enemy(Vec(2.5, 7.5))
+        self.peaceful()
+        self.world.player.pos = Vec(8.5, 5.5)
+        enemy = Enemy(Vec(2.5, 5.5))
         self.world.enemies = [enemy]
-        self.world.spawners.clear()
         self.advance(8)
         self.assertLess((enemy.pos - self.world.player.pos).length(), 1)
         self.assertTrue(self.world.walkable(enemy.pos))
@@ -162,8 +166,14 @@ class WorldTests(unittest.TestCase):
         self.world.player.pos = self.world.exit
         self.world.update(1 / 60)
         self.assertEqual(self.world.state, "playing")
-        self.world.spawners.clear()
         self.world.enemies.clear()
+        for phase in range(1, 4):
+            for spawner in self.world.spawners[:]:
+                self.world._hit(spawner, 10000)
+            self.assertEqual(self.world.exit_open, phase == 3)
+            if phase < 3:
+                self.advance(3.05)
+                self.assertEqual(self.world.state, "playing")
         self.world.update(1 / 60)
         self.assertEqual(self.world.state, "cleared")
         time = self.world.time

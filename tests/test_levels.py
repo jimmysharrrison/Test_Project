@@ -8,6 +8,15 @@ from dungeon.navigation import flood
 from dungeon.world import Enemy, Projectile, World
 
 
+def finish_floor(world):
+    for phase in range(1, 4):
+        for spawner in world.spawners[:]:
+            world._hit(spawner, 10000)
+        if phase < 3:
+            for _ in range(183):
+                world.update(1 / 60)
+
+
 class ForestLevelTests(unittest.TestCase):
     def test_both_levels_have_reachable_encounters_and_exit(self):
         for depth in (1, 2, 3):
@@ -49,8 +58,8 @@ class ForestLevelTests(unittest.TestCase):
         inv = world.player.inventory
         inv.add(inv.create("chest", 2))
         world.player.gold = 300
-        for spawner in world.spawners[:]:
-            world._hit(spawner, 10000)
+        world.enemies.clear()
+        finish_floor(world)
         player, gear, gold = world.player, inv.to_dict(), world.player.gold
         world.player.pos = world.exit
         world.update(1 / 60)
@@ -61,7 +70,7 @@ class ForestLevelTests(unittest.TestCase):
         self.assertEqual(world.level, 2)
         self.assertEqual(player.current_level, 2)
         self.assertEqual(player.unlocked_level, 2)
-        self.assertEqual(world.level_data.name, "Thornveil Forest")
+        self.assertEqual(world.level_data.name, "Thornveil Atrium")
         self.assertIs(world.player, player)
         self.assertEqual(inv.to_dict(), gear)
         self.assertEqual(player.gold, gold)
@@ -74,8 +83,8 @@ class ForestLevelTests(unittest.TestCase):
 
     def test_forest_clear_opens_portal_with_survivors_and_no_duplicate_boots(self):
         world = World(7, level=2)
-        for spawner in world.spawners[:]:
-            world._hit(spawner, 10000)
+        world.enemies = [Enemy(Vec(14.5, 14.5), "tree")]
+        finish_floor(world)
         self.assertTrue(world.exit_open)
         self.assertTrue(world.enemies)
         self.assertEqual(world.player.unlocked_level, 2)
@@ -87,7 +96,7 @@ class ForestLevelTests(unittest.TestCase):
         self.assertTrue(world.next_level())
         self.assertEqual(world.level, 3)
         self.assertEqual(world.player.unlocked_level, 3)
-        self.assertEqual({e.kind for e in world.enemies}, {"tree", "spider", "archer"})
+        self.assertEqual({e.kind for e in world.enemies}, {"armor", "grimoire", "fairy"})
 
 
 class ArcherTests(unittest.TestCase):

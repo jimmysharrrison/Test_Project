@@ -33,6 +33,13 @@ def release(button, point):
     return pygame.event.Event(pygame.MOUSEBUTTONUP, button=button, pos=click(button, point).pos)
 
 
+def final_phase_defeated(world):
+    # Prepare the terminal state for input tests; the full phase sequence has simulation coverage.
+    world.phase = 3
+    world.spawners_defeated = 9
+    world.spawners.clear()
+
+
 class DesktopTests(unittest.TestCase):
     def run_app(self, script, observer=None, profile_path=None, extra_args=()):
         worlds, frames = [], []
@@ -193,7 +200,7 @@ class DesktopTests(unittest.TestCase):
         def observer(frame, world, renderer):
             snapshots.append((world.level, world.player.unlocked_level))
             if frame == 1:
-                world.spawners.clear()
+                final_phase_defeated(world)
                 world.player.pos = world.exit
         script = [[key(pygame.K_RETURN)], [], [key(pygame.K_RETURN)],
                   [key(pygame.K_ESCAPE)], [click(1, (852, 614))],
@@ -234,14 +241,14 @@ class DesktopTests(unittest.TestCase):
             layouts.append(world.layout)
             floors.append(pygame.image.tobytes(renderer.floor, "RGBA"))
             if frame == 1:
-                world.spawners.clear()
+                final_phase_defeated(world)
                 world.player.pos = world.exit
         script = [[key(pygame.K_RETURN)], [], [key(pygame.K_RETURN)],
                   [click(1, (1054, 823))], [key(pygame.K_ESCAPE)], [key(pygame.K_i)], [key(pygame.K_ESCAPE)]]
         worlds, frames = self.run_app(script, observer)
         world = worlds[0]
         self.assertEqual(world.level, 2)
-        self.assertEqual(world.level_data.name, "Thornveil Forest")
+        self.assertEqual(world.level_data.name, "Thornveil Atrium")
         self.assertNotEqual(layouts[0], layouts[2])
         self.assertNotEqual(floors[0], floors[2])
         self.assertEqual(floors[2], floors[-1])
@@ -254,7 +261,8 @@ class DesktopTests(unittest.TestCase):
             if frame == 2:
                 ultimate_seen.append(world.player.stasis)
             if frame == 7:
-                world.state = "won"
+                world.state = "dead"
+                world.player.hp = 0
         script = [
             [key(pygame.K_RETURN)], [key(pygame.K_r)], [key(pygame.K_ESCAPE)],
             [key(pygame.K_ESCAPE)], [pygame.event.Event(pygame.WINDOWFOCUSLOST)],
@@ -333,7 +341,7 @@ class DesktopTests(unittest.TestCase):
     def test_gate_transition_preserves_player_and_opens_next_depth(self):
         def observer(frame, world, renderer):
             if frame == 1:
-                world.spawners.clear()
+                final_phase_defeated(world)
                 world.player.pos = world.exit
                 world.player.gold = 250
         worlds, _ = self.run_app([[key(pygame.K_RETURN)], [], [key(pygame.K_RETURN)]], observer)
@@ -537,6 +545,33 @@ class DesktopTests(unittest.TestCase):
         self.assertTrue(all(mode == "shop" for mode, _ in frames[1:]))
         self.assertEqual(len(worlds[0].player.inventory.items), 1)
         self.assertEqual(worlds[0].player.inventory.worn("helm").rank, 3)
+
+    def test_story_and_journal_suspend_simulation_and_return_to_correct_screen(self):
+        script = [[click(1, (970, 550))], [key(pygame.K_ESCAPE)], [key(pygame.K_RETURN)],
+                  [key(pygame.K_j)], [], [key(pygame.K_ESCAPE)],
+                  [click(1, (1010, 126))], [key(pygame.K_RETURN)]]
+        _, frames = self.run_app(script)
+        self.assertEqual([mode for mode, _ in frames],
+                         ["story", "title", "playing", "journal", "journal", "playing", "journal", "playing"])
+        self.assertEqual(frames[2][1], frames[3][1])
+        self.assertEqual(frames[3][1], frames[4][1])
+        self.assertGreater(frames[5][1], frames[4][1])
+
+    def test_journal_pauses_phase_countdown_and_terminal_screen_returns_to_title(self):
+        remaining = []
+        def observer(frame, world, renderer):
+            if frame == 1:
+                for spawner in world.spawners[:]:
+                    world._hit(spawner, 10000)
+            if frame == 5:
+                world.state = "won"
+            remaining.append(world.intermission)
+        script = [[key(pygame.K_RETURN)], [key(pygame.K_j)], [], [key(pygame.K_ESCAPE)], [],
+                  [key(pygame.K_RETURN)]]
+        _, frames = self.run_app(script, observer)
+        self.assertEqual(remaining[:3], [3, 3, 3])
+        self.assertLess(remaining[3], 3)
+        self.assertEqual(frames[-1][0], "title")
 
 
 if __name__ == "__main__":

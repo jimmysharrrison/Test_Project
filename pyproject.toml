@@ -1,6 +1,6 @@
 [project]
-name = "embervault"
-version = "0.8.0"
-description = "An isometric Ice Mage action dungeon crawler"
+name = "frost-mage"
+version = "0.9.0"
+description = "A wandering Frost Mage climbs The Tower in an isometric action adventure"
 requires-python = ">=3.14"
 dependencies = ["pygame-ce>=2.5.8,<3"]

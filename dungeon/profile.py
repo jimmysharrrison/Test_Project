@@ -5,6 +5,7 @@ import os
 from pathlib import Path
 
 from .items import Inventory
+from .levels import PLAYABLE_FLOORS
 
 
 def default_path():
@@ -40,6 +41,9 @@ class ProfileStore:
             current = data.get("current_level", values["unlocked_level"])
             if type(current) is not int or not 1 <= current <= values["unlocked_level"]:
                 raise ValueError("Invalid current level")
+            # Old builds repeated the forest indefinitely; keep gear and map those depths to the authored tower.
+            current = min(current, PLAYABLE_FLOORS)
+            values["unlocked_level"] = min(values["unlocked_level"], PLAYABLE_FLOORS)
             rewarded = data.get("first_clear_rewarded", False)
             if type(rewarded) is not bool:
                 raise ValueError("Invalid reward state")

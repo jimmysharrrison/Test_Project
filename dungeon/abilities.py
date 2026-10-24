@@ -1,4 +1,4 @@
-"""Ice Mage spell definitions shared by the simulation and interface."""
+"""Frost Mage spell definitions shared by the simulation and interface."""
 
 from dataclasses import dataclass
 

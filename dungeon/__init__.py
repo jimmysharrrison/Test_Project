@@ -1,1 +1,1 @@
-"""Embervault: an isometric action dungeon crawler."""
+"""Frost Mage: a wandering elemental mage climbs The Tower."""

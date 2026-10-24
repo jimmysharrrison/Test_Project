@@ -1,4 +1,4 @@
-"""Display-independent combat, navigation, and status simulation for the Ice Mage."""
+"""Display-independent combat, navigation, phases, and status simulation for Frost Mage."""
 
 from collections import deque
 from dataclasses import dataclass, field
@@ -8,7 +8,7 @@ from random import Random
 from .abilities import ABILITIES
 from .geometry import Vec
 from .items import BLANK_COST, FROSTWEAVE_FREEZE, Inventory, Item, SLOTS
-from .levels import FROSTFALL, level_for_depth
+from .levels import FROSTFALL, PHASE_COUNTS, PHASE_DELAY, PHASE_SPEEDS, PLAYABLE_FLOORS, level_for_depth
 from .navigation import find_path, flood, neighbors
 
 LAYOUT = FROSTFALL.layout
@@ -18,6 +18,9 @@ ENEMY_STATS = {
     "tree": ("Darkroot Treant", 44, 1.05, 10),
     "spider": ("Thornwood Spider", 26, 1.65, 6),
     "archer": ("Briarbone Archer", 34, 1.15, 8),
+    "armor": ("Bewitched Armor", 58, .90, 12),
+    "grimoire": ("Runaway Grimoire", 30, 1.45, 7),
+    "fairy": ("Potion-Maddened Fairy", 28, 1.60, 7),
 }
 ARCHER_RANGE = 7.5
 ARCHER_WINDUP = .65
@@ -76,6 +79,7 @@ class Enemy:
     level: int = 1
     windup: float = 0
     shot_target: Vec | None = None
+    spawn_phase: int = 1
 
     @property
     def max_hp(self):
@@ -85,6 +89,10 @@ class Enemy:
     @property
     def name(self):
         return ENEMY_STATS[self.kind][0]
+
+    @property
+    def move_speed(self):
+        return ENEMY_STATS[self.kind][2] * PHASE_SPEEDS[self.spawn_phase - 1]
 
     @property
     def statuses(self):
@@ -99,6 +107,8 @@ class Spawner:
     flash: float = 0
     level: int = 1
     forest: bool = False
+    alchemist: bool = False
+    spawn_phase: int = 1
 
     @property
     def max_hp(self):
@@ -106,7 +116,7 @@ class Spawner:
 
     @property
     def name(self):
-        return "Blighted Heart" if self.forest else "Molten Rift"
+        return "Unstable Alembic" if self.alchemist else "Blighted Heart" if self.forest else "Molten Rift"
 
     @property
     def statuses(self):
@@ -155,18 +165,21 @@ class World:
         self.proc_rng = Random(None if seed is None else seed + 8727)
         self.loot_rng = Random(None if seed is None else seed + 1937)
         self.player = player if player is not None else Player()
+        self.level_data = level_for_depth(level)
         self.level = level
         self.player.current_level = level
         self.player.unlocked_level = max(self.player.unlocked_level, level)
-        self.level_data = level_for_depth(level)
         self.layout = self.level_data.layout
         self.level_completed = False
+        self.phase = 1
+        self.intermission = 0.0
+        self.spawners_defeated = 0
+        self._phase_resolved = False
         self.walls = {(x, y) for y, row in enumerate(self.layout) for x, tile in enumerate(row) if tile == "#"}
         self.ice_walls = []
         self._ice_cells = set()
-        self.spawners = [Spawner(Vec(x, y), timer=5 + i * 3, forest=self.level_data.forest)
-                         for i, (x, y) in enumerate(self.level_data.spawners)]
-        self.enemies = [Enemy(Vec(x, y), kind, cooldown=1 + i * .25 if kind == "archer" else 0)
+        self.spawners = []
+        self.enemies = [Enemy(Vec(x, y), kind, cooldown=1 + i * .25 if kind in ("archer", "fairy") else 0)
                         for i, (x, y, kind) in enumerate(self.level_data.enemies)]
         self.pickups = [Pickup(Vec(x, y), kind, value) for x, y, kind, value in self.level_data.pickups]
         for actor in self.enemies + self.spawners:
@@ -181,14 +194,14 @@ class World:
         self.exit = Vec(8.5, 1.5)
         self.state = "playing"
         self.time = 0.0
-        self.message = ("Thornveil Forest: purge three Blighted Hearts. Dodge archer aim lines; Ice Wall blocks arrows."
-                        if self.level_data.forest else "Right click to move. QWER to cast. Seal the three rifts.")
+        self.message = self.level_data.phase_lines[0]
         self.message_time = 7.0
         self.selected = None
         self.path = []
         self.destination = None
         self._path_tile = None
         self._distances = {}
+        self._activate_phase(1, initial=True)
 
     def gold_value(self, base):
         return round(base * (1 + .15 * (self.level - 1)))
@@ -199,7 +212,51 @@ class World:
 
     @property
     def exit_open(self):
-        return not self.spawners
+        return self.phase == 3 and not self.spawners and self.intermission <= 0
+
+    @property
+    def phase_spawner_count(self):
+        return PHASE_COUNTS[self.phase - 1]
+
+    def _activate_phase(self, phase, initial=False):
+        reached = flood((floor(self.player.pos.x), floor(self.player.pos.y)), self.blocked)
+        reserved = []
+        for x, y in self.level_data.phase_spawners[phase - 1]:
+            preferred = Vec(x, y)
+            candidates = sorted((Vec(cx + .5, cy + .5) for cx, cy in reached),
+                                key=lambda point: ((point - preferred).length(), point.x, point.y))
+            position = next((point for point in candidates if self.walkable(point, .55)
+                             and (point - self.player.pos).length() >= 1
+                             and all((point - enemy.pos).length() >= .8 for enemy in self.enemies)
+                             and all((point - other).length() >= 1.25 for other in reserved)), None)
+            if position is None:
+                # Temporary terrain can delay a phase; never materialize inside an actor.
+                return False
+            reserved.append(position)
+        self.phase, self.intermission, self._phase_resolved = phase, 0.0, False
+        self.spawners = [Spawner(pos, timer=(5 + i * 3) if initial else (2 + i), level=self.level,
+                                 forest=self.level_data.forest, alchemist=self.level_data.alchemist,
+                                 spawn_phase=phase) for i, pos in enumerate(reserved)]
+        for spawner in self.spawners:
+            spawner.hp = spawner.max_hp
+            if not initial:
+                self.effects.append(Effect(spawner.pos, "spawn", .8, .8))
+        if not initial:
+            self.announce(f"Phase {phase}/3: {self.level_data.phase_lines[phase - 1]}")
+            self.events.append("phase")
+        return True
+
+    def _phase_cleared(self):
+        if self.spawners or self._phase_resolved:
+            return
+        self._phase_resolved = True
+        self._collect_remaining_rewards()
+        if self.phase < 3:
+            self.intermission = PHASE_DELAY
+            self.announce(f"Phase {self.phase}/3 cleared. Next phase in {PHASE_DELAY:g} seconds. Reposition and prepare!")
+            self.events.append("phase_clear")
+        else:
+            self._complete_level()
 
     def walkable(self, pos, radius=0.23):
         if not (0 <= pos.x < 17 and 0 <= pos.y < 17):
@@ -284,7 +341,7 @@ class World:
     def can_cast(self, key):
         player = self.player
         if self.state != "playing":
-            return "The descent has ended."
+            return "This ascent has ended."
         if player.stasis > 0:
             return "Encased in ice. Wait for the shatter."
         if player.cooldowns[key] > 0:
@@ -319,7 +376,7 @@ class World:
         before = flood(start, self.blocked)
         after = flood(start, self.blocked | set(cells))
         if not before.difference(cells).issubset(after):
-            return cells, "That wall would seal off part of the glade."
+            return cells, "That wall would seal off part of the floor."
         return cells, ""
 
     def cast(self, key, target=None, feedback=True):
@@ -403,12 +460,13 @@ class World:
             if other is not enemy and 0 < length < .5:
                 separation = separation + offset.unit() * ((.5 - length) * 2)
         direction = (direction + separation).unit()
-        speed = ENEMY_STATS[enemy.kind][2]
+        speed = enemy.move_speed
         if enemy.chilled > 0:
             speed *= 1 - ABILITIES["q"].slow
         enemy.pos = self.move(enemy.pos, direction * speed * dt)
 
     def _archer(self, enemy, dt):
+        fairy = enemy.kind == "fairy"
         if enemy.windup > 0:
             # Aim locks at draw time: arrows never home in on a moving player.
             if not self._line_clear(enemy.pos, enemy.shot_target):
@@ -418,18 +476,19 @@ class World:
             enemy.windup = max(0, enemy.windup - dt)
             if enemy.windup == 0:
                 direction = (enemy.shot_target - enemy.pos).unit()
-                damage = round(ENEMY_STATS["archer"][3] * (1 + .12 * (enemy.level - 1)))
-                self.projectiles.append(Projectile(enemy.pos + direction * .4, direction * 5.5,
-                                                   life=1.7, damage=damage, hostile=True))
+                damage = round(ENEMY_STATS[enemy.kind][3] * (1 + .12 * (enemy.level - 1)))
+                self.projectiles.append(Projectile(enemy.pos + direction * .4, direction * (4.4 if fairy else 5.5),
+                                                   life=1.7, damage=damage, hostile=True,
+                                                   spell="potion" if fairy else "arrow"))
                 enemy.shot_target = None
-                enemy.cooldown = ARCHER_COOLDOWN
-                self.events.append("arrow")
+                enemy.cooldown = 2.3 if fairy else ARCHER_COOLDOWN
+                self.events.append("potion_cast" if fairy else "arrow")
             return
         distance = (self.player.pos - enemy.pos).length()
-        if distance <= ARCHER_RANGE and self._line_clear(enemy.pos, self.player.pos):
+        if distance <= (6.5 if fairy else ARCHER_RANGE) and self._line_clear(enemy.pos, self.player.pos):
             if enemy.cooldown <= 0:
                 enemy.shot_target = self.player.pos
-                enemy.windup = ARCHER_WINDUP
+                enemy.windup = .8 if fairy else ARCHER_WINDUP
             elif distance < 2.6:
                 self._move_enemy(enemy, dt, (enemy.pos - self.player.pos).unit() if distance else Vec(1, 0))
         else:
@@ -466,13 +525,14 @@ class World:
                 self.selected = None
             if isinstance(target, Spawner):
                 self.spawners.remove(target)
+                self.spawners_defeated += 1
                 self.events.append("break")
                 self.pickups.append(Pickup(target.pos, "gold", self.gold_value(75)))
                 self._drop_equipment(target.pos, guaranteed=True)
-                label = "Blighted Heart purged" if target.forest else "Rift sealed"
+                label = "Alembic shattered" if target.alchemist else "Blighted Heart purged" if target.forest else "Rift sealed"
                 self.announce(f"{label}. {len(self.spawners)} remaining.")
                 if not self.spawners:
-                    self._complete_level()
+                    self._phase_cleared()
             else:
                 self.enemies.remove(target)
                 self.player.kills += 1
@@ -495,11 +555,14 @@ class World:
                 shot.pos = shot.pos + shot.velocity * (travel / steps)
                 if not self.walkable(shot.pos, 0.06):
                     shot.life = 0
-                    self.effects.append(Effect(shot.pos, "spark", 0.2, 0.2))
+                    splash = shot.hostile and shot.spell == "potion"
+                    self.effects.append(Effect(shot.pos, "potion_splash" if splash else "spark", .3, .3))
                     break
                 if shot.hostile:
                     if (self.player.pos - shot.pos).length() < .32:
                         self._hurt_player(shot.damage)
+                        if shot.spell == "potion":
+                            self.effects.append(Effect(shot.pos, "potion_splash", .4, .4))
                         shot.life = 0
                         break
                     continue
@@ -535,12 +598,13 @@ class World:
                 for offset in options:
                     pos = spawner.pos + offset
                     if self.walkable(pos):
-                        if self.level_data.forest:
+                        if self.level_data.forest or self.level_data.alchemist:
                             kind = self.rng.choices(self.level_data.spawn_kinds,
                                                     weights=self.level_data.spawn_weights)[0]
                         else:
                             kind = "skitter" if self.rng.random() < .35 else "husk"
-                        enemy = Enemy(pos, kind, level=self.level, cooldown=1 if kind == "archer" else 0)
+                        enemy = Enemy(pos, kind, level=self.level, cooldown=1 if kind in ("archer", "fairy") else 0,
+                                      spawn_phase=spawner.spawn_phase)
                         enemy.hp = enemy.max_hp
                         self.enemies.append(enemy)
                         self.effects.append(Effect(pos, "spawn", 0.6, 0.6))
@@ -551,6 +615,11 @@ class World:
             return
         dt = min(max(dt, 0), 1 / 30)
         self.time += dt
+        if self.intermission > 0:
+            self.intermission = max(0, self.intermission - dt)
+            if self.intermission <= 1e-8:
+                if not self._activate_phase(self.phase + 1):
+                    self.intermission = .2
         self.message_time = max(0, self.message_time - dt)
         player = self.player
         player.mana = min(100, player.mana + 8 * dt)
@@ -592,7 +661,7 @@ class World:
             if was_frozen:
                 enemy.windup, enemy.shot_target = 0, None
                 continue
-            if enemy.kind == "archer":
+            if enemy.kind in ("archer", "fairy"):
                 self._archer(enemy, dt)
                 continue
             distance = (player.pos - enemy.pos).length()
@@ -625,10 +694,11 @@ class World:
                     self.events.append("gold")
                     self.effects.append(Effect(pickup.pos, "gold", 0.6, 0.6, f"+{pickup.value}"))
                 self.pickups.remove(pickup)
+        if not self.spawners:
+            self._phase_cleared()
         if self.exit_open:
-            self._complete_level()
             if (player.pos - self.exit).length() < 0.8:
-                self.state = "cleared"
+                self.state = "won" if self.level == PLAYABLE_FLOORS else "cleared"
                 self.stop()
                 # Collect remaining earned drops before the room is discarded.
                 self._collect_remaining_rewards()
@@ -654,10 +724,10 @@ class World:
             reward = player.inventory.create("boots", 1, "reward")
             player.inventory.add(reward)
             player.first_clear_rewarded = True
-            self.announce("Level 1 cleared! Everfrost Treads awarded. The gate is open. I opens gear.")
+            self.announce("Ground floor cleared! Everfrost Treads awarded. The stair portal is open. I opens gear.")
             self.events.append("loot")
         else:
-            self.announce(f"Level {self.level} cleared! The gate is open. Your loot has been collected.")
+            self.announce(f"Floor {self.level} cleared! All three phases defeated. The stair portal is open.")
         self._collect_remaining_rewards()
 
     def _collect_remaining_rewards(self):
@@ -671,7 +741,7 @@ class World:
                 self.pickups.remove(pickup)
 
     def next_level(self):
-        if self.state != "cleared":
+        if self.state != "cleared" or self.level >= PLAYABLE_FLOORS:
             return False
         player = self.player
         player.pos = Vec(3.5, 13.5)
@@ -682,12 +752,12 @@ class World:
         seed = None if self.seed is None else self.seed + 1
         fresh = World(seed, player=player, level=self.level + 1)
         self.__dict__.update(fresh.__dict__)
-        self.announce(f"Level {self.level}: {self.level_data.name}. Your equipment and gold carry forward.")
+        self.announce(f"Floor {self.level}: {self.level_data.phase_lines[0]}")
         return True
 
     def _can_manage_gear(self):
         if self.state == "dead" or self.player.hp <= 0:
-            self.announce("Return to the glade before changing equipment.")
+            self.announce("Return to The Tower before changing equipment.")
             return False
         if self.player.stasis > 0:
             self.announce("Close the armory and wait for Glacial Prison to shatter before changing gear.")

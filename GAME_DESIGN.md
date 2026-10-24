@@ -1,150 +1,144 @@
-# Embervault — Ice Mage and Frostweave Enchanter
+# Frost Mage
 
-## Direction
+## Story
 
-An original isometric action dungeon crawler combining Gauntlet's pressure from
-enemy generators with mouse movement, skill shots, and a small spell kit.
-The playable hero is a female Ice Mage who controls crowds through cold.
+The heroine is an as-yet nameless Frost Mage and a wanderer. She trained at
+Drearamore, a college focused on the elemental arts, whose motto is
+**elementis fidelis est**. Her travels bring her to **The Tower**, a twenty-story
+structure where each floor conceals a different kind of magical disorder.
+
+The opening story arc focuses on the first five floors. This build authors the
+first three; floors 4 and 5 remain visible as coming later. Reaching the third
+floor's exit ends this chapter instead of generating another placeholder room.
+The title's Story screen introduces the setting. Each floor has a journal
+opened with J, a story subtitle, and phase-specific narrative announcements.
 
 ## Current playable loop
 
-The title screen offers Start Game, Continue, Level Select, How to Play, and
-Quit. Start Game creates a fresh level-1 character and asks before replacing an
-existing one. Continue uses the current level, separately from the highest
-unlocked level. Level Select preserves gear and permits only reached levels.
-Escape opens a pause menu with Resume, How to Play, and Main Menu. Frontend
-screens suspend simulation and accept mouse or keyboard navigation.
+The title offers Start Game, Continue, Level Select, How to Play, The Story,
+and Quit. Start Game creates a fresh ground-floor character after confirmation
+if one exists. Continue resumes the current floor, separately from the highest
+reached floor. Level Select preserves gear and permits only reached, authored
+floors. Escape opens Resume, How to Play, and Main Menu. Menus and the journal
+suspend simulation and support mouse or keyboard navigation.
 
-1. Enter Frostfall Glade, a forest ruin occupied by molten skeletons and skitters.
-2. Right click to move, or hold right mouse to continually follow the cursor.
-3. Aim and cast QWER spells; select enemies with left click to inspect them.
-4. Destroy three rifts to open the gate. Surviving enemies are optional.
-5. Collect ranked gear, equip it with I, and spend gold with B.
-6. Reach the gate and enter Thornveil Forest; equipment and gold persist.
-7. Fight dark-magic treants, spiders, and skeletal archers; purge three Blighted
-   Hearts to open the next portal.
+1. Enter The Tower's ground floor, occupied by molten skeletons and skitters.
+2. Right click to move, aim with the mouse, and cast QWER frost spells.
+3. Destroy two spawners, wait three seconds, destroy three, then destroy four.
+4. Collect ranked gear, equip it with I, and visit the enchanter with B.
+5. Survive the remaining mobs while reaching the stair portal.
+6. Climb into Thornveil Atrium, then the Alchemist's Workshop.
+7. Clear all three phases on each floor, carrying equipment and gold forward.
 
-## Interaction rules
+## Encounter phases
 
-- Right click owns movement. Orders persist until arrival, cancellation, or replacement.
-- Pathfinding routes around stone and temporary ice; unreachable clicks resolve to reachable floor.
-- Left click owns selection and UI. It never fires an automatic attack.
-- QWER hotkeys cast toward the cursor or around the caster, according to the spell.
-- Spell buttons use the same resource, cooldown, and validity rules as hotkeys.
-- Clicking Q or E arms aiming. Left click confirms; right click or Escape cancels.
-- Clicking W or R casts around the mage immediately.
-- Brief casts pause movement; the existing order resumes afterward.
-- Glacial Prison prevents movement, casting, potion use, and damage until it shatters.
-- Escape pauses, focus loss pauses, I opens inventory, and B opens the enchanter.
-- Enter advances a cleared level or restarts after death with earned gear retained.
+Every authored floor uses the same controller:
 
-## Provisional kit
+| Phase | Spawners | Movement speed of new mobs |
+| --- | ---: | ---: |
+| 1 | 2 | 100% |
+| 2 | 3 | 115% |
+| 3 | 4 | 130% |
 
-| Slot | Ability | Role |
+Destroying a phase's last spawner banks gold and equipment and starts a
+three-second countdown. Survivors keep attacking and retain their birth-phase
+speed; the player may move and heal during the wait. Health, mana, and spell
+cooldowns continue normally. Upcoming spawners are previewed with ground rings.
+
+Spawners use clear reachable floor near the authored location when a player,
+survivor, or temporary Ice Wall occupies it. No spawner appears inside terrain
+or a character. A blocked phase is deferred until safe placement is possible.
+The portal stays sealed until phase 3 is finished. Surviving mobs are optional.
+The first-floor boots are awarded once, only after that final clear.
+
+## Floors
+
+**1 — The Ground Floor:** a broad stone entrance hall with a central inlay and
+four equally spaced load-bearing columns around the center. These are solid
+obstacles supporting the rest of the twenty-story tower. Molten Skeletons and
+Ember Skitters emerge from ember rifts. Their base combat roles are retained.
+
+**2 — Thornveil Atrium:** a vast indoor garden under a glass vault. Stone walls
+and tower windows frame moss, roots, trees, mushrooms, and green wisps. Darkroot
+Treants, Thornwood Spiders, and Briarbone Archers emerge from Blighted Hearts
+in a 45% / 35% / 20% mix. The corrupted garden hints at chemical trouble above.
+
+**3 — The Alchemist's Workshop:** the wizard's little helper fairies spilled the
+potions and lost their senses. Bewitched Armor walks without an owner, Runaway
+Grimoires flap between benches, and Potion-Maddened Fairies throw unstable magic.
+Unstable Alembics spawn these mobs in a 35% / 35% / 30% mix. Benches obstruct
+movement; colored spills, glowing bottles, and bubbling stills establish the
+accident without adding extra ground-damage mechanics in this build.
+
+Archers lock an aim line during a 0.65-second draw, shoot at 5.5 tiles/second,
+and wait 2.8 seconds before drawing again. Fairies aim for 0.8 seconds, throw
+potion bolts at 4.4 tiles/second, and wait 2.3 seconds before casting again.
+Both seek line of sight, retreat when approached, and can be frozen to interrupt
+the windup. Terrain and Ice Wall block their shots; Glacial Prison absorbs them.
+
+## Interaction rules and spells
+
+- Right click owns movement. Orders persist until arrival, stop, or replacement.
+- Paths route around permanent terrain and temporary ice.
+- Left click owns selection and UI; it never performs an automatic attack.
+- QWER hotkeys and spell buttons share the same resource and cooldown checks.
+- Q and E buttons arm targeting; left click confirms, right click or Escape cancels.
+- W and R cast around the mage. Brief casts interrupt movement, then orders resume.
+- Glacial Prison prevents movement, casting, potion use, and damage until shatter.
+- Escape pauses, focus loss pauses, I opens gear, B opens the shop, and J opens the journal.
+- Enter climbs after a floor clear, retries the current floor after death, or returns
+  to the title after the third floor's ending.
+
+| Key | Ability | Role |
 | --- | --- | --- |
 | Q | Frost Bolt | Free repeatable skill shot; damage and chill |
-| W | Frost Nova | Close-range damage and a hard freeze for breathing room |
-| E | Ice Wall | Temporary terrain to redirect a crowd |
-| R | Glacial Prison | Long-cooldown defensive stasis followed by a damaging shatter |
+| W | Frost Nova | Close damage and hard freeze |
+| E | Ice Wall | Temporary terrain that blocks movement and projectiles |
+| R | Glacial Prison | Defensive stasis followed by an area shatter |
 
-Initial numerical values are centralized in `dungeon/abilities.py` and documented
-in README.md. Treat them as starting points for playtesting. Freeze stops movement
-and attacks; chill slows movement. Molten rifts take damage but cannot be frozen.
-Temporary walls must not overlap actors or cut a reachable area off from the map.
+Base values remain in `dungeon/abilities.py` and README.md. Freeze stops movement
+and attacks; chill slows movement. Spawners take damage but cannot be frozen.
+Temporary walls cannot overlap actors or disconnect reachable parts of a floor.
 
-## Equipment and progression
+## Equipment and persistence
 
 Five slots: Helm (damage), Chest (maximum health), Legs (flat armor), Gloves
-(cooldown reduction), and Boots (speed and critical-hit bonuses). Dropped ranks
-are 1–3; enchanting purchased Rank 0 blanks or existing loot can reach Rank 5.
-The final upgrade costs 15,000 gold. Rank 1 boots are guaranteed once for the
-first level clear, while higher-rank boots remain rare drops or costly enchants.
+(cooldown reduction), and Boots (speed, critical chance, and critical damage).
+Drops are Rank 1–3; purchased Rank 0 blanks and loot can be enchanted through
+Rank 5. The final upgrade costs 15,000 gold per item. First-floor Rank 1 boots
+remain a one-time reward after all three phases.
 
-Enchanter blanks form the Frostweave set. All five pieces must be equipped at
-Rank 3+; backpack ownership does not count. The lowest equipped piece sets a
-15% / 25% / 40% Frost Bolt freeze chance at full-set Rank 3 / 4 / 5. Freeze lasts
-one second and preserves any longer existing freeze. Set identity survives
-enchants and saves and is separate from dropped/reward gear. Old shop blanks
-are recognized; old enchanted items without origin metadata are not retagged.
+Purchased blanks form Frostweave. All five pieces must be equipped at Rank 3+.
+The lowest equipped rank sets a 15% / 25% / 40% Frost Bolt freeze chance at
+full-set Rank 3 / 4 / 5. Freeze lasts one second and never shortens a longer
+freeze. Set identity survives enchanting and saving. Legacy shop blanks are
+recognized; old enchanted items without origin metadata are not retagged.
 
-The enchanter uses an explicit target slot. Worn or backpack gear can be dragged
-there, with a selected-item button as an alternative. The target is a UID
-reference, so placement does not move or unequip the item. Enchant charges the
-displayed cost only when pressed and applies only to the loaded target. Future
-enchantments can build on this target selection. The shop includes a paged
-backpack and accepts drags that hover the Enchanter tab from inventory.
+The enchanter has an explicit target slot, accepts worn or backpack drags, and
+provides a Place Selected Item alternative. Placing the UID reference does not
+move or unequip gear; only pressing Enchant charges gold. Upgrade markers,
+prioritized backpack pages, tooltips, confirmed Rank 3+ sales, rank-filtered Sell
+All, and confirmed destruction remain available in paused menus. Equipped items
+cannot be sold. Confirmed quotes validate every item before paying or removing.
 
-Inventory, tooltips, live effective stats, a paged backpack, and the enchanter
-are available in paused menus. Spare items can be sold for a rank-based gold
-value or destroyed after confirmation. Equipped items must be unequipped first.
-Upgrades have green checks/borders and sort first in the backpack. Comparisons
-use rank within the matching equipment slot. Single sales at Rank 3 or higher
-require confirmation. Rank-filtered Sell All includes every matching backpack
-item across pages, keeps equipped gear, and always confirms the count and price.
-Confirmations warn when upgrades are included and validate the exact quoted
-items before any removal or payment.
-Gear cannot be changed during Glacial Prison.
-Chest swaps cannot heal the player. Saves preserve gear, enchants, gold, and
-current level and highest reached depth locally. Entering a new level unlocks
-it permanently for that character; clearing its predecessor only opens the
-portal. Replaying an earlier level keeps the higher unlock. Death retries the
-current level. Existing saves preserve their previous unlocks.
-See `docs/EQUIPMENT.md` for the initial balance tables.
+Chest swaps cannot heal the mage. Saves preserve equipment, gold, potions, kills,
+current floor, highest reached floor, and the first-clear reward state. Replays
+keep unlocks; entering the next floor unlocks it. Rooms and phases restart when
+loading or retrying. Old endless depths above 3 map to floor 3 without losing
+gear or gold. The legacy save location remains to preserve local characters.
+See `docs/EQUIPMENT.md` for the complete balance and economy tables.
 
-On a clear, remaining equipment and gold are collected. At the exit, the mage
-advances from the original arena to the distinct forest layout. Depths 3 onward
-repeat the forest with scaled enemies and gold. Additional chapters and bosses
-remain future milestones.
+## Architecture and next work
 
-## Level 2: Thornveil Forest
+Simulation and navigation remain independent of Pygame. World coordinates are
+projected to an isometric screen. Selection, movement, and skill-shot aim are
+separate state. Phase countdowns and status timers use simulation time, so
+pausing freezes them. Authored floor data contains terrain, story, enemy rosters,
+and three spawner layouts; future floors use the same controller.
 
-The forest uses tree obstacles, a worn earth path, undergrowth, roots, mushrooms,
-green wisps, and purple blight. Darkroot Treants replace Molten Skeletons and
-Thornwood Spiders replace Ember Skitters; their base melee roles are preserved.
-Briarbone Archers are nature-themed skeletons with bows and leaf-covered antlers.
-Blighted Hearts replace the three molten generators and spawn only forest mobs
-(45% treants, 35% spiders, 20% archers).
+The next story milestones are floors 4 and 5. Further work can develop their
+themes, encounters, and bosses, followed by final directional sprites and a
+balance pass through the opening arc. Co-op remains a separate future project.
 
-Archers seek a clear shot within 7.5 tiles and retreat inside 2.6 tiles while
-their bow is on cooldown. A 0.65-second draw displays the locked aim direction;
-the arrow flies straight at 5.5 tiles/second and expires after 1.7 seconds.
-After firing, the archer waits 2.8 seconds before drawing again. Freeze cancels
-the draw. Terrain and Ice Wall block both sight and arrows. Arrows share the
-player's armor, post-hit immunity, and Glacial Prison protection with melee hits.
-
-## Visual direction
-
-Written reference prompts were recovered from the recent chat titled **Ice Mage
-Game Art**. The chat reader exposed the user's descriptions without the generated
-image files. The current original procedural interpretation uses:
-
-- A female mage with silver hair and a deep blue cloak edged in silver.
-- A pale fur collar inspired by luxurious cold-weather clothing.
-- An original cloak/robe glyph representing “forever frozen.”
-- Icy cyan projectiles, faceted ice walls, frozen shells, and expanding nova rings.
-- Molten demonic skeletons and ember-colored rifts.
-- A dark forest ruin with sharp silhouettes and readable spell effects.
-
-Use this build to evaluate controls and the class identity. Final sprites,
-animation, materials, and environments should follow a more detailed art pass.
-
-## Architecture
-
-Keep simulation and navigation independent of Pygame. World coordinates remain
-separate from isometric screen coordinates. Enemy selection, movement orders,
-and skill-shot aim are separate state. Status timers and cooldowns use elapsed
-time. Keyboard and UI actions share one casting path.
-
-## Next milestones
-
-1. Tune click-to-move responsiveness, targeting, spell costs, and crowd pressure.
-2. Refine the mage silhouette and create directional animated sprites.
-3. Add more encounters, terrain, enemies, and a boss.
-4. Tune equipment, the enchanting economy, and depth scaling from playtesting.
-5. Evaluate co-op as a separate design and networking milestone.
-
-## Runtime
-
-Python 3.14.8 desktop application using Pygame CE, with two distinct arenas,
-progressive depth scaling, and one hero.
-The original console game remains available with `python main.py --text`.
+Runtime: Python 3.14.8 and Pygame CE, with three authored tower interiors and
+one Frost Mage. The preserved console prototype runs with `main.py --text`.

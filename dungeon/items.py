@@ -1,4 +1,4 @@
-"""Ranked Ice Mage equipment, ownership, and the initial economy."""
+"""Ranked Frost Mage equipment, ownership, and the initial economy."""
 
 from dataclasses import dataclass, replace
 

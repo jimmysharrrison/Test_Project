@@ -1,17 +1,19 @@
-# Embervault — Frostweave Enchanter
+# Frost Mage
 
 A Python 3.14 desktop action dungeon crawler inspired by Gauntlet and Diablo.
-Play a female Ice Mage in Frostfall Glade: move with the mouse, control crowds
-with ice, collect ranked equipment, enchant it, and destroy three molten rifts
-to enter level 2: Thornveil Forest, with cursed trees, spiders, and skeletal archers.
+An as-yet nameless wanderer, trained at Drearamore's elemental college, arrives
+at **The Tower**. She carries its motto, **elementis fidelis est**, into a
+twenty-story mystery. This build covers the first three floors of the opening
+five-floor arc: a stone entrance hall, a vast indoor forest atrium, and an
+alchemist's workshop where spilled potions have driven the helpers mad.
 
 ![Title menu](docs/title.png)
 
-![Thornveil Forest, level 2](docs/forest.png)
+![The Tower's ground floor](docs/preview.png)
 
-![Equipment inventory](docs/inventory.png)
+![Thornveil Atrium, floor 2](docs/forest.png)
 
-![Ice Mage gameplay](docs/preview.png)
+![The Alchemist's Workshop, floor 3](docs/alchemist.png)
 
 ## Install or update
 
@@ -40,7 +42,7 @@ menu and waits for your choice; combat does not run behind it.
 
 ## Title menu and starting over
 
-- **Start Game** begins a fresh Ice Mage at level 1. If a character exists, a
+- **Start Game** begins a fresh Frost Mage on the ground floor. If a character exists, a
   confirmation explains that starting over replaces its gear, gold, and unlocks.
 - **Continue** resumes your current level with your saved character. A fresh
   room is loaded after reopening the app; returning from the pause menu keeps
@@ -51,6 +53,8 @@ menu and waits for your choice; combat does not run behind it.
   with only level 1 available.
 - **How to Play** explains mouse movement, targeting, spells, healing, gear,
   and portal progression. It is also available from the pause menu.
+- **The Story** introduces the wanderer, Drearamore, and The Tower. **J** opens
+  the current floor's journal, including its story and three encounter phases.
 - **Quit** closes the game. Merely browsing menus does not create a character.
 
 Click buttons, or use **Up / Down** and **Enter**. Press **Escape** in game,
@@ -78,7 +82,8 @@ level. The game stays paused while you read instructions or browse levels.
 | M | Mute / unmute effects |
 | I / click Gear | Open or close inventory |
 | B | Open or close the shop and enchanter |
-| Enter / click the end-screen button | Continue to the next depth, or restart after death |
+| J / click Floor Journal | Read the floor's story and phase objectives; combat pauses |
+| Enter / click the end-screen button | Climb to the next floor, retry after death, or return to title at chapter end |
 | Up / Down + Enter | Navigate title, level, instructions, and pause menus |
 
 Left click selects enemies; it never performs an automatic attack. A selection
@@ -89,7 +94,7 @@ invalid placement. Clicking a disabled spell reports why it cannot be cast.
 WASD and left-click attacks from the Warden prototype have been replaced. E and R
 are now spells; healing moved to 1 and restarting moved to Enter.
 
-## Ice Mage spells
+## Frost Mage spells
 
 | Key | Spell | Effect | Mana | Cooldown |
 | --- | --- | --- | --- | --- |
@@ -189,19 +194,37 @@ price, and drop rate. The menu displays your current effective character stats.
 
 ## Progression and presentation
 
-Destroy all three rifts to complete the level and open the gate. Surviving
-monsters are optional. Remaining equipment and gold are banked on the clear.
-Reach the gate, then press Enter to continue. Gear and gold carry into the next
-depth. Health and mana refill, and spell cooldowns reset between depths.
+Read [The Story](docs/story.png) from the title menu or press **J** for the
+current floor's journal. The [phase preview](docs/phase.png) shows the countdown
+and next spawner locations.
 
-**Level 1 — Frostfall Glade** keeps the original Molten Skeletons, Ember
-Skitters, and Molten Rifts. **Level 2 — Thornveil Forest** has a different layout,
-mossy earth, tree obstacles, roots, mushrooms, and drifting green wisps. Darkroot
-Treants replace the skeletons, Thornwood Spiders replace the skitters, and
-Briarbone Archers add ranged pressure. Destroy three **Blighted Hearts** to
-open the forest portal; surviving monsters remain optional.
+Each floor has **three phases**. Destroy the current phase's spawners to begin
+a **3-second intermission**, then the next group appears. Survivors can still
+attack during the wait. The phase banner shows the countdown, remaining
+spawners, and movement speed; rings preview the next spawn locations. Spawners
+relocate to nearby clear floor if an actor or Ice Wall occupies a planned spot.
 
-| Forest enemy | Level 2 health | Damage before armor | Behavior |
+| Phase | Spawners | New mob movement speed |
+| --- | ---: | ---: |
+| 1 | 2 | 100% |
+| 2 | 3 | 115% |
+| 3 | 4 | 130% |
+
+The stair portal opens only after all **nine** spawners have fallen. Surviving
+monsters are optional. Equipment and gold are banked after each phase. The
+one-time first-floor boots arrive only after the final phase. Health, mana,
+and cooldowns continue normally between phases; they reset when climbing to
+the next floor. Gear, gold, potions, and kills carry forward.
+
+**Floor 1 — The Ground Floor:** worn stone, a central inlay, and four equally
+spaced load-bearing columns. Molten Skeletons and Ember Skitters emerge from
+ember rifts between the pillars.
+
+**Floor 2 — Thornveil Atrium:** the former forest is now an indoor garden under
+a glass vault, surrounded by the stone walls of The Tower. Darkroot Treants,
+Thornwood Spiders, and Briarbone Archers emerge from Blighted Hearts.
+
+| Atrium enemy | Floor 2 health | Damage before armor | Behavior |
 | --- | --- | --- | --- |
 | Darkroot Treant | 51 | 11 | Slow melee attacker animated by dark magic |
 | Thornwood Spider | 30 | 7 | Fast melee attacker |
@@ -214,12 +237,28 @@ and Ice Wall block arrows; freeze interrupts a bow draw, and Glacial Prison
 absorbs incoming arrows. Armor and the shared brief protection after taking a
 hit apply to arrow damage too. Archers navigate around blocked sight lines.
 
-Depths 3 onward currently reuse the forest with stronger enemies and higher
-gold rewards. Each additional depth adds 15% to base enemy/spawner health and
-gold, and 12% to base attack damage. After reaching the forest, choose it from
-**Level Select** to replay it. The optional `--level N` flag can choose a reached
-level, but does not bypass locks in interactive play. Headless previews may
-use any depth, for example `--headless --level 2 --frames 120`.
+**Floor 3 — The Alchemist's Workshop:** bubbling alembics, stocked benches,
+colored spills, and magic gone wrong. The wizard's little helper fairies have
+spilled the potions and lost their senses, while enchanted belongings run amok.
+
+| Workshop enemy | Floor 3 health | Damage before armor | Behavior |
+| --- | ---: | ---: | --- |
+| Bewitched Armor | 75 | 15 | Slow, tough melee attacker |
+| Runaway Grimoire | 39 | 9 | Faster animated book |
+| Potion-Maddened Fairy | 36 | 9 | Aims for 0.8s, then throws a dodgeable potion bolt |
+
+Fairy bolts travel at 4.4 tiles/second, with 2.3 seconds between casts after
+release. Terrain and Ice Wall block them; freeze interrupts the cast. Each
+additional floor adds 15% to base enemy/spawner health and gold, and 12% to
+base attack damage. Phase speed changes apply to newly spawned mobs; survivors
+keep the speed of their original phase.
+
+Floors 4 and 5 are visible as **Coming Later**. Clearing floor 3 reaches a
+**To Be Continued** screen and returns to the title menu; there is no repeated
+placeholder floor. The Tower itself remains twenty stories in the story.
+Level Select replays reached floors while preserving gear. The optional
+`--level N` flag chooses a reached floor in interactive play. Headless previews
+can choose any implemented floor (1–3), for example `--headless --level 3 --frames 120`.
 
 Gold and equipment can be collected on contact before the clear. Food heals
 injured players. Potions restore up to 40 health, respect your equipped maximum
@@ -227,18 +266,18 @@ health, and are not consumed at full health.
 
 The local character saves equipment, enchantments, gold, potions, kills, current
 level, and highest reached depth automatically. On Windows the save is in
-`%LOCALAPPDATA%\Embervault\profile.json`. Existing saves retain their unlocks.
+`%LOCALAPPDATA%\Embervault\profile.json`. The legacy folder name is retained to
+preserve existing characters after the rename. Old endless depths above 3 map
+to floor 3, retaining equipment, gold, and the first-clear reward state.
 Continue loads your current level, which can differ from your highest unlock.
 Use `uv run main.py --no-save` for a temporary
 character, or `--profile PATH` to choose another save file. Profile errors appear
 in-game; an invalid profile is preserved instead of being overwritten.
 
-The visual direction follows the written prompts in the recent **Ice Mage Game
-Art** chat: a blue-and-silver female mage, pale fur collar, an original “forever
-frozen” glyph, molten demonic skeletons, and a dark forest setting. This build
-uses original procedural artwork and synthesized sound. The generated reference
-image files were not available through the chat reader. Detailed animated
-sprites and final environmental art remain future work.
+The visual direction keeps the blue-and-silver female mage, pale fur collar,
+and original frozen glyph from the earlier art direction, now within the
+interiors of The Tower. This build uses procedural artwork and synthesized
+sound. Detailed animated sprites and final environmental art remain future work.
 
 Below 35% of maximum health, a dark red vignette grows around the screen edges.
 It strengthens as health falls and clears when healed above the threshold. The

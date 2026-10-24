@@ -41,8 +41,8 @@ class SpellTests(unittest.TestCase):
         self.assertLess(self.world.player.hp, 100)
 
     def test_nova_does_not_hit_through_stone(self):
-        self.world.player.pos = Vec(3.5, 3.5)
-        enemy = Enemy(Vec(5.5, 3.5))
+        self.world.player.pos = Vec(4.5, 5.5)
+        enemy = Enemy(Vec(6.5, 5.5))
         self.world.enemies = [enemy]
         self.world.cast("w")
         self.assertEqual(enemy.hp, 44)

@@ -1,6 +1,6 @@
 # Frostbound Armory — initial balance
 
-The baseline Ice Mage has 100 maximum health, 3.1 movement speed, a 5% critical
+The baseline Frost Mage has 100 maximum health, 3.1 movement speed, a 5% critical
 chance, and a 2× critical damage multiplier. Armor is flat incoming-hit damage
 reduction, with a minimum of 1 damage for a successful enemy hit. These values
 fit the existing real-time combat; this is not a tabletop armor-class system.
@@ -157,19 +157,21 @@ and destruction update the existing save automatically. Sold or destroyed gear
 cannot be recovered, and disposing of the first-clear boots does not reset
 that one-time reward.
 
-## Depth progression and persistence
+## Tower progression and persistence
 
-A level is complete as soon as all three spawners are destroyed. The gate opens
-and the first-level boot reward is granted at that moment. Surviving enemies
-can still attack while the mage heads to the exit, but do not keep the gate shut.
+A floor is complete only after all three phases are defeated: 2, 3, and 4
+spawners, nine in total. Each phase banks remaining gold and equipment. A
+3-second intermission separates phases; survivors remain dangerous. New mobs
+move at 100%, 115%, and 130% of their base speed in phases 1, 2, and 3.
+The stair portal and one-time first-floor boots require the final phase clear.
 
-At the gate, choose **Enter / Next Depth**. Gear, gold, potions, and kills carry
-forward; health and mana refill, and spell cooldowns reset. Level 2 enters a
-distinct forest map with treants, spiders, skeletal archers, and three Blighted
-Hearts in place of molten rifts. Forest drops use the same equipment rules.
-Depths 3 onward reuse the forest. Each additional depth adds 15% to base enemy/
-spawner health and gold, and 12% to base enemy attack damage. Each new room has
-its own spawners and enemies. More chapters and bosses are future work.
+At the portal, choose **Enter / Climb to Next Floor**. Gear, gold, potions, and
+kills carry forward; health and mana refill, and spell cooldowns reset. The
+ground floor leads to Thornveil Atrium, then the Alchemist's Workshop. All
+three use the same equipment economy. Each additional floor adds 15% to base
+enemy/spawner health and gold, and 12% to base attack damage. These values do
+not reset or heal between phases. Floor 3 ends this build; floors 4 and 5 are
+planned within the twenty-story Tower.
 
 Equipment, enchantments, gold, potions, kills, current level, highest reached
 depth, and the claimed boot reward are saved locally. Launching shows the title
@@ -180,6 +182,9 @@ the previous room. Start Game resets the character, including gear and unlocks,
 after confirmation. Death keeps earned equipment and gold and retries the
 current level.
 The exact positions of enemies, temporary walls, and projectiles are not saved.
+Phases restart from phase 1 when loading a fresh room. Saves from the old
+endless-depth build above depth 3 map to the third authored floor without
+losing gear or gold. The legacy save folder is retained after the Frost Mage rename.
 
 Default save location:
 

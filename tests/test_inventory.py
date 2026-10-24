@@ -27,6 +27,13 @@ class InventoryTests(unittest.TestCase):
         for _ in range(round(seconds * 60)):
             self.world.update(1 / 60)
 
+    def finish_floor(self):
+        for phase in range(1, 4):
+            for spawner in self.world.spawners[:]:
+                self.world._hit(spawner, 10000)
+            if phase < 3:
+                self.advance(3.05)
+
     def test_each_slot_has_three_helpful_dropped_ranks_and_two_higher_enchantments(self):
         for slot, stat in (("helm", "damage"), ("chest", "health"), ("legs", "armor"),
                            ("gloves", "cooldown"), ("boots", "speed")):
@@ -161,8 +168,7 @@ class InventoryTests(unittest.TestCase):
 
     def test_first_clear_opens_gate_with_survivors_and_awards_boots_once(self):
         self.world.enemies = [Enemy(Vec(14.5, 14.5))]
-        for rift in self.world.spawners[:]:
-            self.world._hit(rift, 10000)
+        self.finish_floor()
         self.assertTrue(self.world.exit_open)
         self.assertEqual(len(self.world.enemies), 1)
         reward = [i for i in self.world.player.inventory.items if i.source == "reward"]
@@ -177,7 +183,7 @@ class InventoryTests(unittest.TestCase):
     def test_next_level_carries_gear_gold_and_scales_enemies(self):
         self.wear("helm", 3)
         self.world.player.gold = 777
-        self.world.spawners.clear()
+        self.finish_floor()
         self.world.player.pos = self.world.exit
         self.world.update(1 / 60)
         self.assertEqual(self.world.state, "cleared")
@@ -197,8 +203,7 @@ class InventoryTests(unittest.TestCase):
 
     def test_replaying_first_level_does_not_duplicate_clear_reward(self):
         self.world.player.first_clear_rewarded = True
-        self.world.spawners.clear()
-        self.world.update(1 / 60)
+        self.finish_floor()
         self.assertFalse(any(item.source == "reward" for item in self.world.player.inventory.items))
 
 
@@ -299,7 +304,7 @@ class ProfileTests(unittest.TestCase):
                 self.assertEqual(path.read_text(), contents)
 
     def test_profile_round_trip_preserves_ownership_enchants_gold_and_depth(self):
-        player = Player(gold=12345, unlocked_level=4, first_clear_rewarded=True)
+        player = Player(gold=12345, unlocked_level=3, first_clear_rewarded=True)
         for rank, slot in enumerate(SLOTS, 1):
             player.inventory.add(player.inventory.create(slot, rank, "enchanted"))
         player.inventory.add(player.inventory.create("helm", 2), auto_equip=False)
@@ -310,7 +315,7 @@ class ProfileTests(unittest.TestCase):
             loaded = ProfileStore(store.path).load()
             self.assertEqual(loaded.inventory.to_dict(), player.inventory.to_dict())
             self.assertEqual(loaded.gold, 12345)
-            self.assertEqual(loaded.unlocked_level, 4)
+            self.assertEqual(loaded.unlocked_level, 3)
             self.assertEqual(loaded.current_level, 1)
             self.assertTrue(loaded.first_clear_rewarded)
             self.assertEqual(loaded.hp, loaded.max_hp)

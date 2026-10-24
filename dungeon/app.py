@@ -7,11 +7,12 @@ from pathlib import Path
 from .controls import Controls
 from .geometry import Vec, unproject
 from .profile import ProfileStore
+from .levels import PLAYABLE_FLOORS
 from .world import World
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Embervault — the Ice Mage build")
+    parser = argparse.ArgumentParser(description="Frost Mage — The Tower")
     parser.add_argument("--headless", action="store_true", help="Use a virtual display and begin immediately")
     parser.add_argument("--frames", type=int, help="Exit after this many frames")
     parser.add_argument("--screenshot", type=Path, help="Save the final frame as a PNG")
@@ -24,6 +25,8 @@ def main():
         parser.error("--frames must be positive")
     if args.level is not None and args.level <= 0:
         parser.error("--level must be positive")
+    if args.level is not None and args.level > PLAYABLE_FLOORS:
+        parser.error(f"Floors 1–{PLAYABLE_FLOORS} are available in this build.")
     if args.headless:
         os.environ["SDL_VIDEODRIVER"] = "dummy"
         os.environ["SDL_AUDIODRIVER"] = "dummy"
@@ -37,7 +40,7 @@ def main():
     pygame.display.init()
     pygame.font.init()
     window = pygame.display.set_mode((1280, 800), pygame.RESIZABLE)
-    pygame.display.set_caption("Embervault · Ice Mage · Thornveil Forest")
+    pygame.display.set_caption("Frost Mage · The Tower")
     canvas = pygame.Surface((WIDTH, HEIGHT))
     audio = Audio()
     store = None if args.no_save or (args.headless and args.profile is None) else ProfileStore(args.profile)
@@ -87,6 +90,9 @@ def main():
 
     def enter_or_restart():
         nonlocal world, controls, mode
+        if world.state == "won":
+            mode = "title"
+            return
         if world.state == "cleared":
             world.next_level()
             controls = Controls(world)
@@ -115,12 +121,12 @@ def main():
             mode = "levels"
         elif action and action.startswith("level:"):
             level = int(action.split(":")[1])
-            if 1 <= level <= world.player.unlocked_level:
+            if 1 <= level <= min(world.player.unlocked_level, PLAYABLE_FLOORS):
                 begin_level(level)
-        elif action == "howto":
-            help_return, mode = mode, "howto"
+        elif action in ("howto", "story"):
+            help_return, mode = mode, action
         elif action == "back":
-            mode = help_return if mode == "howto" else "title"
+            mode = help_return if mode in ("howto", "story", "journal") else "title"
         elif action == "resume":
             mode = "playing"
         elif action == "main_menu":
@@ -179,7 +185,7 @@ def main():
                         controls.cancel()
                 elif event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_ESCAPE:
-                        if mode == "howto":
+                        if mode in ("howto", "story", "journal"):
                             mode = help_return
                         elif mode in ("levels", "confirm_new"):
                             mode = "title"
@@ -192,6 +198,9 @@ def main():
                             mode = "playing" if mode == "paused" else "paused"
                     elif event.key == pygame.K_m:
                         audio.toggle()
+                    elif event.key == pygame.K_j and mode in ("playing", "paused"):
+                        controls.cancel()
+                        help_return, mode = mode, "journal"
                     elif mode in FRONTEND_MODES or mode == "paused":
                         if event.key in (pygame.K_UP, pygame.K_DOWN):
                             renderer.menu.move_focus(world, mode, -1 if event.key == pygame.K_UP else 1)
@@ -225,6 +234,10 @@ def main():
                     if mode in FRONTEND_MODES or mode == "paused":
                         if event.button == 1:
                             menu_action(renderer.menu.click(world, mode, point))
+                        continue
+                    if mode == "playing" and event.button == 1 and renderer.journal_button.collidepoint(point):
+                        controls.cancel()
+                        help_return, mode = mode, "journal"
                         continue
                     if mode in ("inventory", "shop"):
                         if event.button == 1:

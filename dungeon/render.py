@@ -10,6 +10,7 @@ from .armory import Armory, item_icon
 from .items import FROSTWEAVE_FREEZE, RANK_COLORS
 from .menus import FRONTEND_MODES, Menus
 from .geometry import Vec, project
+from .levels import MOTTO, PHASE_COUNTS, PHASE_SPEEDS, PLAYABLE_FLOORS, TOWER_FLOORS, level_for_depth
 
 WIDTH, HEIGHT = 1440, 900
 ORIGIN = Vec(857, 226)
@@ -26,6 +27,7 @@ ICE = (139, 216, 248)
 SILVER = (203, 219, 229)
 LEAF = (130, 191, 104)
 BLIGHT = (177, 111, 214)
+POTION = (178, 221, 109)
 LOW_HEALTH_THRESHOLD = 0.35
 
 
@@ -43,6 +45,7 @@ class Renderer:
         self.armory = Armory()
         self.menu = Menus()
         self.gear_button = pygame.Rect(1109, 113, 137, 28)
+        self.journal_button = pygame.Rect(924, 113, 173, 28)
         self.profile_notice = ""
         self.armed = None
         self.aim = world.player.pos + world.player.facing * 4
@@ -109,6 +112,7 @@ class Renderer:
         self.floor.fill((0, 0, 0, 0))
         self.floor_key = (world.layout, world.level_data.theme)
         forest = world.level_data.forest
+        alchemy = world.level_data.alchemist
         rng = Random(42)
         corners = [iso(Vec(0, 0)), iso(Vec(17, 0)), iso(Vec(17, 17)), iso(Vec(0, 17))]
         for drop in range(30, 0, -1):
@@ -121,6 +125,8 @@ class Renderer:
                 path = abs(x - (3 + (14 - y) * .42)) < 1.4
                 base = ((56 + noise, 56 + noise, 39 + noise) if path else
                         (34 + noise, 54 + noise, 37 + noise)) if forest else (40 + noise, 51 + noise, 59 + noise)
+                if alchemy:
+                    base = (60 + noise, 49 + noise, 65 + noise) if (x + y) % 2 else (49 + noise, 45 + noise, 57 + noise)
                 if (x, y) in world.walls:
                     base = (25, 39, 28) if forest else (28, 37, 45)
                 pygame.draw.polygon(self.floor, base, polygon)
@@ -136,6 +142,11 @@ class Renderer:
                         for i in range(3):
                             pygame.draw.line(self.floor, (125, 124, 97), (px + i * 4, py), (px + i * 4, py - 4), 1)
                             pygame.draw.ellipse(self.floor, (162, 114, 159), (px - 2 + i * 4, py - 6, 5, 3))
+                if alchemy and (x, y) not in world.walls and rng.random() < .13:
+                    px, py = iso(Vec(x + .5, y + .5))
+                    color = (66, 97, 54) if (x + y) % 2 else (86, 57, 101)
+                    pygame.draw.ellipse(self.floor, color, (px - 13, py - 5, 26, 10))
+                    pygame.draw.ellipse(self.floor, (104, 126, 73), (px - 6, py - 3, 9, 3), 1)
                 if rng.random() < 0.15 and (x, y) not in world.walls:
                     px, py = iso(Vec(x + 0.5, y + 0.5))
                     pygame.draw.lines(self.floor, (30, 41, 48), False,
@@ -151,13 +162,27 @@ class Renderer:
         for pos in (Vec(2.5, 13.5), Vec(3.5, 13.5), Vec(4.5, 13.5)):
             px, py = iso(pos)
             pygame.draw.polygon(self.floor, (108, 103, 77), [(px, py - 6), (px + 12, py), (px, py + 6), (px - 12, py)], 1)
+        if world.level == 1:
+            x, y = iso(Vec(8.5, 8.5))
+            for radius in (44, 64, 79):
+                pygame.draw.ellipse(self.floor, (86, 92, 92), (x - radius, y - radius // 2, radius * 2, radius), 1)
+            for angle in range(8):
+                dx, dy = cos(angle * pi / 4) * 66, sin(angle * pi / 4) * 33
+                pygame.draw.line(self.floor, (119, 118, 96), (x + dx * .8, y + dy * .8), (x + dx, y + dy), 2)
 
     def shadow(self, x, y, width=26):
         pygame.draw.ellipse(self.screen, (22, 29, 35), (x - width // 2, y - 4, width, 10))
 
     def wall(self, tile, world):
-        if world.level_data.forest:
+        if tile in world.level_data.columns:
+            self.column(tile, world)
+            return
+        interior = 0 < tile[0] < 16 and 0 < tile[1] < 16
+        if world.level_data.forest and interior:
             self.forest_obstacle(tile, world)
+            return
+        if world.level_data.alchemist and interior:
+            self.lab_bench(tile)
             return
         x, y = tile
         front = x == 16 or y == 16
@@ -174,6 +199,56 @@ class Renderer:
             pygame.draw.lines(self.screen, (29, 40, 49), False,
                               [(ground[3][0], ground[3][1] - middle), (ground[2][0], ground[2][1] - middle),
                                (ground[1][0], ground[1][1] - middle)], 1)
+
+    def column(self, tile, world):
+        x, y = iso(Vec(tile[0] + .5, tile[1] + .5))
+        surface = pygame.Surface((66, 121), pygame.SRCALPHA)
+        pygame.draw.ellipse(surface, (41, 48, 55), (4, 99, 58, 20))
+        pygame.draw.ellipse(surface, (117, 127, 132), (5, 94, 56, 18))
+        pygame.draw.rect(surface, (80, 96, 107), (17, 15, 32, 85))
+        for dx, color in ((20, (116, 134, 144)), (28, (143, 155, 160)), (40, (56, 72, 85))):
+            pygame.draw.line(surface, color, (dx, 22), (dx, 94), 3)
+        for yy in (16, 23, 89, 96):
+            pygame.draw.ellipse(surface, (111, 128, 138), (12, yy - 4, 42, 12))
+            pygame.draw.arc(surface, (172, 183, 184), (12, yy - 4, 42, 12), 0, pi, 1)
+        pygame.draw.ellipse(surface, (154, 165, 166), (8, 6, 50, 16))
+        pygame.draw.ellipse(surface, (193, 194, 176), (11, 6, 44, 11), 1)
+        box = pygame.Rect(x - 28, y - 100, 56, 108)
+        for actor in [world.player] + world.enemies + world.spawners:
+            if actor.pos.x + actor.pos.y < sum(tile) + 1:
+                ax, ay = iso(actor.pos)
+                if box.colliderect(pygame.Rect(ax - 14, ay - 43, 28, 48)):
+                    surface.set_alpha(100)
+                    break
+        self.screen.blit(surface, (x - 33, y - 108))
+
+    def lab_bench(self, tile):
+        x, y = iso(Vec(tile[0] + .5, tile[1] + .5))
+        self.shadow(x, y, 40)
+        for dx in (-15, 15):
+            pygame.draw.line(self.screen, (69, 54, 55), (x + dx, y - 18), (x + dx, y + 1), 4)
+        pygame.draw.polygon(self.screen, (121, 87, 65), [(x - 27, y - 22), (x, y - 35), (x + 27, y - 22), (x, y - 8)])
+        pygame.draw.lines(self.screen, (185, 148, 100), False, [(x - 27, y - 22), (x, y - 8), (x + 27, y - 22)], 2)
+        for dx, color in ((-10, POTION), (8, BLIGHT)):
+            pygame.draw.circle(self.screen, (114, 157, 161), (x + dx, y - 30), 6, 1)
+            pygame.draw.circle(self.screen, color, (x + dx, y - 28), 4)
+            pygame.draw.rect(self.screen, (161, 183, 181), (x + dx - 2, y - 40, 4, 7))
+
+    def tower_background(self, world):
+        forest = world.level_data.forest
+        color = (32, 51, 51) if forest else (35, 39, 53)
+        # Arched tower windows remain visible beyond the room's back walls.
+        for x, y in ((460, 315), (555, 258), (1187, 259), (1282, 316)):
+            rect = pygame.Rect(x, y - 70, 43, 103)
+            pygame.draw.rect(self.screen, (17, 29, 39), rect, border_radius=21)
+            pygame.draw.rect(self.screen, color, rect, 2, border_radius=21)
+            pygame.draw.line(self.screen, (61, 80, 91), (x + 21, y - 63), (x + 21, y + 31), 1)
+            pygame.draw.line(self.screen, color, (x + 3, y - 12), (x + 40, y - 12), 1)
+        if forest:
+            roof = pygame.Rect(553, 174, 610, 174)
+            pygame.draw.arc(self.screen, (53, 86, 79), roof, 0, pi, 2)
+            for offset in (-185, -90, 0, 90, 185):
+                pygame.draw.line(self.screen, (35, 61, 60), (858, 175), (858 + offset, 270), 1)
 
     @staticmethod
     def _build_foliage():
@@ -258,10 +333,13 @@ class Renderer:
         self.shadow(x, y, 24)
         frozen = enemy.frozen > 0
         forest = enemy.kind in ("tree", "spider", "archer")
-        ember = ICE if frozen or enemy.chilled > 0 else BLIGHT if enemy.kind == "tree" else LEAF if forest else (245, 120, 61)
+        alchemy = enemy.kind in ("armor", "grimoire", "fairy")
+        ember = ICE if frozen or enemy.chilled > 0 else POTION if alchemy else BLIGHT if enemy.kind == "tree" else LEAF if forest else (245, 120, 61)
         color = WHITE if enemy.flash > 0 else (150, 178, 193) if frozen else (133, 104, 93)
         self.glow(x, y - 15, ember, 30, 24)
-        if enemy.kind == "tree":
+        if enemy.kind in ("armor", "grimoire", "fairy"):
+            getattr(self, enemy.kind)(enemy, time, ember)
+        elif enemy.kind == "tree":
             self.treant(enemy, time, ember)
         elif enemy.kind == "spider":
             self.spider(enemy, time, ember)
@@ -304,6 +382,63 @@ class Renderer:
         if enemy.hp < enemy.max_hp:
             self.bar(x - 15, y - (62 if enemy.kind == "tree" else 49 if enemy.kind == "archer" else 44),
                      30, 3, enemy.hp / enemy.max_hp, ember)
+
+    def armor(self, enemy, time, magic):
+        x, y = iso(enemy.pos)
+        steel = WHITE if enemy.flash > 0 else (142, 185, 201) if enemy.frozen > 0 else (121, 123, 155)
+        dark = (48, 58, 80)
+        for side in (-1, 1):
+            pygame.draw.line(self.screen, dark, (x + side * 5, y - 13), (x + side * 8, y - 1), 7)
+            pygame.draw.line(self.screen, steel, (x + side * 5, y - 13), (x + side * 8, y - 3), 4)
+            pygame.draw.rect(self.screen, steel, (x + side * 8 - 5, y - 3, 10, 5))
+            pygame.draw.circle(self.screen, steel, (x + side * 12, y - 28), 7)
+            pygame.draw.line(self.screen, steel, (x + side * 13, y - 25), (x + side * 17, y - 11), 4)
+        pygame.draw.polygon(self.screen, steel, [(x - 10, y - 31), (x, y - 34), (x + 10, y - 31),
+                                               (x + 8, y - 14), (x, y - 10), (x - 8, y - 14)])
+        pygame.draw.line(self.screen, SILVER, (x, y - 31), (x, y - 15), 1)
+        pygame.draw.polygon(self.screen, magic, [(x, y - 29), (x + 4, y - 23), (x, y - 17), (x - 4, y - 23)], 1)
+        pygame.draw.rect(self.screen, steel, (x - 8, y - 46, 16, 14), border_radius=5)
+        pygame.draw.line(self.screen, magic, (x - 5, y - 40), (x + 5, y - 40), 2)
+        pygame.draw.line(self.screen, SILVER, (x + 19, y - 34), (x + 19, y - 3), 2)
+        pygame.draw.polygon(self.screen, magic, [(x + 19, y - 43), (x + 23, y - 30), (x + 16, y - 30)])
+
+    def grimoire(self, enemy, time, magic):
+        x, y = iso(enemy.pos)
+        bob = 0 if enemy.frozen > 0 else round(sin(time * 7 + enemy.pos.x) * 3)
+        y += bob - 15
+        paper = WHITE if enemy.flash > 0 else (154, 194, 209) if enemy.frozen > 0 else (216, 199, 156)
+        flap = 0 if enemy.frozen > 0 else round(sin(time * 9) * 4)
+        pygame.draw.polygon(self.screen, (111, 60, 89), [(x - 19, y - 19 - flap), (x - 2, y - 14),
+                             (x + 18, y - 20 + flap), (x + 20, y + 5), (x, y + 11), (x - 20, y + 4)])
+        pygame.draw.polygon(self.screen, paper, [(x - 16, y - 19 - flap), (x - 1, y - 13), (x - 1, y + 6), (x - 17, y + 1)])
+        pygame.draw.polygon(self.screen, paper, [(x + 1, y - 13), (x + 16, y - 19 + flap), (x + 17, y + 1), (x + 1, y + 6)])
+        for side in (-1, 1):
+            for line in range(3):
+                pygame.draw.line(self.screen, (119, 75, 98), (x + side * 4, y - 8 + line * 4),
+                                 (x + side * 13, y - 10 + line * 4), 1)
+        pygame.draw.line(self.screen, magic, (x, y - 14), (x, y + 8), 2)
+        self.glow(x, y - 4, magic, 24, 34)
+
+    def fairy(self, enemy, time, magic):
+        x, y = iso(enemy.pos)
+        bob = 0 if enemy.frozen > 0 else round(sin(time * 8 + enemy.pos.x) * 3)
+        y += bob - 14
+        wings = (122, 170, 198) if enemy.frozen > 0 else (184, 136, 211)
+        spread = 13 if enemy.frozen > 0 else 15 + round(sin(time * 24) * 4)
+        for side in (-1, 1):
+            pygame.draw.ellipse(self.screen, wings, (x + side * spread - 10, y - 24, 20, 12), 1)
+            pygame.draw.ellipse(self.screen, wings, (x + side * 10 - 7, y - 14, 14, 10), 1)
+        body = WHITE if enemy.flash > 0 else (86, 157, 166)
+        pygame.draw.polygon(self.screen, body, [(x, y - 22), (x + 7, y - 6), (x - 7, y - 6)])
+        pygame.draw.circle(self.screen, (220, 189, 163), (x, y - 27), 5)
+        pygame.draw.lines(self.screen, magic, False, [(x - 6, y - 28), (x - 3, y - 36),
+                          (x + 2, y - 32), (x + 7, y - 36), (x + 6, y - 27)], 2)
+        pygame.draw.line(self.screen, magic, (x - 2, y - 27), (x + 2, y - 27), 1)
+        pygame.draw.line(self.screen, body, (x + 4, y - 17), (x + 14, y - 19), 2)
+        pygame.draw.circle(self.screen, magic, (x + 14, y - 20), 4 if enemy.windup <= 0 else 6)
+        pygame.draw.rect(self.screen, SILVER, (x + 12, y - 28, 4, 5))
+        for side in (-1, 1):
+            pygame.draw.line(self.screen, body, (x + side * 2, y - 7), (x + side * 5, y), 2)
 
     def treant(self, enemy, time, magic):
         x, y = iso(enemy.pos)
@@ -395,6 +530,9 @@ class Renderer:
         pygame.draw.circle(self.screen, color, (round(end.x), round(end.y - 15)), 7, 1)
 
     def spawner(self, spawner, time):
+        if spawner.alchemist:
+            self.alembic(spawner, time)
+            return
         if spawner.forest:
             self.blighted_heart(spawner, time)
             return
@@ -416,6 +554,33 @@ class Renderer:
         pygame.draw.ellipse(self.screen, color, (x - 9, y - 48 + pulse * 2, 18, 34), 2)
         pygame.draw.ellipse(self.screen, (255, 214, 160), (x - 3, y - 43 + pulse * 2, 6, 25))
         self.bar(x - 25, y - 61, 50, 3, spawner.hp / spawner.max_hp, VIOLET)
+
+    def alembic(self, spawner, time):
+        x, y = iso(spawner.pos)
+        color = WHITE if spawner.flash > 0 else POTION
+        self.glow(x, y - 23, color, 58, 48)
+        self.shadow(x, y, 47)
+        pygame.draw.ellipse(self.screen, (82, 70, 92), (x - 23, y - 8, 46, 20))
+        pygame.draw.ellipse(self.screen, (139, 106, 77), (x - 22, y - 13, 44, 17), 2)
+        pygame.draw.circle(self.screen, (117, 169, 172), (x, y - 25), 18, 2)
+        pygame.draw.ellipse(self.screen, color, (x - 14, y - 29, 28, 18))
+        pygame.draw.rect(self.screen, (153, 182, 181), (x - 4, y - 54, 8, 15), 2)
+        pygame.draw.lines(self.screen, (180, 132, 84), False,
+                          [(x + 3, y - 50), (x + 19, y - 56), (x + 27, y - 42), (x + 27, y - 10)], 3)
+        for i in range(3):
+            yy = y - 30 - (time * 16 + i * 9) % 34
+            pygame.draw.circle(self.screen, color, (round(x + sin(time * 2 + i * 3) * 9), round(yy)), 2, 1)
+        self.bar(x - 25, y - 69, 50, 3, spawner.hp / spawner.max_hp, POTION)
+
+    def potion_lamp(self, pos, time):
+        x, y = iso(pos)
+        self.shadow(x, y, 20)
+        self.glow(x, y - 17, BLIGHT, 44, 31)
+        pygame.draw.rect(self.screen, (91, 77, 104), (x - 7, y - 8, 14, 10))
+        pygame.draw.circle(self.screen, (142, 170, 184), (x, y - 17), 10, 1)
+        pygame.draw.ellipse(self.screen, BLIGHT, (x - 7, y - 20, 14, 9))
+        pygame.draw.rect(self.screen, SILVER, (x - 3, y - 33, 6, 8), 1)
+        pygame.draw.circle(self.screen, POTION, (round(x + sin(time * 3) * 7), round(y - 37 - (time * 9) % 12)), 2)
 
     def blighted_heart(self, spawner, time):
         x, y = iso(spawner.pos)
@@ -501,6 +666,12 @@ class Renderer:
         direction = project(shot.velocity).unit()
         side = Vec(-direction.y, direction.x)
         if shot.hostile:
+            if shot.spell == "potion":
+                self.glow(x, y - 15, POTION, 26, 40)
+                pygame.draw.line(self.screen, BLIGHT, (x - direction.x * 17, y - 15 - direction.y * 17), (x, y - 15), 3)
+                pygame.draw.circle(self.screen, POTION, (x, y - 15), 5)
+                pygame.draw.circle(self.screen, (238, 246, 195), (x - 1, y - 17), 2)
+                return
             tail, tip = Vec(x, y - 15) - direction * 15, Vec(x, y - 15) + direction * 7
             pygame.draw.line(self.screen, GOLD, (tail.x, tail.y), (tip.x, tip.y), 2)
             pygame.draw.polygon(self.screen, LEAF, [(tip.x + direction.x * 5, tip.y + direction.y * 5),
@@ -548,7 +719,7 @@ class Renderer:
     def effect(self, effect):
         x, y = iso(effect.pos)
         age = 1 - effect.life / effect.duration
-        color = TEAL if effect.kind == "heal" else GOLD if effect.kind in ("gold", "critical") else VIOLET if effect.kind in ("spawn", "burst") else RED if effect.kind == "hurt" else ICE
+        color = POTION if effect.kind == "potion_splash" else TEAL if effect.kind == "heal" else GOLD if effect.kind in ("gold", "critical") else VIOLET if effect.kind in ("spawn", "burst") else RED if effect.kind == "hurt" else ICE
         if effect.kind in ("nova", "shatter"):
             self.radius(effect.pos, effect.radius * min(1, age * 1.5), ICE, 2)
             self.radius(effect.pos, effect.radius * age * 0.8, (80, 140, 177))
@@ -560,7 +731,7 @@ class Renderer:
         if effect.kind in ("burst", "spawn", "heal", "cast", "hurt", "destination"):
             radius = round(8 + age * 29)
             pygame.draw.ellipse(self.screen, color, (x - radius, y - radius / 2, radius * 2, radius), 1)
-        if effect.kind in ("hit", "critical", "spark", "burst"):
+        if effect.kind in ("hit", "critical", "spark", "burst", "potion_splash"):
             for i in range(6):
                 angle = i * pi / 3
                 distance = age * 27
@@ -580,7 +751,7 @@ class Renderer:
 
     @staticmethod
     def world_area(point):
-        return 308 <= point[0] <= 1410 and 166 <= point[1] < 773
+        return 308 <= point[0] <= 1410 and 201 <= point[1] < 773
 
     def ability_at(self, point):
         return next((key for key, rect in self.ability_rects.items() if rect.collidepoint(point)), None)
@@ -592,6 +763,8 @@ class Renderer:
             width, height = ((52, 68) if target in world.spawners else
                              (60, 63) if target.kind == "tree" else
                              (50, 30) if target.kind == "spider" else
+                             (48, 54) if target.kind in ("fairy", "armor") else
+                             (44, 46) if target.kind == "grimoire" else
                              (34, 52) if target.kind == "archer" else (34, 46))
             if pygame.Rect(x - width // 2, y - height, width, height + 9).collidepoint(point):
                 targets.append(target)
@@ -605,7 +778,8 @@ class Renderer:
             self.text("to inspect its health", 48, 559, 11, MUTED)
             self.text("and active effects.", 48, 581, 11, MUTED)
             return
-        self.text(target.name, 48, 530, 16, WHITE, serif=True)
+        size = 16 if self.font(16, serif=True).size(target.name)[0] <= 210 else 13
+        self.text(target.name, 48, 530, size, WHITE, serif=True)
         self.bar(48, 563, 210, 6, target.hp / target.max_hp, VIOLET)
         self.text(f"{target.hp} / {target.max_hp} health", 48, 576, 11, MUTED)
         for i, (name, seconds) in enumerate(target.statuses):
@@ -614,21 +788,22 @@ class Renderer:
         if not target.statuses:
             self.text("No active effects", 48, 604, 10, MUTED)
         if getattr(target, "windup", 0) > 0:
-            self.text(f"Drawing bow  {target.windup:.1f}s", 48, 625, 10, GOLD)
+            label = "Mixing potion" if getattr(target, "kind", "") == "fairy" else "Drawing bow"
+            self.text(f"{label}  {target.windup:.1f}s", 48, 625, 10, GOLD)
 
     def hud(self, world):
         player = world.player
         pygame.draw.rect(self.screen, PANEL, (24, 24, 259, 852), border_radius=12)
         pygame.draw.rect(self.screen, LINE, (24, 24, 259, 852), 1, border_radius=12)
-        self.spaced("EMBERVAULT", 47, 49, 21, SILVER, 1)
-        self.spaced("THE FROZEN DESCENT", 49, 84, 10, ICE, 1)
+        self.spaced("FROST MAGE", 47, 49, 21, SILVER, 1)
+        self.spaced("THE TOWER", 49, 84, 10, ICE, 1)
         pygame.draw.line(self.screen, LINE, (47, 119), (259, 119))
         self.spaced("YOUR CHAMPION", 48, 140, 10)
         pygame.draw.circle(self.screen, (26, 41, 59), (153, 217), 49)
         pygame.draw.circle(self.screen, (74, 108, 132), (153, 217), 49, 1)
         self.player(player, world.time, (153, 253), 1.8)
-        self.text("The Ice Mage", 153, 280, 24, WHITE, serif=True, center=True)
-        self.spaced("FOREVER FROZEN", 87, 318, 9, ICE, 1)
+        self.text("The Frost Mage", 153, 280, 24, WHITE, serif=True, center=True)
+        self.text(MOTTO, 153, 318, 10, ICE, serif=True, center=True)
         self.spaced("VITALITY", 48, 346, 10)
         self.text(f"{player.hp} / {player.max_hp}", 193, 343, 12, WHITE)
         self.bar(48, 370, 210, 7, player.hp / player.max_hp, RED)
@@ -643,11 +818,10 @@ class Renderer:
         self.target_frame(world)
         pygame.draw.line(self.screen, LINE, (47, 648), (259, 648))
         self.spaced("THE OBJECTIVE", 48, 667, 10)
-        total = len(world.level_data.spawners)
-        objectives = [("Purge the hearts" if world.level_data.forest else "Seal the rifts",
-                       f"{total - len(world.spawners)} / {total}", not world.spawners),
-                      ("Survivors (optional)", str(len(world.enemies)), not world.enemies),
-                      ("Reach the gate", "OPEN" if world.exit_open else "SEALED", world.exit_open)]
+        completed = world.phase if not world.spawners else world.phase - 1
+        objectives = [("Phases cleared", f"{completed} / 3", world.exit_open),
+                      ("Spawners broken", f"{world.spawners_defeated} / 9", world.exit_open),
+                      ("Stair portal", "OPEN" if world.exit_open else "SEALED", world.exit_open)]
         for i, (label, value, done) in enumerate(objectives):
             yy = 696 + i * 27
             pygame.draw.circle(self.screen, TEAL if done else (83, 94, 100), (53, yy + 7), 3, 0 if done else 1)
@@ -762,18 +936,18 @@ class Renderer:
         if self.floor_key != (world.layout, world.level_data.theme):
             self._build_floor(world)
         forest = world.level_data.forest
+        alchemy = world.level_data.alchemist
         self.screen.fill(INK)
         pygame.draw.ellipse(self.screen, (17, 30, 23) if forest else (15, 27, 32), (340, 166, 1060, 600))
         self.screen.set_clip(pygame.Rect(300, 166, 1140, 610))
-        for x, y, size in ((365, 400, 150), (434, 260, 104), (537, 228, 80), (1240, 235, 95),
-                           (1358, 350, 156), (1403, 568, 152), (1307, 730, 100), (382, 712, 125)):
-            self.pine(x, y, size, forest)
+        self.tower_background(world)
         self.screen.set_clip(None)
         self.spaced(world.level_data.chapter, 324, 39, 10, LEAF if forest else ICE, 2)
         self.text(world.level_data.name, 320, 64, 36, WHITE, serif=True)
         self.text(world.level_data.subtitle, 323, 116, 13, MUTED)
-        self.text("DEPTH", 1302, 49, 10, MUTED)
+        self.text(f"FLOOR / {TOWER_FLOORS}", 1290, 49, 10, MUTED)
         self.text(f"{world.level:02d}", 1299, 65, 36, SILVER, serif=True)
+        Armory.button(self, self.journal_button, "J FLOOR JOURNAL")
         Armory.button(self, self.gear_button, "I GEAR / B SHOP")
         self.text("M / SOUND " + ("ON" if self.sound_enabled else "OFF"), 1266, 121, 10, MUTED)
         pygame.draw.line(self.screen, LINE, (324, 155), (1396, 155))
@@ -782,9 +956,14 @@ class Renderer:
             self.radius(world.selected.pos, 0.55, GOLD, 2)
         for spawner in world.spawners:
             x, y = iso(spawner.pos)
-            self.glow(x, y, BLIGHT if forest else VIOLET, 95, 35)
+            self.glow(x, y, POTION if alchemy else BLIGHT if forest else VIOLET, 95, 35)
+        if world.intermission > 0:
+            for x, y in world.level_data.phase_spawners[world.phase]:
+                self.radius(Vec(x, y), .7, GOLD, 2)
+                px, py = iso(Vec(x, y))
+                self.text("FORMING", px, py - 30, 9, GOLD, center=True)
         for enemy in world.enemies:
-            if enemy.kind == "archer":
+            if enemy.kind in ("archer", "fairy"):
                 self.archer_aim(enemy)
         objects = [(x + y + 1, "wall", (x, y)) for x, y in world.walls]
         objects += [(x + y + 1, "icewall", (x, y)) for wall in world.ice_walls for x, y in wall.cells]
@@ -794,7 +973,7 @@ class Renderer:
         objects += [(p.pos.x + p.pos.y, "projectile", p) for p in world.projectiles]
         objects.append((world.player.pos.x + world.player.pos.y, "player", world.player))
         objects.append((world.exit.x + world.exit.y, "gate", None))
-        objects += [(p.x + p.y, "wisp" if forest else "torch", p)
+        objects += [(p.x + p.y, "potion_lamp" if alchemy else "wisp" if forest else "torch", p)
                     for p in (Vec(2.5, 7.5), Vec(7.5, 2.5), Vec(14.5, 10.5), Vec(8.5, 14.5))]
         for _, kind, obj in sorted(objects, key=lambda item: (item[0], item[1])):
             if kind == "wall":
@@ -813,10 +992,11 @@ class Renderer:
             pygame.draw.circle(self.screen, (140, 169, 88) if forest else (92, 122, 131), (px, py), 1)
         if mode == "playing" and world.state == "playing":
             self.low_health_warning(world.player)
+        self.phase_banner(world)
         self.targeting(world, mouse)
         self.hud(world)
         self.spellbar(world, mouse)
-        self.text(world.message if world.message_time > 0 else "Right click or hold to move. Left click selects. QWER casts at the cursor.", 325, 759, 11, MUTED)
+        self.text(world.message if world.message_time > 0 else "Right click moves. Left click selects. QWER casts. J reads the floor journal.", 325, 759, 11, MUTED)
         if mouse and mode == "playing" and world.state == "playing" and self.world_area(mouse):
             x, y = mouse
             color = ICE if self.armed else SILVER
@@ -839,6 +1019,19 @@ class Renderer:
                                             current=world.player.inventory.worn(pickup.item.slot))
                         break
 
+    def phase_banner(self, world):
+        pygame.draw.rect(self.screen, PANEL, (324, 168, 1072, 31), border_radius=5)
+        pygame.draw.rect(self.screen, LINE, (324, 168, 1072, 31), 1, border_radius=5)
+        self.text(f"PHASE {world.phase} / 3", 338, 176, 11, ICE, bold=True)
+        if world.intermission > 0:
+            detail = f"Next phase in {world.intermission:.1f}s / {PHASE_COUNTS[world.phase]} spawners forming"
+        elif world.exit_open:
+            detail = "Floor cleared / stair portal open"
+        else:
+            detail = f"{len(world.spawners)} / {world.phase_spawner_count} spawners remain"
+        self.text(detail, 492, 176, 11, GOLD if world.intermission > 0 else WHITE)
+        self.text(f"MOB SPEED {PHASE_SPEEDS[world.phase - 1]:.0%}   /   SURVIVORS {len(world.enemies)}", 1085, 176, 10, MUTED)
+
     def overlay(self, world, mode):
         veil = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
         veil.fill((5, 10, 16, 182))
@@ -848,24 +1041,23 @@ class Renderer:
         pygame.draw.rect(self.screen, (110, 100, 75), rect, 1, border_radius=12)
         center = rect.centerx
         if world.state == "dead":
-            kicker, title, subtitle = "THE DUNGEON ENDURES", "Your watch has ended.", "Another descent. Another chance."
+            kicker, title, subtitle = "THE TOWER ENDURES", "The wanderer falls.", "A steady hand. Another attempt."
             action = "ENTER  /  TRY AGAIN"
         elif world.state == "cleared":
-            kicker, title = "THE GATE IS OPEN", f"Depth {world.level} complete."
-            subtitle = ("Thornveil Forest awaits. Your equipment and gold carry forward." if world.level == 1 else
-                        "Your equipment and gold will carry into the next level.")
-            action = "ENTER  /  NEXT DEPTH"
+            kicker, title = "THREE PHASES COMPLETE", f"Floor {world.level} cleared."
+            subtitle = f"Next: {level_for_depth(world.level + 1).name}. Your gear carries forward."
+            action = "ENTER  /  CLIMB TO NEXT FLOOR"
         elif world.state == "won":
-            kicker, title, subtitle = "THE GLADE IS SILENT", "You made it out.", f"{world.player.kills} enemies slain. {world.player.gold} gold recovered."
-            action = "ENTER  /  DESCEND AGAIN"
+            kicker, title = "TO BE CONTINUED", "The first three floors yield."
+            subtitle = "The Tower rises twenty stories. Floors 4 and 5 await another chapter."
+            action = "ENTER  /  MAIN MENU"
         elif mode == "paused":
-            kicker, title, subtitle = "TAKE A BREATH", "The descent can wait.", "Your adventure is paused."
+            kicker, title, subtitle = "TAKE A BREATH", "The Tower can wait.", "Your adventure is paused."
             action = "ESC  /  RESUME"
         else:
-            kicker, title = "YOUR NEXT DESCENT", f"Enter {world.level_data.name}."
-            subtitle = ("Darkroot trees. Thornwood spiders. Beware the archers." if world.level_data.forest else
-                        "A frozen oath. Three molten rifts. A forest worth saving.")
-            action = "ENTER  /  BEGIN DESCENT"
+            kicker, title = "YOUR NEXT ASCENT", f"Enter {world.level_data.name}."
+            subtitle = world.level_data.subtitle
+            action = "ENTER  /  ENTER THE TOWER"
         self.text(kicker, center, 294, 11, GOLD, center=True)
         self.text(title, center, 333, 35, WHITE, serif=True, center=True)
         self.text(subtitle, center, 393, 14, MUTED, center=True)
