@@ -163,6 +163,8 @@ class WorldTests(unittest.TestCase):
         self.assertEqual(self.world.pickups, [])
 
     def test_gate_requires_rifts_to_be_cleared(self):
+        for _ in range(92):
+            self.world.update(1 / 60)
         self.world.player.pos = self.world.exit
         self.world.update(1 / 60)
         self.assertEqual(self.world.state, "playing")
@@ -178,6 +180,7 @@ class WorldTests(unittest.TestCase):
             if phase < 3:
                 self.advance(3.05)
                 self.assertEqual(self.world.state, "playing")
+        self.advance(1.55)
         self.world.update(1 / 60)
         self.assertEqual(self.world.state, "cleared")
         time = self.world.time

@@ -37,6 +37,15 @@ Stage 3 permits additional combinations after safety checks. Active warnings,
 spills, vines and living summons count toward the limit of two major mechanics;
 finishing a cast does not free its slot. Summons never shield the boss.
 
+Each Keeper rotation gives all four duties a turn before repeating any duty.
+If the next unused duty cannot safely fit, he waits for a slot rather than
+repeating Repairs/Overgrowth. A cancelled warning remains due; specimens only
+complete their turn when at least one creature actually appears.
+
+Floors 1–3 mini bosses begin their first signature warning after 1s (previously
+3s). Their full warning durations, seven-second repeat timers, recovery and
+freeze interruptions remain intact. Ice Patch still slows their attack clocks.
+
 ## Fairness and tuning
 
 Editable values live in `dungeon/keeper.py`, in `KeeperTuning`/`TUNING`.
@@ -47,11 +56,12 @@ Editable values live in `dungeon/keeper.py`, in `KeeperTuning`/`TUNING`.
 | Stage thresholds | 2/3 and 1/3 health |
 | Minimum warning / maximum accepted route budget | 2s / 5s |
 | Reaction margin | 0.8s, plus remaining spell cast/stasis time |
+| First Keeper warning | 1.5s into the encounter (previously 2.5s) |
 | Scheduling intervals | 3.2s / 2.8s / 2.2s; persistent mechanics can delay casts |
 | Damage before armor | Stone 22; spill 12 per contact, respecting ordinary hit immunity |
 | Boss freeze cap / resistance | 0.45s / 3s from application |
 | Nova vine suppression | 4s in Nova range; then regrow only if lifetime remains |
-| Completion reward | 500 gold plus a Rank 3 helm, once per encounter |
+| Completion reward | 2,500 gold plus a Rank 3 helm, once per encounter |
 
 Dijkstra escape planning uses actual movement speed, continuous terrain
 clearance, enemy occupancy, locked specimen attack lanes, other
@@ -105,8 +115,8 @@ The deterministic combat bot uses rank-3 Frostweave equipment, ordinary health,
 damage, mana, potions and cooldowns, uses Ice Patch, and reads attack telegraphs/green routes.
 It casts spells and moves; it does not directly kill targets or use invincibility.
 Seeds 3, 7, 19 and 41 each cleared both floors. With Ice Patch in use, Menagerie clears took 38.9–45.0s;
-Keeper clears took 23.2–24.3s. Every Keeper run visited all three stages; all four
-duties appeared across the runs. No run exceeded two major mechanics or four living summons.
+Keeper clears took 22.5–24.0s. Every Keeper run visited all three stages and used all four
+duties. No run exceeded two major mechanics or four living summons.
 Detailed results are in `lower-tower-playtest.json`.
 
 Normal-speed manual gameplay was attempted with an isolated profile but the

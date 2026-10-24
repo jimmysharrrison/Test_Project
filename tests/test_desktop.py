@@ -44,11 +44,64 @@ def final_phase_defeated(world):
 
 
 class DesktopTests(unittest.TestCase):
-    def run_app(self, script, observer=None, profile_path=None, extra_args=()):
+    def test_timers_follow_pausing_inventory_shop_journal_and_resume(self):
+        samples = []
+        def observe(frame, world, renderer):
+            samples.append(world.player.timing.total_seconds)
+        self.run_app([[], [key(pygame.K_ESCAPE)], [], [key(pygame.K_ESCAPE)],
+                      [key(pygame.K_i)], [], [key(pygame.K_ESCAPE)],
+                      [key(pygame.K_b)], [], [key(pygame.K_ESCAPE)],
+                      [key(pygame.K_j)], [], [key(pygame.K_ESCAPE)]],
+                     observe, extra_args=("--headless",))
+        self.assertGreater(samples[0], 0)
+        for paused, resumed in ((1, 3), (4, 6), (7, 9), (10, 12)):
+            self.assertEqual(samples[paused], samples[paused - 1])
+            self.assertEqual(samples[paused + 1], samples[paused])
+            self.assertGreater(samples[resumed], samples[paused])
+
+    def test_full_clear_popup_pauses_and_opens_inventory_without_advancing_floor(self):
+        def clear_floor(frame, world, renderer):
+            if frame == 1:
+                world.enemies.clear()
+                world.spawners.clear()
+                world.phase = 3
+                world.boss_started = True
+                world._phase_resolved = False
+                world._phase_cleared()
+
+        worlds, frames = self.run_app(
+            [[key(pygame.K_RETURN)], [], [], [key(pygame.K_i)],
+             [key(pygame.K_ESCAPE)], [], [key(pygame.K_RETURN)]],
+            observer=clear_floor, extra_args=("--headless", "--completion-delay-ms", "0"))
+        self.assertEqual([mode for mode, time in frames],
+                         ["playing", "floor_clear", "floor_clear", "inventory", "playing", "playing", "playing"])
+        self.assertEqual(frames[1][1], frames[3][1])
+        self.assertEqual(worlds[0].level, 1)
+
+    def test_completion_countdown_pauses_and_does_not_advance_floor(self):
+        remaining = []
+        def observer(frame, world, renderer):
+            if frame == 1:
+                world.enemies.clear()
+                world.spawners.clear()
+                world.phase = 3
+                world.boss_started = True
+                world._phase_resolved = False
+                world._phase_cleared()
+            remaining.append(world._completion_remaining)
+        worlds, frames = self.run_app(
+            [[], [], [key(pygame.K_ESCAPE)], [], [key(pygame.K_ESCAPE)], [], [], []],
+            observer, extra_args=("--headless", "--completion-delay-ms", "50"))
+        self.assertEqual(remaining[1:4], [.05, .05, .05])
+        self.assertEqual(frames[-1][0], "floor_clear")
+        self.assertEqual(worlds[0].level, 1)
+
+    def run_app(self, script, observer=None, profile_path=None, extra_args=(), skip_offer=True):
         worlds, frames = [], []
         pointer = [800, 480]
         buttons = [False, False, False]
         index = 0
+        menu = None
 
         def new_world(seed, **kwargs):
             world = World(seed, **kwargs)
@@ -56,6 +109,11 @@ class DesktopTests(unittest.TestCase):
             return world
 
         class RecordingRenderer(Renderer):
+            def __init__(self, *args):
+                nonlocal menu
+                super().__init__(*args)
+                menu = self.menu
+
             def draw(self, world, mouse=None, mode="playing"):
                 super().draw(world, mouse, mode)
                 frames.append((mode, world.time))
@@ -64,8 +122,20 @@ class DesktopTests(unittest.TestCase):
 
         def events():
             nonlocal index
-            items = script[index]
+            items = list(script[index])
             index += 1
+            # Existing gameplay regressions explicitly skip the new optional lesson offer.
+            # Tutorial/menu tests pass skip_offer=False and exercise the offer itself.
+            mode = frames[-1][0] if frames else ("playing" if "--headless" in extra_args else "title")
+            starts = any((e.type == pygame.KEYDOWN and e.key == pygame.K_RETURN)
+                         or (e.type == pygame.MOUSEBUTTONDOWN and e.button == 1
+                             and abs(e.pos[1] - round(302 * 8 / 9)) < 20) for e in items)
+            confirms = any(e.type == pygame.MOUSEBUTTONDOWN and e.button == 1
+                           and abs(e.pos[0] - round(915 * 8 / 9)) < 20
+                           and abs(e.pos[1] - round(554 * 8 / 9)) < 20 for e in items)
+            if skip_offer and ((mode == "title" and not menu.has_character and starts)
+                               or (mode == "confirm_new" and confirms)):
+                items.append(click(1, (915, 554)))
             for event in items:
                 if hasattr(event, "pos"):
                     pointer[:] = event.pos
@@ -339,7 +409,9 @@ class DesktopTests(unittest.TestCase):
         self.assertTrue(all(time == frames[0][1] for _, time in frames[1:9]))
         self.assertEqual(world.player.gold, 910)
         self.assertEqual(world.player.inventory.worn("helm").rank, 1)
-        self.assertEqual(world.player.inventory.stats.damage, .1)
+        self.assertEqual(world.player.inventory.stats.damage, world.player.inventory.worn("helm").enchantment_value)
+        self.assertGreaterEqual(world.player.inventory.stats.damage, .001)
+        self.assertLessEqual(world.player.inventory.stats.damage, .059)
         self.assertEqual(world.projectiles, [])
         self.assertIsNone(world.destination)
 

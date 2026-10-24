@@ -111,7 +111,8 @@ are now spells; healing moved to 1 and restarting moved to Enter.
 | R | Glacial Prison | Stationary and immune to damage for 2.5 seconds; shatters for 90 damage within 3.2 tiles and freezes survivors for 2 seconds | 45 | 45s |
 
 Spell values in the table are base values before equipment and critical hits.
-Mana regenerates at 8 per second, up to 100. Quick spells briefly interrupt
+Mana regenerates at 6 per second, up to 100. Tune with `--mana-regen 6`
+(or `--mana-regen 8` for the previous balance). See [mana balance measurements](docs/MANA_BALANCE.md). Quick spells briefly interrupt
 movement, then the current movement order resumes. Glacial Prison prevents
 casting and potion use while encased; its explosion happens automatically.
 Walls block area effects as well as projectiles. Cooldowns and effect timers
@@ -138,8 +139,11 @@ enchanter. Both menus pause combat. Hover an item for its stats, rank, and next
 enchantment price. Click a backpack item and then **Equip Item**; click an
 already-equipped item and **Unequip** to return it to the backpack.
 
-The enchanter's Rank 0 blanks are the **Frostweave set**: Crown, Vestment,
-Leggings, Grips, and Treads. Equip all five pieces at Rank 3 or higher to give
+The catalog contains **25 templates**: 20 ordinary pieces and five Frostweave pieces.
+Ordinary gear has one rolled enchantment and caps at Rank 3. Reach floor 3 to
+enchant to Rank 2 and floor 5 to enchant to Rank 3. The first Keeper victory
+awards a Rank 3 Frostweave Crown and unlocks Rank 3 Frostweave stock and drops.
+Only Frostweave can reach Ranks 4 and 5. Equip all five set pieces to give
 **Q / Frost Bolt** a chance to freeze a surviving enemy for **1 second**:
 
 | Lowest equipped Frostweave rank | Freeze chance per hit |
@@ -152,8 +156,8 @@ The lowest-ranked piece determines the set tier. Backpack pieces do not count.
 Missing a piece, wearing non-set gear, or dropping below Rank 3 disables the
 bonus. Item tooltips explain the set, character stats show its progress, and
 the Frost Bolt tooltip shows the active chance. Enchanting preserves set
-membership, and the set identity saves with the character. Dropped and reward
-equipment remains separate from Frostweave even when enchanted.
+membership, and the set identity saves with the character. Ordinary equipment
+stays ordinary when enchanted; the original random-roll quality is preserved.
 See the [Frostweave freeze preview](docs/frostweave-freeze.png).
 
 On the enchanter page, drag worn or backpack gear into the **Enchanting Slot**,
@@ -171,9 +175,9 @@ without set metadata keep their existing identity: the old format no longer
 records whether those items originally came from the shop or a drop.
 
 Backpack upgrades have a **green border and checkmark** and appear first, with
-the highest ranks first. An upgrade means a higher rank than the piece worn in
-the same slot; helpful gear for an empty slot also counts. Equal ranks and
-unranked blanks for empty slots are not upgrades. Markers update when equipment
+the highest ranks first. Matching rolled templates compare their enchantment
+strength; different effects are customization choices, not automatic upgrades.
+Legacy fixed-stat gear compares rank; useful gear for an empty slot also counts. Markers update when equipment
 or enchantments change, and upgrade tooltips explain the comparison.
 
 Select a spare item and click **Sell** for the displayed gold amount, or
@@ -191,13 +195,20 @@ The confirmation warns if upgrades are included. Equipped items are always
 kept. Switching menus cancels a pending confirmation.
 See the [bulk-sale confirmation preview](docs/sell-all.png).
 
-- Helm increases all spell damage; chest increases maximum health.
-- Legs add armor that reduces incoming hits; gloves shorten newly cast cooldowns.
-- Boots add movement speed, critical chance, and critical damage. They are the
-  rarest random drop and a guaranteed Rank 1 reward for clearing level 1.
-- Dropped equipment is Rank 1–3. Rank 3 has the best dropped stats.
-- The shop sells Frostweave Rank 0 items. Enchant them one rank at a time through
-  Rank 5. The final upgrade costs **15,000 gold**.
+- Ordinary pieces specialize in damage, resources, area, defense, healing,
+  cooldowns, movement, critical chance, or utility effects. See the catalog for exact ranges.
+- Floors 1–2 drop Rank 1; floors 3–4 mostly Rank 1 with 10% Rank 2;
+  floor 5 uses 75% / 23% / 2% for ordinary Ranks 1 / 2 / 3.
+- Boots retain their rare slot roll, and the first floor awards Rank 1 Everfrost Treads.
+- Before the Keeper unlock, stock is Rank 1 ordinary equipment. Afterward,
+  stock is Rank 3 Frostweave; 12% of equipment drops become Rank 3 Frostweave.
+- The Frostweave Rank 4 and 5 upgrades cost **2,500** and **15,000 gold** per piece.
+- All 25 equipment templates use their individual transparent illustrations in
+  `Images/Icons/Equipment/` in the inventory, shop, drag preview, enchanting slot,
+  Codex, and ground loot. `Images/Icons/Weapons/` and `Images/Icons/Characters/`
+  reserve space for future weapon and character icons. Larger generated originals
+  and generation records live in `Images/Sources/Equipment/`. Images fit their
+  available space without stretching; rank borders and labels stay visible.
 - Items fill empty slots automatically. Other pieces go into the paged backpack.
 - Maximum health increases do not heal you; use food or potions to fill it.
 
@@ -365,12 +376,36 @@ Frost Nova suppresses nearby vines for four seconds. The Keeper freezes for
 at most 0.45 seconds and then resists new freezes for three seconds; ordinary
 enemies retain their existing frost behavior. Glacial Prison is optional.
 
-His defeat grants 500 gold and a Rank 3 helm once per encounter, recalls summons,
+His defeat grants 2,500 gold and a Rank 3 Frostweave Crown on the first victory, recalls summons,
 clears hazards, and immediately saves the completion flag and reward together.
 Continue after reloading restores the defeated room. Selecting floor 5 again
-starts a fresh replay and can earn its encounter reward again. Starting over
+starts a fresh replay and can earn its gold reward again; the crown is first-victory only. Starting over
 still creates an entirely new character. The original save location and version
 remain compatible; legacy saves need no conversion.
 
 
 ![Ice Patch slowing enemies and empowering the mage](docs/ice-patch.png)
+
+### Completion presentation timing
+
+Miniboss notices and floor-clear splashes each default to 1500 milliseconds.
+Tune them independently in 1 ms increments, for example:
+
+```powershell
+python main.py --miniboss-delay-ms 1450 --completion-delay-ms 1525
+```
+
+Zero disables the corresponding delay. Pause and inventory suspend the countdown.
+Combat resolves before a clear is committed; player death in that tick takes precedence.
+A confirmed clear blocks further damage while effects animate. Minibosses with surviving
+enemies use a nonblocking notice; a simultaneous floor clear uses only the floor splash.
+Dismiss the splash and use the stair portal to continue. These transient countdowns are
+not saved, and existing character saves keep their format.
+
+Gameplay timing and record eligibility: [Timer rules](docs/TIMING.md).
+
+## Cosmetic achievements
+
+Open **Achievements** from the title menu. **Untouched: Lower Tower** recognizes a fresh, ordered floors 1–5 campaign without actual damage or death/retry. Badges persist across new games and give no gameplay rewards. Continue preserves eligibility; older saves without run history are ineligible. See [achievement rules](docs/ACHIEVEMENTS.md).
+
+Codex: **C** opens the Bestiary and Item Catalog (also available from menu buttons). Use `--codex-key` for an unused alternative and `--development-mode` for optional read-only inspection of undiscovered definitions. See [Codex rules and developer inspection](docs/CODEX.md).

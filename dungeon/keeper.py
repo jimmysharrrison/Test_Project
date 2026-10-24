@@ -8,6 +8,7 @@ from heapq import heappop, heappush
 from math import floor
 
 from .geometry import Vec
+from .combat_values import KEEPER_DAMAGE
 from .navigation import neighbors
 
 
@@ -26,8 +27,9 @@ class KeeperTuning:
     warning_min: float = 2
     warning_max: float = 5
     reaction_margin: float = .8
+    opening_delay: float = 1.5
     intervals: tuple = (3.2, 2.8, 2.2)
-    completion_gold: int = 500
+    completion_gold: int = 2500
 
 
 TUNING = KeeperTuning()
@@ -61,14 +63,18 @@ class KeeperFight:
         self.world, self.tuning = world, tuning
         self.mechanics = []
         self.stage = 1
-        self.next_cast = 2.5
+        self.next_cast = tuning.opening_delay
         self.sequence = 0
+        # A warning alone does not complete a turn: cancelled duties must retry.
+        # No duty repeats until every duty in this rotation has activated.
+        self.pending_duties = set(ORDER)
         self.finished = False
         self.history = []
         self.boss = None
         if world.player.cleared_floor == 5:
             self.finished = True
             world.level_completed = world._phase_resolved = True
+            world.floor_clear_notified = True
             world.message = "The Keeper is off duty. The upper tower continues beyond this section."
         else:
             self.boss = world.make_enemy(Vec(8.5, 5.5), "keeper", boss_role="keeper", boss_name="The Keeper")
@@ -292,12 +298,14 @@ class KeeperFight:
                     if not self._warning_still_safe(mechanic):
                         if not self._certify(mechanic):
                             self.mechanics.remove(mechanic)
+                            self.world._record("hazard_cancelled", attack=NAMES[mechanic.kind], reason="no_safe_route")
                         continue
                 if mechanic.warning > 0:
                     continue
                 self.world._record("hazard_active", attack=NAMES[mechanic.kind], duration=mechanic.life,
                                    positions=[self.world._point(p) for p in mechanic.zones])
                 if mechanic.kind == "specimens":
+                    previous_count = len(self.live_summons)
                     # Revalidate all entry points after the telegraph. Never
                     # materialize a specimen in a player, terrain or hazard.
                     for i, point in enumerate(mechanic.zones):
@@ -307,16 +315,19 @@ class KeeperFight:
                                 and all((point - e.pos).length() >= 1 for e in self.world.enemies)):
                             enemy = self.world.make_enemy(point, ("crystal", "predator", "arcane")[i % 3],
                                                           summoned=True, summon_life=self.tuning.summon_life, cooldown=1.5)
+                    if len(self.live_summons) > previous_count:
+                        self.pending_duties.discard(mechanic.kind)
                     self.mechanics.remove(mechanic)
                     continue
+                self.pending_duties.discard(mechanic.kind)
             mechanic.elapsed += dt
             mechanic.life -= dt
             if mechanic.kind == "cleaning" and mechanic.contains(self.world.player.pos, .23):
-                self.world._hurt_player(12, source="keeper", attack="Deep Cleaning")
+                self.world._hurt_player(KEEPER_DAMAGE["Deep Cleaning"], source="keeper", attack="Deep Cleaning", attacker=self.boss)
             elif mechanic.kind == "repairs":
                 for i, point in enumerate(mechanic.zones):
                     if i * .055 <= mechanic.elapsed <= i * .055 + .45 and (point - self.world.player.pos).length() < .85:
-                        self.world._hurt_player(22, source="keeper", attack="Structural Repairs")
+                        self.world._hurt_player(KEEPER_DAMAGE["Structural Repairs"], source="keeper", attack="Structural Repairs", attacker=self.boss)
             if self.finished:
                 return
             if mechanic.life <= 0:
@@ -325,9 +336,11 @@ class KeeperFight:
             return
         self.next_cast -= dt * self.boss.attack_rate
         if self.next_cast <= 0 and self.boss.frozen <= 0:
+            if not self.pending_duties:
+                self.pending_duties.update(ORDER)
             for offset in range(len(ORDER)):
                 index = (self.sequence + offset) % len(ORDER)
-                if self.start(ORDER[index]):
+                if ORDER[index] in self.pending_duties and self.start(ORDER[index]):
                     self.sequence = (index + 1) % len(ORDER)
                     self.next_cast = self.tuning.intervals[self.stage - 1]
                     break
@@ -348,11 +361,14 @@ class KeeperFight:
             return
         self.cleanup()
         self.world.player.cleared_floor = 5
+        first_victory = not self.world.player.frostweave_unlocked
         self.world.player.lower_tower_completed = True
+        self.world.player.frostweave_unlocked = True
         self.world.player.gold += self.tuning.completion_gold
         self.world._record("gold_change", amount=self.tuning.completion_gold, source="keeper_reward")
         inventory = self.world.player.inventory
-        inventory.add(inventory.create("helm", 3, "reward"))
+        if first_victory:
+            inventory.add(inventory.create_template("frostweave:helm", 3, self.world.loot_rng, "reward"))
         self.world._complete_level()
         self.world.events.append("loot")
-        self.world.announce(f"The Keeper is off duty! +{self.tuning.completion_gold} gold and Rank 3 gear. The upper tower awaits.")
+        self.world.announce(f"The Keeper is off duty! +{self.tuning.completion_gold} gold. Frostweave Rank 3 stock is unlocked. The upper tower awaits.")

@@ -26,6 +26,8 @@ class Vec:
         return self * (1 / length) if length else Vec()
 
 
+WORLD_ORIGIN = Vec(857, 226)
+
 def project(point, origin=Vec(), tile_width=56, tile_height=28):
     return Vec(
         origin.x + (point.x - point.y) * tile_width / 2,

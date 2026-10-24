@@ -22,6 +22,67 @@ def advance(world, seconds):
 
 
 class EncounterTests(unittest.TestCase):
+    def test_miniboss_gold_scales_by_floor_and_drops_only_once(self):
+        for depth, reward in ((1, 500), (2, 575), (3, 650)):
+            world, boss = encounter(depth)
+            world.pickups.clear()
+            world._hit(boss, 10000)
+            world._hit(boss, 10000)
+            gold = [pickup.value for pickup in world.pickups if pickup.kind == "gold"]
+            self.assertEqual(gold, [reward])
+            self.assertEqual(world.player.gold, 0)
+            world._collect_remaining_rewards()
+            self.assertEqual(world.player.gold, reward)
+
+    def test_victory_cues_are_once_per_boss_and_keeper_is_distinct(self):
+        for depth in (1, 2, 3, 5):
+            world = World(7, level=5) if depth == 5 else encounter(depth)[0]
+            boss = next(e for e in world.enemies if e.boss_role in ("boss", "keeper"))
+            world.events.clear()
+            world._hit(boss, 10000)
+            world._hit(boss, 10000)
+            expected = "keeper_victory" if depth == 5 else "miniboss_victory"
+            self.assertEqual(world.events.count(expected), 1)
+            self.assertNotIn("miniboss_victory" if depth == 5 else "keeper_victory", world.events)
+
+    def test_full_clear_reminder_waits_for_survivors_and_only_fires_once(self):
+        for depth in (1, 2, 3, 4, 5):
+            world = World(7, level=depth)
+            world.phase = 3
+            world.spawners.clear()
+            world._complete_level()
+            survivor = world.make_enemy(Vec(12.5, 12.5), "armor")
+            world.update(1 / 60)
+            self.assertFalse(world.floor_clear_notice)
+            for enemy in world.enemies[:]:
+                world._hit(enemy, 10000)
+            world.update(1 / 60)
+            advance(world, 1.5)
+            self.assertTrue(world.floor_clear_notice)
+            world.floor_clear_notice = False
+            advance(world, .1)
+            self.assertFalse(world.floor_clear_notice)
+
+    def test_minibosses_warn_after_one_second_without_shortening_telegraphs(self):
+        for depth, delays in ((1, [1.2]), (2, [1.6]), (3, [1.2, 1.75, 2.3])):
+            with self.subTest(depth=depth):
+                world, boss = encounter(depth)
+                world.player.invincible = 10
+                advance(world, .9)
+                self.assertFalse(world.hazards)
+                advance(world, .1)
+                self.assertEqual(len(world.hazards), len(delays))
+                for hazard, delay in zip(world.hazards, delays):
+                    self.assertIs(hazard.owner, boss)
+                    self.assertAlmostEqual(hazard.delay, delay)
+
+    def test_freeze_still_delays_miniboss_opener(self):
+        world, boss = encounter(2)
+        boss.frozen = 2
+        advance(world, 1.5)
+        self.assertFalse(world.hazards)
+        self.assertEqual(boss.signature_timer, 1)
+
     def test_each_encounter_requires_boss_and_companions_and_keeps_loot(self):
         for depth in (1, 2, 3):
             world, boss = encounter(depth)

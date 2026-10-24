@@ -2,18 +2,25 @@
 
 from collections import deque
 from dataclasses import dataclass, field
-from math import ceil, floor
+from math import ceil, floor, isfinite
 from random import Random
 
-from .abilities import (ABILITIES, ICE_PATCH_RADIUS, ICE_PATCH_MOVE_FACTOR,
+from .abilities import (ABILITIES, MAX_MANA, BASE_MANA_REGEN, ICE_PATCH_RADIUS, ICE_PATCH_MOVE_FACTOR,
                         ICE_PATCH_ATTACK_FACTOR, ICE_PATCH_FROST_BONUS)
-from .encounters import BOSSES, signature, update_hazards
+from .encounters import COMPANIONS, MINIBOSS_IDS, BOSSES, MINIBOSS_GOLD, MINIBOSS_OPENING_DELAY, signature, update_hazards
 from .creatures import KINDS, interrupt, update_creature
 from .keeper import KeeperFight, TUNING
 from .geometry import Vec
+from .items import (DEFINITIONS, stock_price, TRAIL_LIFE, TRAIL_SPACING, TRAIL_RADIUS,
+                    THORN_DURATION, THORN_COOLDOWN, PLAYER_SLOW_PULSE)
 from .items import BLANK_COST, FROSTWEAVE_FREEZE, Inventory, Item, SLOTS
 from .levels import FROSTFALL, PHASE_DELAY, PHASE_SPEEDS, PLAYABLE_FLOORS, level_for_depth
+from .timing import Timing
+from .achievements import AchievementRun
 from .navigation import find_path, flood, neighbors
+
+from .combat_values import (HEALTH_PER_FLOOR, MINIBOSS_HEALTH, COMPANION_HEALTH,
+    MELEE_REACH, MELEE_INTERVAL, TENDER_HEAL_HP_PER_SECOND, TENDER_HEAL_RANGE_TILES, RANGED, scaled_damage, RECOVERY_DAMAGE_MULTIPLIER, SHIELD_DAMAGE_MULTIPLIER)
 
 LAYOUT = FROSTFALL.layout
 ENEMY_STATS = {
@@ -30,9 +37,9 @@ ENEMY_STATS = {
     "arcane": ("Arcane Drifter", 38, 1.0, 12),
     "keeper": ("The Keeper", TUNING.health, 0, 0),
 }
-ARCHER_RANGE = 7.5
-ARCHER_WINDUP = .65
-ARCHER_COOLDOWN = 2.8
+ARCHER_RANGE = RANGED["archer"]["reach"]
+ARCHER_WINDUP = RANGED["archer"]["warning"]
+ARCHER_COOLDOWN = RANGED["archer"]["interval"]
 
 
 @dataclass(slots=True)
@@ -53,14 +60,29 @@ class Player:
     flash: float = 0
     inventory: Inventory = field(default_factory=Inventory)
     first_clear_rewarded: bool = False
+    frostweave_unlocked: bool = False
+    slow_time: float = 0
+    slow_factor: float = 1
+    slow_pulse: float = 0
+    thorn_cooldown: float = 0
     unlocked_level: int = 1
     current_level: int = 1
     cleared_floor: int = 0
     lower_tower_completed: bool = False
+    timing: Timing = field(default_factory=Timing)
+    achievement_run: AchievementRun = field(default_factory=AchievementRun)
+    achievements: dict = field(default_factory=dict)
+    achievement_notifications: list = field(default_factory=list)
+    bestiary: dict = field(default_factory=dict)
+    item_discoveries: list = field(default_factory=list)
+
+    @property
+    def max_mana(self):
+        return round(MAX_MANA * (1 + self.inventory.stats.mana), 1)
 
     @property
     def max_hp(self):
-        return 100 + self.inventory.stats.health
+        return round((100 + self.inventory.stats.health) * (1 + self.inventory.stats.health_percent), 1)
 
     @property
     def move_speed(self):
@@ -73,6 +95,16 @@ class Player:
     @property
     def crit_multiplier(self):
         return 2 + self.inventory.stats.crit_damage
+
+    def mana_cost_for(self, key):
+        return ABILITIES[key].mana * (1 - self.inventory.stats.mana_cost)
+
+    def area_for(self, key):
+        return (ICE_PATCH_RADIUS if key == 'e' else ABILITIES[key].range) * (1 + self.inventory.stats.area)
+
+    def apply_slow(self, factor, duration):
+        self.slow_factor = min(self.slow_factor if self.slow_time > 0 else 1, factor)
+        self.slow_time = max(self.slow_time, duration * (1 - self.inventory.stats.slow_recovery))
 
     def cooldown_for(self, key):
         return ABILITIES[key].cooldown * (1 - self.inventory.stats.cooldown)
@@ -106,13 +138,19 @@ class Enemy:
     summon_life: float = 0
     patch_time: float = 0
     telemetry_id: int = 0
+    species_id: str = ""
+    codex_counted: bool = False
+    debug_only: bool = False
+    gear_slow_time: float = 0
+    gear_slow: float = 0
+    gear_slows: list = field(default_factory=list)
 
     @property
     def max_hp(self):
         if self.kind == "keeper":
             return TUNING.health
-        base = 380 if self.boss_role == "boss" else 85 if self.boss_role else ENEMY_STATS[self.kind][1]
-        return round(base * (1 + .15 * (self.level - 1)))
+        base = MINIBOSS_HEALTH if self.boss_role == "boss" else COMPANION_HEALTH if self.boss_role else ENEMY_STATS[self.kind][1]
+        return round(base * (1 + HEALTH_PER_FLOOR * (self.level - 1)))
 
     @property
     def name(self):
@@ -162,6 +200,18 @@ class IcePatch:
     pos: Vec
     radius: float = ICE_PATCH_RADIUS
     life: float = 6
+    owner: str = "mage"
+
+    def contains(self, pos):
+        return self.life > 0 and (pos - self.pos).length() <= self.radius + 1e-9
+
+
+@dataclass(slots=True)
+class RimeTrail:
+    pos: Vec
+    slow: float
+    life: float = TRAIL_LIFE
+    radius: float = TRAIL_RADIUS
 
     def contains(self, pos):
         return self.life > 0 and (pos - self.pos).length() <= self.radius
@@ -178,6 +228,7 @@ class Projectile:
     frost_multiplier: float = 1
     cast_id: int = 0
     source: str = "unknown"
+    attacker: Enemy | None = None
 
 
 @dataclass(slots=True)
@@ -199,7 +250,17 @@ class Effect:
 
 
 class World:
-    def __init__(self, seed=None, player=None, level=1):
+    def __init__(self, seed=None, player=None, level=1, *, miniboss_delay_ms=1500, completion_delay_ms=1500, mana_regen=BASE_MANA_REGEN):
+        if not isfinite(mana_regen) or mana_regen < 0:
+            raise ValueError("Mana regeneration must be finite and nonnegative")
+        self.mana_regen = mana_regen
+        self.miniboss_delay_ms = max(0, miniboss_delay_ms)
+        self.completion_delay_ms = max(0, completion_delay_ms)
+        self._in_tick = False
+        self._completion_requested = False
+        self._keeper_defeated = False
+        self._miniboss_notice = None
+        self._completion_remaining = None
         self.seed = seed
         self.telemetry = None
         self.telemetry_reason = "continue"
@@ -212,10 +273,19 @@ class World:
         self.player = player if player is not None else Player()
         self.level_data = level_for_depth(level)
         self.level = level
+        self.player.achievement_run.enter(level)
+        if self.player.timing.floor != level:
+            self.player.timing.begin_floor(level)
+        if player is None and level != 1:
+            self.player.timing.category = "practice"
+        if mana_regen != BASE_MANA_REGEN:
+            self.player.timing.eligible = False
         self.player.current_level = level
         self.player.unlocked_level = max(self.player.unlocked_level, level)
         self.layout = self.level_data.layout
         self.level_completed = False
+        self.floor_clear_notified = False
+        self.floor_clear_notice = False
         self.hazards = []
         self.boss_started = False
         self.phase = 1
@@ -224,6 +294,10 @@ class World:
         self._phase_resolved = False
         self.walls = {(x, y) for y, row in enumerate(self.layout) for x, tile in enumerate(row) if tile == "#"}
         self.ice_patches = []
+        self.rime_trails = []
+        self._trail_distance = 0.0
+        self._last_mana_regen = self.mana_regen
+        self._prison_patch = None
         self.spawners = []
         self.enemies = [Enemy(Vec(x, y), kind, cooldown=1 + i * .25 if kind in ("archer", "fairy") else 0)
                         for i, (x, y, kind) in enumerate(self.level_data.enemies)]
@@ -276,10 +350,10 @@ class World:
         return enemy
 
     def enemy_bolt(self, enemy, direction, speed, spell, life):
-        damage = round(ENEMY_STATS[enemy.kind][3] * (1 + .12 * (enemy.level - 1)))
+        damage = scaled_damage(ENEMY_STATS[enemy.kind][3], enemy.level)
         self._record("enemy_attack", source=enemy.kind, attack=spell, stage="release")
         self.projectiles.append(Projectile(enemy.pos + direction * .4, direction * speed,
-                                           life=life, damage=damage, hostile=True, spell=spell, source=enemy.kind))
+                                           life=life, damage=damage, hostile=True, spell=spell, source=enemy.kind, attacker=enemy))
 
     def _freeze(self, enemy, duration):
         if enemy.kind == "keeper":
@@ -294,7 +368,7 @@ class World:
         return True
 
     def gold_value(self, base):
-        return round(base * (1 + .15 * (self.level - 1)))
+        return round(base * (1 + HEALTH_PER_FLOOR * (self.level - 1)))
 
     @property
     def blocked(self):
@@ -356,12 +430,14 @@ class World:
             return False
         self.phase, self.intermission, self._phase_resolved = 3, 0, False
         self.boss_started = True
-        support_kind = {1: "armor", 2: "tree", 3: "fairy"}[self.level]
-        support_name = {1: "Animated Shield", 2: "Thorn Tender", 3: "Volatile Duplicate"}[self.level]
+        support_id, support_kind, support_role, support_name = COMPANIONS[self.level]
         for i, point in enumerate(chosen):
             enemy = Enemy(point, kind if i == 0 else support_kind, level=self.level, spawn_phase=3,
-                          boss_role="boss" if i == 0 else "duplicate" if self.level == 3 else "support",
+                          boss_role="boss" if i == 0 else support_role,
+                          species_id=MINIBOSS_IDS[self.level] if i == 0 else support_id,
                           boss_name=name if i == 0 else support_name)
+            if i == 0:
+                enemy.signature_timer = MINIBOSS_OPENING_DELAY
             enemy.hp = enemy.max_hp
             self.enemies.append(enemy)
             self._record("enemy_spawn", target=self._actor_info(enemy))
@@ -428,7 +504,7 @@ class World:
         self.destination = None
 
     def _follow_path(self, dt):
-        distance = self.player.move_speed * dt * (self.keeper.slow_at(self.player.pos) if self.keeper else 1)
+        distance = self.player.move_speed * dt * (self.player.slow_factor if self.player.slow_time > 0 else 1)
         while self.path and distance > 0:
             delta = self.path[0] - self.player.pos
             length = delta.length()
@@ -436,7 +512,15 @@ class World:
                 self.path.pop(0)
                 continue
             step = delta.unit() * min(distance, length)
+            before = self.player.pos
             self.player.pos = self.move(self.player.pos, step)
+            strength = self.player.inventory.stats.trail_slow
+            if strength:
+                travelled = (self.player.pos - before).length()
+                self._trail_distance += travelled
+                if self._trail_distance >= TRAIL_SPACING:
+                    self.rime_trails.append(RimeTrail(before, strength, TRAIL_LIFE * (1 + self.player.inventory.stats.slow_duration)))
+                    self._trail_distance %= TRAIL_SPACING
             distance -= step.length()
             if (self.path[0] - self.player.pos).length() < 0.025:
                 self.path.pop(0)
@@ -459,7 +543,7 @@ class World:
             self.announce("Already at full health. Save your potions.")
         elif player.potions > 0:
             player.potions -= 1
-            restored = min(40, player.max_hp - player.hp)
+            restored = min(40 * (1 + player.inventory.stats.healing), player.max_hp - player.hp)
             player.hp += restored
             self._record("healing", source="potion", hp_restored=restored, potions_left=player.potions)
             self.events.append("heal")
@@ -469,6 +553,8 @@ class World:
 
     def can_cast(self, key):
         player = self.player
+        if self.completion_pending:
+            return "The floor is cleared."
         if self.state != "playing":
             return "This ascent has ended."
         if player.stasis > 0:
@@ -477,7 +563,7 @@ class World:
             return f"{ABILITIES[key].name} is cooling down."
         if player.cast_time > 0:
             return "Finishing a spell."
-        if player.mana < ABILITIES[key].mana:
+        if player.mana + 1e-9 < player.mana_cost_for(key):
             return "Not enough mana."
         return ""
 
@@ -493,7 +579,21 @@ class World:
 
     def enemy_move_factor(self, enemy):
         self.refresh_patch_status(enemy)
-        return ICE_PATCH_MOVE_FACTOR if enemy.patch_time > 0 else 1
+        factor = ICE_PATCH_MOVE_FACTOR if enemy.patch_time > 0 else 1
+        chill = .6 if enemy.chilled > 0 else 1
+        return min(factor, (1 - enemy.gear_slow) / chill) if enemy.gear_slow_time > 0 else factor
+
+    def apply_gear_slow(self, enemy, amount, duration):
+        for index, (strength, life) in enumerate(enemy.gear_slows):
+            if abs(strength - amount) < 1e-9:
+                enemy.gear_slows[index] = (strength, max(life, duration))
+                break
+        else:
+            enemy.gear_slows.append((amount, duration))
+        enemy.gear_slow, enemy.gear_slow_time = max(enemy.gear_slows, default=(0, 0))
+
+    def mana_regen_rate(self, stationary=True):
+        return self.mana_regen * (1 + self.player.inventory.stats.stationary_regen if stationary else 1)
 
     def patch_preview(self, target):
         if (target - self.player.pos).length() > ABILITIES["e"].range:
@@ -520,10 +620,11 @@ class World:
         player = self.player
         frost_multiplier = self.frost_multiplier
         ability = ABILITIES[key]
-        player.mana -= ability.mana
+        mana_cost = player.mana_cost_for(key)
+        player.mana = max(0, player.mana - mana_cost)
         self._cast_sequence += 1
         cast_id = self._cast_sequence
-        self._record("spell_cast", spell=key, cast_id=cast_id, mana_spent=ability.mana,
+        self._record("spell_cast", spell=key, cast_id=cast_id, mana_spent=mana_cost,
                      mana_remaining=round(player.mana, 2), frost_multiplier=frost_multiplier,
                      position=self._point(player.pos), target=self._point(target), cooldown=player.cooldown_for(key))
         player.cooldowns[key] = player.cooldown_for(key)
@@ -535,13 +636,13 @@ class World:
             self.effects.append(Effect(player.pos + direction * 0.4, "cast", 0.2, 0.2))
             self.events.append("bolt")
         elif key == "w":
-            self._aoe(player.pos, ability.range, ability.damage, ability.freeze, frost_multiplier, spell="w", cast_id=cast_id)
+            self._aoe(player.pos, player.area_for(key), ability.damage, ability.freeze, frost_multiplier, spell="w", cast_id=cast_id)
             if self.keeper:
-                self.keeper.suppress_vines(player.pos, ability.range)
-            self.effects.append(Effect(player.pos, "nova", 0.6, 0.6, radius=ability.range))
+                self.keeper.suppress_vines(player.pos, player.area_for(key))
+            self.effects.append(Effect(player.pos, "nova", 0.6, 0.6, radius=player.area_for(key)))
             self.events.append("nova")
         elif key == "e":
-            self.ice_patches.append(IcePatch(center, life=ability.duration))
+            self.ice_patches.append(IcePatch(center, radius=player.area_for(key), life=ability.duration))
             for enemy in self.enemies:
                 self.refresh_patch_status(enemy)
             self._record("spell_resolved", spell="e", cast_id=cast_id, reason="field_placed",
@@ -549,6 +650,11 @@ class World:
             self.events.append("patch")
             self.announce("Ice Patch: enemies move and attack slower. Stand inside for +30% frost damage.")
         elif key == "r":
+            self._prison_patch = max(
+                (patch for patch in self.ice_patches
+                 if patch.owner == "mage" and patch.contains(player.pos)),
+                key=lambda patch: patch.life, default=None
+            ) if player.inventory.stats.frostweave_rank == 5 else None
             player.stasis = ability.duration
             player.stasis_frost_multiplier = frost_multiplier
             player.stasis_cast_id = cast_id
@@ -556,16 +662,20 @@ class World:
             self.announce("Glacial Prison: invulnerable. Shatter in 2.5 seconds.")
         return True
 
-    def _aoe(self, pos, radius, damage, freeze, frost_multiplier=1, spell="unknown", cast_id=0):
+    def _aoe(self, pos, radius, damage, freeze, frost_multiplier=1, spell="unknown", cast_id=0, *, capstone=False):
         targets_hit = 0
+        seen = set()
         for target in (self.enemies + self.spawners)[:]:
+            if id(target) in seen:
+                continue
+            seen.add(id(target))
             # A boss kill can recall living summons during this same blast.
             # Revalidate the snapshot before damaging or freezing each target.
             if target not in self.enemies and target not in self.spawners:
                 continue
             if (target.pos - pos).length() <= radius and self._line_clear(pos, target.pos):
                 was_alive = target.hp > 0
-                self._hit(target, damage, frost_multiplier, spell=spell, cast_id=cast_id)
+                self._hit(target, damage, frost_multiplier, spell=spell, cast_id=cast_id, capstone=capstone)
                 targets_hit += int(was_alive)
                 if isinstance(target, Enemy) and target.hp > 0:
                     self._freeze(target, freeze)
@@ -611,6 +721,9 @@ class World:
         speed = enemy.move_speed
         if enemy.chilled > 0:
             speed *= 1 - ABILITIES["q"].slow
+        normal_factor = (ICE_PATCH_MOVE_FACTOR if enemy.patch_time > 0 else 1) * (1 - ABILITIES['q'].slow if enemy.chilled > 0 else 1)
+        if enemy.gear_slow_time > 0:
+            speed *= min(normal_factor, 1 - enemy.gear_slow) / normal_factor
         enemy.pos = self.move(enemy.pos, direction * speed * dt)
 
     def _archer(self, enemy, dt):
@@ -624,20 +737,20 @@ class World:
             enemy.windup = max(0, enemy.windup - dt * enemy.attack_rate)
             if enemy.windup == 0:
                 direction = (enemy.shot_target - enemy.pos).unit()
-                damage = round(ENEMY_STATS[enemy.kind][3] * (1 + .12 * (enemy.level - 1)))
-                self.projectiles.append(Projectile(enemy.pos + direction * .4, direction * (4.4 if fairy else 5.5),
+                damage = scaled_damage(ENEMY_STATS[enemy.kind][3], enemy.level)
+                self.projectiles.append(Projectile(enemy.pos + direction * .4, direction * RANGED[enemy.kind]["projectile_speed"],
                                                    life=1.7, damage=damage, hostile=True,
-                                                   spell="potion" if fairy else "arrow", source=enemy.kind))
+                                                   spell="potion" if fairy else "arrow", source=enemy.kind, attacker=enemy))
                 enemy.shot_target = None
-                enemy.cooldown = 2.3 if fairy else ARCHER_COOLDOWN
+                enemy.cooldown = RANGED[enemy.kind]["interval"]
                 self._record("enemy_attack", source=enemy.kind, attack="potion" if fairy else "arrow", stage="release")
                 self.events.append("potion_cast" if fairy else "arrow")
             return
         distance = (self.player.pos - enemy.pos).length()
-        if distance <= (6.5 if fairy else ARCHER_RANGE) and self._line_clear(enemy.pos, self.player.pos):
+        if distance <= RANGED[enemy.kind]["reach"] and self._line_clear(enemy.pos, self.player.pos):
             if enemy.cooldown <= 0:
                 enemy.shot_target = self.player.pos
-                enemy.windup = .8 if fairy else ARCHER_WINDUP
+                enemy.windup = RANGED[enemy.kind]["warning"]
                 self._record("enemy_attack", source=enemy.kind, attack="potion" if fairy else "arrow",
                              stage="warning", warning_seconds=enemy.windup / enemy.attack_rate)
             elif distance < 2.6:
@@ -645,45 +758,72 @@ class World:
         else:
             self._move_enemy(enemy, dt)
 
-    def _hurt_player(self, amount, source="unknown", attack="contact"):
+    @property
+    def debug_invulnerable(self):
+        return getattr(self, "_debug_invulnerable", False)
+
+    @debug_invulnerable.setter
+    def debug_invulnerable(self, enabled):
+        self._debug_invulnerable = bool(enabled)
+        if enabled:
+            self.player.achievement_run.invalidate()
+
+    def _hurt_player(self, amount, source="unknown", attack="contact", attacker=None):
         player = self.player
-        if self.state != "playing" or player.invincible > 0 or player.stasis > 0:
+        if self.debug_invulnerable or self.state != "playing" or self.level_completed or player.invincible > 0 or player.stasis > 0:
             return False
-        damage = max(1, amount - player.inventory.stats.armor)
+        damage = max(1, (amount - player.inventory.stats.armor) * (1 - player.inventory.stats.damage_reduction))
         previous_hp = player.hp
         player.hp = max(0, player.hp - damage)
+        player.achievement_run.hurt(previous_hp - player.hp)
         self._record("player_damage", source=source, attack=attack, raw_damage=amount,
                      effective_damage=previous_hp - player.hp, armor=player.inventory.stats.armor,
                      hp_remaining=player.hp, position=self._point(player.pos))
+        if player.inventory.stats.retaliation_slow and player.thorn_cooldown <= 0 and attacker is not None and attacker in self.enemies and attacker.hp > 0:
+            self.apply_gear_slow(attacker, player.inventory.stats.retaliation_slow,
+                                 THORN_DURATION * (1 + player.inventory.stats.slow_duration))
+            player.thorn_cooldown = THORN_COOLDOWN
         player.invincible = .65
         player.flash = .2
         self.events.append("hurt")
         self.effects.append(Effect(player.pos, "hurt", .4, .4))
         if player.hp <= 0:
             self.state = "dead"
+            player.achievement_run.deaths += 1
+            player.achievement_run.invalidate()
+            self.player.timing.stopped = True
+            self.player.timing.eligible = False
             self._record("player_died", source=source, attack=attack)
             if self.keeper:
                 self.keeper.cleanup()
             self.hazards.clear()
             self.ice_patches.clear()
+            self.rime_trails.clear()
             for enemy in self.enemies:
                 enemy.patch_time = 0
             self.events.append("dead")
         return True
 
-    def _hit(self, target, damage, frost_multiplier=1, spell="unknown", cast_id=0):
+    def _hit(self, target, damage, frost_multiplier=1, spell="unknown", cast_id=0, *, capstone=False):
         active_targets = self.spawners if isinstance(target, Spawner) else self.enemies
+        if self._keeper_defeated and getattr(target, "summoned", False):
+            return
         if target.hp <= 0 or target not in active_targets:
             return
-        critical = self.combat_rng.random() < self.player.crit_chance
+        if isinstance(target, Enemy):
+            from .codex import observe_enemy
+            observe_enemy(self, target)
+        critical = capstone or self.combat_rng.random() < self.player.crit_chance
         amount = damage * (1 + self.player.inventory.stats.damage) * frost_multiplier
         if isinstance(target, Enemy) and target.boss_role == "boss":
             if target.recovery > 0:
-                amount *= 1.35
+                amount *= RECOVERY_DAMAGE_MULTIPLIER
             elif self.level == 1 and any(e.boss_role == "support" and e.frozen <= 0 for e in self.enemies):
-                amount *= .65
+                amount *= SHIELD_DAMAGE_MULTIPLIER
         if critical:
             amount *= self.player.crit_multiplier
+        if capstone:
+            amount *= 3
         damage = max(1, round(amount))
         previous_hp = target.hp
         target.hp = max(0, target.hp - damage)
@@ -709,14 +849,23 @@ class World:
                 if not self.spawners:
                     self._phase_cleared()
             else:
+                from .codex import observe_enemy
+                observe_enemy(self, target, defeated=True)
                 self._record("enemy_defeated", target=self._actor_info(target), spell=spell)
                 self.enemies.remove(target)
                 self.player.kills += 1
                 if target.kind == "keeper":
-                    self.keeper.defeated()
+                    if self._in_tick:
+                        self._keeper_defeated = True
+                    else:
+                        self.events.append("keeper_victory")
+                        self.keeper.defeated()
                     return
+                if target.boss_role == "boss":
+                    self.events.append("miniboss_victory")
+                    self._miniboss_notice = [self.miniboss_delay_ms / 1000, target.boss_name or "Miniboss"]
                 self._drop_equipment(target.pos, guaranteed=bool(target.boss_role))
-                self.pickups.append(Pickup(target.pos, "gold", self.gold_value(150 if target.boss_role == "boss" else 10)))
+                self.pickups.append(Pickup(target.pos, "gold", self.gold_value(MINIBOSS_GOLD if target.boss_role == "boss" else 10)))
                 if self.rng.random() < 0.12:
                     self.pickups.append(Pickup(target.pos + Vec(0.3, 0), "food", 15))
                 if target.boss_role:
@@ -747,7 +896,7 @@ class World:
                     break
                 if shot.hostile:
                     if (self.player.pos - shot.pos).length() < .32:
-                        self._hurt_player(shot.damage, source=shot.source, attack=shot.spell)
+                        self._hurt_player(shot.damage, source=shot.source, attack=shot.spell, attacker=shot.attacker)
                         if shot.spell == "potion":
                             self.effects.append(Effect(shot.pos, "potion_splash", .4, .4))
                         shot.life = 0
@@ -760,7 +909,7 @@ class World:
                     resolved = True
                     self._record("spell_resolved", spell=shot.spell, cast_id=shot.cast_id, targets_hit=1, reason="hit")
                     if isinstance(target, Enemy) and target.hp > 0:
-                        target.chilled = max(target.chilled, ABILITIES["q"].duration)
+                        target.chilled = max(target.chilled, ABILITIES["q"].duration * (1 + self.player.inventory.stats.slow_duration))
                         chance = self.player.inventory.stats.frostweave_freeze_chance if shot.spell == "q" else 0
                         if chance and self.proc_rng.random() < chance:
                             applied = self._freeze(target, FROSTWEAVE_FREEZE)
@@ -773,7 +922,8 @@ class World:
             if shot.life <= 0:
                 if not shot.hostile and not resolved:
                     self._record("spell_resolved", spell=shot.spell, cast_id=shot.cast_id, targets_hit=0, reason="expired")
-                self.projectiles.remove(shot)
+                if shot in self.projectiles:
+                    self.projectiles.remove(shot)
             if self.state == "dead":
                 return
 
@@ -803,7 +953,59 @@ class World:
                         self.effects.append(Effect(pos, "spawn", 0.6, 0.6))
                         break
 
+    @property
+    def completion_pending(self):
+        return self._completion_remaining is not None
+
     def update(self, dt, aim=None):
+        # Presentation uses elapsed time; combat retains its bounded simulation step.
+        elapsed = max(0, dt)
+        if self.state != "playing":
+            self._miniboss_notice = self._completion_remaining = None
+            return
+        if self._completion_remaining is not None:
+            self._in_tick = False
+            for effect in self.effects:
+                effect.life -= elapsed
+            self.effects[:] = [effect for effect in self.effects if effect.life > 0]
+            self._completion_remaining = max(0, self._completion_remaining - elapsed)
+            if self._completion_remaining <= 1e-8:
+                self._completion_remaining = None
+                self.floor_clear_notified = self.floor_clear_notice = True
+            return
+        if not getattr(self, "practice_mode", False):
+            self.player.timing.advance(elapsed)
+        self._in_tick = True
+        try:
+            self._update_simulation(dt, aim)
+        finally:
+            self._in_tick = False
+        if self.state == "dead" or self.player.hp <= 0:
+            self._completion_requested = self._keeper_defeated = False
+            self._miniboss_notice = None
+            self.events[:] = [event for event in self.events if event not in ("miniboss_victory", "keeper_victory")]
+            return
+        if self._keeper_defeated:
+            self._keeper_defeated = False
+            self.events.append("keeper_victory")
+            self.keeper.defeated()
+        if self._completion_requested and not self.enemies and not self.spawners:
+            self._completion_requested = False
+            self._complete_level()
+        if self.level_completed and not self.enemies and not self.spawners and not self.floor_clear_notified:
+            self._miniboss_notice = None
+            self._completion_remaining = self.completion_delay_ms / 1000
+            if self.completion_delay_ms == 0:
+                self._completion_remaining = None
+                self.floor_clear_notified = self.floor_clear_notice = True
+            self.stop()
+        elif self._miniboss_notice:
+            self._miniboss_notice[0] -= elapsed
+            if self._miniboss_notice[0] <= 1e-8:
+                self.announce(f"{self._miniboss_notice[1]} defeated!")
+                self._miniboss_notice = None
+
+    def _update_simulation(self, dt, aim=None):
         if self.state != "playing":
             return
         dt = min(max(dt, 0), 1 / 30)
@@ -817,21 +1019,48 @@ class World:
                     self.intermission = .2
         self.message_time = max(0, self.message_time - dt)
         player = self.player
-        player.mana = min(100, player.mana + 8 * dt)
+        start_pos = player.pos
+        player.thorn_cooldown = max(0, player.thorn_cooldown - dt)
+        player.slow_time = max(0, player.slow_time - dt)
+        player.slow_pulse = max(0, player.slow_pulse - dt)
+        vine_factor = self.keeper.slow_at(player.pos) if self.keeper else 1
+        if vine_factor < 1 and player.slow_pulse <= 1e-8:
+            player.apply_slow(vine_factor, PLAYER_SLOW_PULSE)
+            player.slow_pulse = PLAYER_SLOW_PULSE
+        elif vine_factor == 1 and player.slow_pulse > 0:
+            player.slow_time = player.slow_pulse = 0
         for key in player.cooldowns:
             player.cooldowns[key] = max(0, player.cooldowns[key] - dt)
         for attr in ("cast_time", "invincible", "flash"):
             setattr(player, attr, max(0, getattr(player, attr) - dt))
         if player.stasis > 0:
+            # Test patch lifetime at the explosion instant, before this tick ages fields.
+            until_explosion = player.stasis
             player.stasis = max(0, player.stasis - dt)
             if player.stasis == 0:
                 ultimate = ABILITIES["r"]
-                self._aoe(player.pos, ultimate.range, ultimate.damage, ultimate.freeze, player.stasis_frost_multiplier, spell="r", cast_id=player.stasis_cast_id)
+                patch = self._prison_patch
+                capstone = (player.inventory.stats.frostweave_rank == 5
+                            and patch is not None
+                            and any(active is patch for active in self.ice_patches)
+                            and patch.owner == "mage"
+                            and patch.life - until_explosion > 1e-8
+                            and patch.contains(player.pos))
+                self._prison_patch = None
+                radius = player.area_for("r") * (2 if capstone else 1)
+                self._aoe(player.pos, radius, ultimate.damage, ultimate.freeze, player.stasis_frost_multiplier, spell="r", cast_id=player.stasis_cast_id, capstone=capstone)
                 player.stasis_frost_multiplier = 1
-                self.effects.append(Effect(player.pos, "shatter", 0.9, 0.9, radius=ultimate.range))
-                self.events.append("shatter")
+                self.effects.append(Effect(player.pos, "frostweave_shatter" if capstone else "shatter", 0.9, 0.9, radius=radius))
+                self.events.append("frostweave_shatter" if capstone else "shatter")
+                if capstone:
+                    self.announce("Frostweave Cataclysm: triple critical shatter / double radius!")
         elif player.cast_time <= 0:
             self._follow_path(dt)
+        self._last_mana_regen = self.mana_regen_rate(stationary=(player.pos - start_pos).length() < 1e-9)
+        player.mana = max(0, min(player.max_mana, player.mana + self._last_mana_regen * dt))
+        for trail in self.rime_trails:
+            trail.life -= dt
+        self.rime_trails[:] = [trail for trail in self.rime_trails if trail.life > 1e-8]
         if aim is not None and (aim - player.pos).length() > 0.1:
             player.facing = (aim - player.pos).unit()
         for effect in self.effects:
@@ -842,6 +1071,9 @@ class World:
         self.ice_patches = [patch for patch in self.ice_patches if patch.life > 1e-8]
         for enemy in self.enemies:
             self.refresh_patch_status(enemy)
+        from .codex import observe_visible, observe_items
+        observe_visible(self)
+        observe_items(self.player, enabled=not getattr(self, "practice_mode", False) and not self.debug_invulnerable)
         self._update_distances()
         self._spawn(dt)
         update_hazards(self, dt)
@@ -851,6 +1083,11 @@ class World:
             return
         for enemy in self.enemies[:]:
             self.refresh_patch_status(enemy)
+            enemy.gear_slows[:] = [(strength, life - dt) for strength, life in enemy.gear_slows if life - dt > 1e-8]
+            enemy.gear_slow, enemy.gear_slow_time = max(enemy.gear_slows, default=(0, 0))
+            for trail in self.rime_trails:
+                if trail.contains(enemy.pos):
+                    self.apply_gear_slow(enemy, trail.slow, dt * 1.1)
             enemy.flash = max(0, enemy.flash - dt)
             enemy.cooldown = max(0, enemy.cooldown - dt * enemy.attack_rate)
             enemy.phase += dt
@@ -880,19 +1117,19 @@ class World:
                     continue
                 if self.level == 2:
                     for tender in self.enemies:
-                        if tender.boss_role == "support" and tender.frozen <= 0 and (tender.pos - enemy.pos).length() < 5:
-                            enemy.hp = min(enemy.max_hp, enemy.hp + 5 * dt)
+                        if tender.boss_role == "support" and tender.frozen <= 0 and (tender.pos - enemy.pos).length() < TENDER_HEAL_RANGE_TILES:
+                            enemy.hp = min(enemy.max_hp, enemy.hp + TENDER_HEAL_HP_PER_SECOND * dt)
                     continue
             if enemy.kind in ("archer", "fairy"):
                 self._archer(enemy, dt)
                 continue
             distance = (player.pos - enemy.pos).length()
-            if distance > 0.5:
+            if distance > MELEE_REACH:
                 self._move_enemy(enemy, dt)
             elif enemy.cooldown <= 0:
                 base_damage = ENEMY_STATS[enemy.kind][3]
-                if self._hurt_player(round(base_damage * (1 + .12 * (enemy.level - 1))), source=enemy.kind, attack="melee"):
-                    enemy.cooldown = .9
+                if self._hurt_player(scaled_damage(base_damage, enemy.level), source=enemy.kind, attack="melee", attacker=enemy):
+                    enemy.cooldown = MELEE_INTERVAL
                     self._record("enemy_attack", source=enemy.kind, attack="melee", stage="hit")
                 if self.state == "dead":
                     return
@@ -906,7 +1143,7 @@ class World:
                 if pickup.kind == "food":
                     if player.hp >= player.max_hp:
                         continue
-                    restored = min(pickup.value, player.max_hp - player.hp)
+                    restored = min(pickup.value * (1 + player.inventory.stats.healing), player.max_hp - player.hp)
                     player.hp += restored
                     self._record("healing", source="food", hp_restored=restored)
                     self.events.append("heal")
@@ -924,7 +1161,7 @@ class World:
                 self.pickups.remove(pickup)
         if not self.spawners:
             self._phase_cleared()
-        if self.exit_open:
+        if self.exit_open and (self.floor_clear_notified or bool(self.enemies) or (self.completion_delay_ms == 0 and not self.spawners)):
             if (player.pos - self.exit).length() < 0.8:
                 self.state = "won" if self.level == PLAYABLE_FLOORS else "cleared"
                 self.stop()
@@ -939,17 +1176,38 @@ class World:
             slot = self.loot_rng.choice(SLOTS[:-1])
         else:
             return
-        rank = self.loot_rng.choices((1, 2, 3), weights=(70, 25, 5))[0]
-        item = self.player.inventory.create(slot, rank)
+        weights = (100, 0, 0) if self.level <= 2 else (90, 10, 0) if self.level <= 4 else (75, 23, 2)
+        rank = self.loot_rng.choices((1, 2, 3), weights=weights)[0]
+        available = [key for key, definition in DEFINITIONS.items() if definition.slot == slot and not definition.set_id]
+        key = self.loot_rng.choice(available)
+        if self.player.frostweave_unlocked and self.loot_rng.random() < .12:
+            key, rank = 'frostweave:' + slot, 3
+        item = self.player.inventory.create_template(key, rank, self.loot_rng)
         self.pickups.append(Pickup(pos, "item", 0, item))
 
     def _complete_level(self):
+        if self._in_tick:
+            self._completion_requested = True
+            return
         if self.level_completed:
             return
+        if self.state == "dead" or self.player.hp <= 0:
+            return
+        key = self.player.achievement_run.clear(
+            self.level, self.player.achievements, alive=self.player.hp > 0,
+            keeper=bool(self.keeper and self.player.cleared_floor == 5),
+            practice=getattr(self, "practice_mode", False))
+        if key:
+            self.player.achievement_notifications.append(key)
+            self._record("achievement_unlocked", achievement=key)
         self.level_completed = True
+        if not getattr(self, "practice_mode", False):
+            self.player.timing.clear()
+        self._miniboss_notice = None
+        self._record("floor_fully_cleared")
         player = self.player
         if self.level == 1 and not player.first_clear_rewarded:
-            reward = player.inventory.create("boots", 1, "reward")
+            reward = player.inventory.create_template("standard:boots", 1, self.loot_rng, "reward")
             player.inventory.add(reward)
             player.first_clear_rewarded = True
             self.announce("Ground floor cleared! Everfrost Treads awarded. The stair portal is open. I opens gear.")
@@ -982,12 +1240,14 @@ class World:
         player.cleared_floor = 0
         player.stasis_frost_multiplier = 1
         player.pos = Vec(3.5, 13.5)
-        player.hp, player.mana = player.max_hp, 100
+        player.hp, player.mana = player.max_hp, player.max_mana
+        player.slow_time = player.slow_pulse = player.thorn_cooldown = 0
         player.stasis = player.cast_time = player.flash = 0
         player.invincible = 1
         player.cooldowns = dict.fromkeys(ABILITIES, 0.0)
         seed = None if self.seed is None else self.seed + 1
-        fresh = World(seed, player=player, level=self.level + 1)
+        fresh = World(seed, player=player, level=self.level + 1,
+                      miniboss_delay_ms=self.miniboss_delay_ms, completion_delay_ms=self.completion_delay_ms, mana_regen=self.mana_regen)
         self.__dict__.update(fresh.__dict__)
         if recorder:
             recorder.attach(self, "next_floor")
@@ -1009,6 +1269,7 @@ class World:
         if not self._can_manage_gear() or not self.player.inventory.equip(uid):
             return False
         self.player.hp = min(self.player.hp, self.player.max_hp)
+        self.player.mana = min(self.player.mana, self.player.max_mana)
         self.announce("Equipment changed. Maximum health changes do not heal you.")
         return True
 
@@ -1016,18 +1277,20 @@ class World:
         if not self._can_manage_gear() or not self.player.inventory.unequip(slot):
             return False
         self.player.hp = min(self.player.hp, self.player.max_hp)
+        self.player.mana = min(self.player.mana, self.player.max_mana)
         return True
 
     def buy_item(self, slot):
         if slot not in SLOTS or not self._can_manage_gear():
             return False
-        cost = BLANK_COST[slot]
+        unlocked = self.player.frostweave_unlocked
+        cost = stock_price(slot, unlocked)
         if self.player.gold < cost:
-            self.announce(f"Need {cost:,} gold for this unranked {slot}.")
+            self.announce(f"Need {cost:,} gold for this {slot}.")
             return False
         self.player.gold -= cost
         self._record("gold_change", amount=-cost, source="shop")
-        item = self.player.inventory.create(slot, 0, "shop")
+        item = self.player.inventory.create_template(("frostweave:" if unlocked else "standard:") + slot, 3 if unlocked else 1, self.loot_rng, "shop")
         self.player.inventory.add(item)
         self.announce(f"Bought {item.name}. Select it to enchant.")
         self.events.append("loot")
@@ -1040,7 +1303,10 @@ class World:
         if item is None:
             return False
         if item.next_cost is None:
-            self.announce("Rank 5 is the maximum enchantment.")
+            self.announce(f"Rank {item.max_rank} is the maximum for this item.")
+            return False
+        if not item.set_id and self.player.unlocked_level < {1: 1, 2: 3, 3: 5}[item.rank + 1]:
+            self.announce(f"Reach floor { {1: 1, 2: 3, 3: 5}[item.rank + 1]} to enchant ordinary gear to Rank {item.rank + 1}.")
             return False
         if self.player.gold < item.next_cost:
             self.announce(f"Need {item.next_cost:,} gold to reach Rank {item.rank + 1}.")

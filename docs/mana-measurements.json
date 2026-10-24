@@ -1,0 +1,194 @@
+[
+  {
+    "rank": 0,
+    "regen": 8,
+    "rotations": {
+      "w": {
+        "first_mana_denial": null,
+        "casts": {
+          "w": 23
+        },
+        "mana": 100
+      },
+      "we": {
+        "first_mana_denial": null,
+        "casts": {
+          "w": 23,
+          "e": 13
+        },
+        "mana": 100
+      },
+      "wer": {
+        "first_mana_denial": null,
+        "casts": {
+          "w": 23,
+          "e": 13,
+          "r": 4
+        },
+        "mana": 91.8
+      }
+    },
+    "encounters": [
+      {
+        "floor": 1,
+        "cleared": true,
+        "state": "playing",
+        "seconds": 39.77,
+        "hp": 100,
+        "minimum_mana": 56.07
+      },
+      {
+        "floor": 5,
+        "cleared": true,
+        "state": "playing",
+        "seconds": 48.0,
+        "hp": 100,
+        "minimum_mana": 46.6
+      }
+    ]
+  },
+  {
+    "rank": 0,
+    "regen": 6,
+    "rotations": {
+      "w": {
+        "first_mana_denial": null,
+        "casts": {
+          "w": 23
+        },
+        "mana": 99.0
+      },
+      "we": {
+        "first_mana_denial": null,
+        "casts": {
+          "w": 23,
+          "e": 13
+        },
+        "mana": 92.0
+      },
+      "wer": {
+        "first_mana_denial": 56.208,
+        "casts": {
+          "w": 23,
+          "e": 13,
+          "r": 4
+        },
+        "mana": 35.0
+      }
+    },
+    "encounters": [
+      {
+        "floor": 1,
+        "cleared": true,
+        "state": "playing",
+        "seconds": 39.77,
+        "hp": 100,
+        "minimum_mana": 53.3
+      },
+      {
+        "floor": 5,
+        "cleared": true,
+        "state": "playing",
+        "seconds": 48.0,
+        "hp": 100,
+        "minimum_mana": 46.2
+      }
+    ]
+  },
+  {
+    "rank": 5,
+    "regen": 8,
+    "rotations": {
+      "w": {
+        "first_mana_denial": null,
+        "casts": {
+          "w": 33
+        },
+        "mana": 81.4
+      },
+      "we": {
+        "first_mana_denial": null,
+        "casts": {
+          "w": 33,
+          "e": 19
+        },
+        "mana": 70.6
+      },
+      "wer": {
+        "first_mana_denial": 31.867,
+        "casts": {
+          "w": 31,
+          "e": 16,
+          "r": 6
+        },
+        "mana": 15.0
+      }
+    },
+    "encounters": [
+      {
+        "floor": 1,
+        "cleared": true,
+        "state": "playing",
+        "seconds": 20.12,
+        "hp": 230,
+        "minimum_mana": 70.13
+      },
+      {
+        "floor": 5,
+        "cleared": true,
+        "state": "playing",
+        "seconds": 13.42,
+        "hp": 218,
+        "minimum_mana": 62.33
+      }
+    ]
+  },
+  {
+    "rank": 5,
+    "regen": 6,
+    "rotations": {
+      "w": {
+        "first_mana_denial": null,
+        "casts": {
+          "w": 33
+        },
+        "mana": 79.8
+      },
+      "we": {
+        "first_mana_denial": 39.383,
+        "casts": {
+          "w": 29,
+          "e": 15
+        },
+        "mana": 5.0
+      },
+      "wer": {
+        "first_mana_denial": 11.2,
+        "casts": {
+          "w": 28,
+          "e": 14,
+          "r": 1
+        },
+        "mana": 15.0
+      }
+    },
+    "encounters": [
+      {
+        "floor": 1,
+        "cleared": true,
+        "state": "playing",
+        "seconds": 20.12,
+        "hp": 230,
+        "minimum_mana": 70.1
+      },
+      {
+        "floor": 5,
+        "cleared": true,
+        "state": "playing",
+        "seconds": 13.42,
+        "hp": 218,
+        "minimum_mana": 58.0
+      }
+    ]
+  }
+]

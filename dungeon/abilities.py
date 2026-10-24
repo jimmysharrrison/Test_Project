@@ -2,6 +2,9 @@
 
 from dataclasses import dataclass
 
+MAX_MANA = 100
+BASE_MANA_REGEN = 6.0
+
 ICE_PATCH_RADIUS = 2.4
 ICE_PATCH_MOVE_FACTOR = .5
 ICE_PATCH_ATTACK_FACTOR = .6
@@ -31,5 +34,5 @@ ABILITIES = {
     "e": Ability("e", "Ice Patch", 14, 30, True,
                  "6s frost field. Enemies: -50% move, -40% attack rate. Mage: +30% frost damage inside.", 5, duration=6),
     "r": Ability("r", "Glacial Prison", 45, 45, False,
-                 "Invulnerable for 2.5s, then shatters for 90 damage.", 3.2, damage=90, duration=2.5, freeze=2),
+                 "Invulnerable for 2.5s, then shatters for 90 damage. Full Rank 5 Frostweave: wear all five at cast and blast; stand in your own active Ice Patch at cast and remain in that same unexpired patch at blast. Guaranteed critical, then 3x damage; radius 3.2 to 6.4 tiles. Otherwise normal shatter.", 3.2, damage=90, duration=2.5, freeze=2),
 }

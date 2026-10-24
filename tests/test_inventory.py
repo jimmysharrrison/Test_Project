@@ -124,30 +124,31 @@ class InventoryTests(unittest.TestCase):
         self.assertTrue(any(effect.kind == "critical" for effect in self.world.effects))
 
     def test_purchase_and_insufficient_funds_are_atomic(self):
-        self.world.player.gold = 50
-        item = self.world.buy_item("helm")
-        self.assertEqual(self.world.player.gold, 10)
-        self.assertEqual(item.rank, 0)
-        self.assertEqual(self.world.player.inventory.stats.damage, 0)
+        self.world.player.gold = 89
+        self.assertFalse(self.world.buy_item('helm'))
+        self.assertEqual(self.world.player.gold, 89)
+        self.world.player.gold = 90
+        item = self.world.buy_item('helm')
+        self.assertEqual((self.world.player.gold, item.rank), (0, 1))
+        self.assertIsNone(item.set_id)
+        self.assertEqual(item.enchantment_slots, 1)
         self.assertFalse(self.world.enchant_item(item.uid))
-        self.assertEqual(self.world.player.gold, 10)
-        self.assertEqual(self.world.player.inventory.get(item.uid).rank, 0)
-        self.assertFalse(self.world.buy_item("boots"))
-        self.assertEqual(len(self.world.player.inventory.items), 1)
-        self.world.player.gold = 50
+        self.world.player.unlocked_level = 3
+        self.world.player.gold = 150
         self.assertTrue(self.world.enchant_item(item.uid))
         self.assertEqual(self.world.player.gold, 0)
-        self.assertEqual(self.world.player.inventory.stats.damage, .1)
+        self.assertEqual(self.world.player.inventory.get(item.uid).quality, item.quality)
 
-    def test_all_enchantments_charge_each_rank_and_stop_at_five(self):
-        self.world.player.gold = sum(ENCHANT_COST.values()) + 40
-        item = self.world.buy_item("helm")
-        for rank in range(1, 6):
+    def test_ordinary_enchantments_charge_each_rank_and_stop_at_three(self):
+        self.world.player.gold = 690
+        self.world.player.unlocked_level = 5
+        item = self.world.buy_item('helm')
+        for rank in (2, 3):
             self.assertTrue(self.world.enchant_item(item.uid))
             self.assertEqual(self.world.player.inventory.get(item.uid).rank, rank)
         self.assertEqual(self.world.player.gold, 0)
         self.assertFalse(self.world.enchant_item(item.uid))
-        self.assertEqual(self.world.player.inventory.get(item.uid).rank, 5)
+        self.assertEqual(self.world.player.inventory.get(item.uid).rank, 3)
         self.assertFalse(self.world.enchant_item(999))
         self.assertFalse(self.world.equip_item(999))
 
@@ -165,7 +166,8 @@ class InventoryTests(unittest.TestCase):
             self.world._drop_equipment(Vec(5.5, 5.5), guaranteed=True)
         items = [p.item for p in self.world.pickups if p.kind == "item"]
         self.assertEqual(len(items), 1000)
-        self.assertEqual({item.rank for item in items}, {1, 2, 3})
+        self.assertEqual({item.rank for item in items}, {1})
+        self.assertTrue(all(item.enchantment_slots == 1 and not item.set_id for item in items))
         counts = {slot: sum(i.slot == slot for i in items) for slot in SLOTS}
         self.assertGreater(counts["boots"], 0)
         self.assertLess(counts["boots"], min(counts[slot] for slot in SLOTS[:-1]))
@@ -188,6 +190,8 @@ class InventoryTests(unittest.TestCase):
         self.wear("helm", 3)
         self.world.player.gold = 777
         self.finish_floor()
+        for _ in range(92):
+            self.world.update(1 / 60)
         self.world.player.pos = self.world.exit
         self.world.update(1 / 60)
         self.assertEqual(self.world.state, "cleared")

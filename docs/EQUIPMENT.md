@@ -1,200 +1,98 @@
-# Frostbound Armory — initial balance
+# Equipment and enchantments
 
-The baseline Frost Mage has 100 maximum health, 3.1 movement speed, a 5% critical
-chance, and a 2× critical damage multiplier. Armor is flat incoming-hit damage
-reduction, with a minimum of 1 damage for a successful enemy hit. These values
-fit the existing real-time combat; this is not a tabletop armor-class system.
+The catalog has 25 stable templates: five original ordinary pieces, 15 additional ordinary pieces, and five Frostweave set pieces. Only equipped items contribute stats. New ordinary items have exactly one rolled enchantment and no inherited fixed slot package. These smaller bonuses replace the old acquisition balance, without changing already-saved gear.
 
-Each piece has a fixed stat package per rank. Only the equipped piece in a slot
-contributes bonuses. Spare pieces do not stack.
+## Ranks and acquisition
 
-| Slot | Rank 1 | Rank 2 | Rank 3 | Rank 4 | Rank 5 |
-| --- | --- | --- | --- | --- | --- |
-| Helm: Rimeweaver Crown | +10% damage | +20% | +30% | +45% | +65% |
-| Chest: Frostmantle Vestment | +20 max HP | +40 | +60 | +90 | +130 |
-| Legs: Glacierweave Leggings | 1 armor | 2 | 3 | 5 | 8 |
-| Gloves: Wintercall Grips | 5% cooldown reduction | 10% | 15% | 22% | 30% |
-| Boots: Everfrost Treads | +6% speed | +10% | +15% | +22% | +30% |
-| Boots: additional crit chance | +2 percentage points | +4 | +6 | +9 | +12 |
-| Boots: additional crit multiplier | +0.10× | +0.20× | +0.35× | +0.50× | +0.75× |
+- Ordinary items support Ranks 1–3. Enchanting to Rank 2 requires reaching floor 3; Rank 3 requires reaching floor 5. Upgrades cost 150 and 450 gold. Ordinary items cannot become Frostweave.
+- Floors 1–2 drop Rank 1 only. Floors 3–4 use 90% Rank 1 / 10% Rank 2. Floor 5 uses 75% / 23% / 2% for Ranks 1 / 2 / 3. The existing rare boot slot roll is retained; each slot draws uniformly from its four ordinary templates.
+- Before the first Keeper victory, the shop sells the five original ordinary templates at Rank 1. The first ground-floor clear still awards Rank 1 Everfrost Treads, now with a random speed roll.
+- The first Keeper victory awards a Rank 3 Frostweave Crown and permanently unlocks Rank 3 Frostweave stock. Once unlocked, 12% of equipment drops are replaced by Rank 3 Frostweave of that slot. No pre-unlock stock/drop/reward grants newly created Frostweave.
+- Ranks 4–5 are exclusive to newly acquired Frostweave. The next upgrades cost 2,500 and 15,000 gold per piece. Repeat Keeper victories do not duplicate the first-victory crown. The profile unlock survives new runs.
 
-For example, Rank 3 boots yield 3.565 movement speed, 11% critical chance, and a
-2.35× critical multiplier. With a Rank 3 helm, a normal Frost Bolt deals 31 damage
-and a critical bolt with those boots deals 73 damage (rounded after bonuses).
+| Slot | Ordinary Rank 1 stock | Frostweave Rank 3 stock |
+|---|---:|---:|
+| Helm | 90 gold | 690 gold |
+| Chest | 110 gold | 710 gold |
+| Legs | 90 gold | 690 gold |
+| Gloves | 100 gold | 700 gold |
+| Boots | 250 gold | 850 gold |
 
-A Rank 5 chest gives 230 maximum HP. Equipping or enchanting a chest does not
-heal the additional health. Removing it caps current health to the new maximum.
-Gloves affect newly cast cooldowns; already-running timers keep their remaining
-duration. Gear cannot be changed or enchanted while Glacial Prison is active.
+## Rolls and effects
 
-## Loot and first-clear reward
+An ordinary drop stores its stable template ID and a quality integer from 0 through 10,000. The definition maps that percentile into its rank’s permitted range and rounds to 0.1 percentage-point increments. Enchanting preserves the percentile and improves the range; it never rerolls. Save/load, selling, equipping and opening the Codex never reroll. Crit chance is added in percentage points; other numerical enchantments are relative percentages. Catalog values are labeled midpoint previews with the real possible ranges, not actual owned instances.
 
-- Normal enemies have a separate 0.5% boot-drop roll. Otherwise, a 12% roll can
-  drop a helm, chest, legs, or gloves.
-- Each rift guarantees one piece of equipment, with the same rare boot roll.
-- Dropped ranks use weights 70% Rank 1, 25% Rank 2, and 5% Rank 3.
-- Rank 3 is the highest dropped rank. Ranks 4 and 5 require enchanting.
-- Clearing level 1 awards one guaranteed Rank 1 Everfrost Treads directly to the
-  inventory. That reward can only be claimed once per local character profile.
-- A piece fills an empty equipment slot automatically. Replacements go to the
-  backpack for manual selection. The backpack supports multiple pages.
-- Walk over drops to collect them. Hover the ground icon or an owned item to
-  inspect its rank and bonuses. On a level clear, remaining equipment and gold
-  are banked automatically, so taking the exit cannot discard earned loot.
+| Item | Slot | Enchantment | Rank 1 | Rank 2 | Rank 3 |
+|---|---|---|---|---|---|
+| Rimeweaver Crown | Helm | spell damage | 0.1–5.9% | 1.0–7.9% | 2.0–9.9% |
+| Frostmantle Vestment | Chest | maximum health | 0.1–5.9% | 1.0–8.9% | 2.0–11.9% |
+| Glacierweave Leggings | Legs | incoming damage reduction | 0.1–1.9% | 0.3–2.9% | 0.5–3.9% |
+| Wintercall Grips | Gloves | spell cooldown reduction | 0.1–1.9% | 0.3–2.9% | 0.5–3.9% |
+| Everfrost Treads | Boots | movement speed | 0.1–5.9% | 1.0–7.9% | 2.0–9.9% |
+| Apprentice’s Rimeband | Helm | spell damage | 0.1–5.9% | 1.0–7.9% | 2.0–9.9% |
+| Deepwell Circlet | Helm | maximum mana | 0.1–5.9% | 1.0–7.9% | 2.0–9.9% |
+| Snowseer Hood | Helm | spell area radius | 0.1–2.9% | 0.5–3.9% | 1.0–4.9% |
+| Snowbound Robe | Chest | maximum health | 0.1–5.9% | 1.0–8.9% | 2.0–11.9% |
+| Stillwater Vestment | Chest | mana regeneration while stationary | 0.1–5.9% | 1.0–8.9% | 2.0–11.9% |
+| Winterthorn Coat | Chest | attacker movement slow for 1s (3s trigger cooldown) | 0.1–5.9% | 1.0–7.9% | 2.0–9.9% |
+| Stonefrost Leggings | Legs | incoming damage reduction | 0.1–1.9% | 0.3–2.9% | 0.5–3.9% |
+| Driftwalker Trousers | Legs | shorter movement slows on you | 0.1–5.9% | 1.0–9.9% | 2.0–14.9% |
+| Runestitched Leggings | Legs | food and potion healing | 0.1–5.9% | 1.0–8.9% | 2.0–11.9% |
+| Quickrime Gloves | Gloves | spell cooldown reduction | 0.1–1.9% | 0.3–2.9% | 0.5–3.9% |
+| Frugalweave Wraps | Gloves | spell mana-cost reduction | 0.1–2.9% | 0.5–3.9% | 1.0–4.9% |
+| Lingering Frost Grips | Gloves | longer chill / gear slows (not freezes) | 0.1–5.9% | 1.0–8.9% | 2.0–11.9% |
+| Snowstep Boots | Boots | movement speed | 0.1–5.9% | 1.0–7.9% | 2.0–9.9% |
+| Rimetrail Boots | Boots | ice-trail movement slow (1s trail; no spell-field bonus) | 0.1–5.9% | 1.0–7.9% | 2.0–9.9% |
+| Shardhunter Boots | Boots | critical-hit chance (percentage points) | 0.1–0.9% | 0.2–1.4% | 0.3–1.9% |
 
-## Shop and enchanting
+Winterthorn slows the exact enemy that damaged the mage, including ranged shooters, for 1 second with a 3-second trigger cooldown. Invulnerable/stasis hits do not trigger it. It slows movement only, never freezes or changes attack clocks.
 
-Press **B** for the enchanter or **I** for inventory. Both menus pause combat.
-Blank gear starts at Rank 0 with no bonuses.
+Rimetrail emits a small trail patch every 0.3 tiles actually walked. Each patch has a 0.38-tile radius and lasts 1 second. It affects enemies touching it; standing still emits nothing. It grants no Ice Patch damage bonus, freeze, attack slow or Frostweave capstone interaction. It is separate from spell fields. Multiple gear slows use the strongest active strength, each retaining its own lifetime; they cannot amplify a stronger native chill/patch combination.
 
-All purchased blanks belong to the Frostweave set. Their names are Frostweave
-Crown, Frostweave Vestment, Frostweave Leggings, Frostweave Grips, and Frostweave
-Treads. Set identity is independent of rank and persists through every enchant
-and save. Enchanting dropped or reward gear does not convert it into Frostweave.
-Existing shop blanks migrate automatically. Legacy enchanted items lacking set
-metadata remain ordinary equipment, because their original shop/drop origin
-was not retained in the previous format.
+Lingering Frost extends Bolt chill and the lifetimes of gear slows/trails. It does not extend freezes, stasis or Ice Patch fields. Snowseer expands Nova, Ice Patch field radius and Prison shatter radius, not Bolt range or Ice Patch placement distance. Stillwater checks actual movement during the simulation step, including blocked movement, to determine stationary regeneration.
 
-| Blank item | Price |
-| --- | ---: |
-| Helm | 40 gold |
-| Chest | 60 gold |
-| Legs | 40 gold |
-| Gloves | 50 gold |
-| Boots | 200 gold |
+Driftwalker shortens timed player movement slows. Keeper vines refresh a 0.3-second contact pulse; the enchantment shortens that pulse, allowing brief recovery between pulses while inside vines. Leaving the vines clears their contact pulse immediately. Baseline movement is unchanged and the Keeper’s safe-route certification remains conservative because it assumes the full original vine slowdown. Timed slow strength and duration are distinct from spell freezing.
 
-Every rank must be purchased in order. The following prices are for the next
-single upgrade, not cumulative totals:
+Health/mana increases do not refill current resources when equipping. Removing gear clamps current values to the new maximum. Food/potion healing is multiplied before clamping. Damage reduction applies after legacy flat armor, preserving the existing one-HP minimum hit. Cooldown/mana-cost reductions apply to newly cast spells; active cooldowns are not rescaled. All new timers and trail lifetimes run in World.update and therefore pause with combat, mana regeneration and the existing Timing system.
 
-| Upgrade | Price |
-| --- | ---: |
-| Rank 0 → 1 | 50 gold |
-| Rank 1 → 2 | 150 gold |
-| Rank 2 → 3 | 450 gold |
-| Rank 3 → 4 | 2,500 gold |
-| Rank 4 → 5 | 15,000 gold |
+## Frostweave and compatibility
 
-Enchanting a blank all the way to Rank 5 costs 18,150 gold, plus the blank's
-purchase price. Rank 5 is intentionally an expensive long-term target. Existing
-Rank 1–3 loot can also be enchanted, saving the cost of the lower upgrades.
-Purchases and enchants check funds before changing ownership or taking gold.
+Frostweave retains its existing fixed rank packages and five-piece bonuses. The lowest equipped rank determines the set bonus: R3 / R4 / R5 give 15% / 25% / 40% Bolt freeze chance for 1 second. The existing Rank 5 Ice Patch / Prison capstone is unchanged. Backpack items do not activate bonuses.
 
-Drag equipment from the worn slots or the shop's paged backpack into the
-Enchanting Slot, then press Enchant to pay for the next rank. The slot refers
-to the owned item; placing or clearing it does not transfer ownership, unequip,
-duplicate, or destroy gear. Selecting a different item does not change the
-loaded target. Place Selected Item is the click-only alternative. New purchases
-are loaded automatically. A drag can start in inventory, hover the Enchanter
-tab to switch views, and finish in the slot. Escape, focus loss, and invalid
-drops cancel safely. Only the loaded item receives the enchant, with the normal
-gold, rank, death, and Glacial Prison checks.
+Old untemplated saves keep their exact fixed stats, identity and ranks, even previously owned ordinary Rank 4/5 pieces. Such legacy ordinary pieces cannot be upgraded further. Historical shop items remain Frostweave; they are not confiscated or treated as proof of a Keeper defeat. Old lower-tower completion history can support the unlock. Live acquisition exclusively uses the validated template factory; the legacy factory remains for old authoring/practice fixtures. Version 1/2 profiles remain readable, and unknown/invalid template IDs or rolls cause autosave protection rather than discarding items. New gear IDs/quality, collection history and the Frostweave unlock are persisted atomically.
 
-## Frostweave set bonus
+The active-play timing balance version is now active-v1-balance-2, so new equipment records do not compete with old balance records. Telemetry includes stable item IDs, roll quality, effective enchantments and the definition registry.
 
-All five different slots must have Frostweave pieces **equipped** at Rank 3 or
-higher. Owning pieces in the backpack does not satisfy the requirement. The
-lowest equipped piece controls the full-set rank, so a mixed Rank 3/4/5 set
-uses the Rank 3 bonus until every piece reaches Rank 4.
+Backpack upgrade markers compare matching templates and rolled strength. Different effects are sidegrades for the player to compare. Existing confirmed sale, destruction, drag targeting and pause rules continue to apply.
 
-| Full-set rank | Frost Bolt freeze chance | Freeze duration |
-| --- | ---: | ---: |
-| Below 3 or incomplete | 0% | — |
-| 3 | 15% | 1 second |
-| 4 | 25% | 1 second |
-| 5 | 40% | 1 second |
+## Icon direction
 
-The roll occurs when Q / Frost Bolt hits a surviving enemy and uses the set
-equipped at that instant. The normal chill still applies. Freeze stops movement
-and attacks and interrupts an archer's bow draw; it never shortens a longer
-freeze already on the target. Spawners, misses, killing blows, enemy arrows,
-and other spells do not trigger this bonus. Set progress appears in character
-stats, set details in item tooltips, and the active chance in Q's tooltip.
+New ordinary items currently reuse the slot silhouettes with small colored runes. Frostweave reuses the existing five illustrations. These descriptions specify future individual artwork; no new raster art is required to use the items.
 
-## Selling and destroying spare gear
-
-Select an unwanted item in the inventory. **Sell** exchanges it for the quoted
-gold amount; **Destroy** permanently removes it for no gold. Both actions are
-available in the inventory and enchanter menus for the selected owned item.
-Equipped items must be unequipped first. Disposal is blocked during Glacial
-Prison and after death, just like other gear changes.
-
-Sell value is one quarter of the sum of the blank price and all enchantment
-prices through that item's current rank, rounded down. The same rank has the same value
-regardless of whether it was dropped or enchanted. For example:
-
-- Rank 0 helm: 10 gold.
-- Rank 1 helm: 22 gold.
-- Rank 3 helm: 172 gold.
-- Rank 5 boots: 4,587 gold.
-
-The quote appears on the Sell button and in the item tooltip. Buying or
-upgrading an item and reselling it always loses gold.
-
-Backpack upgrades are shown first, highest rank first, with a green border and
-checkmark. Each slot has fixed bonuses that increase with rank, so comparisons
-use the equipped item in the same slot. Helpful ranked items for empty slots
-count as upgrades; equal ranks and blank Rank 0 items do not. The comparison
-updates after equipping, unequipping, or enchanting. Items remain selected by
-their identifier when the order changes.
-
-Individual sales of Rank 3, 4, or 5 require **ARE YOU SURE?** confirmation with
-the item name, rank, and gold value. Single sales of Rank 0–2 remain immediate.
-The **Sell Backpack by Rank** controls are available in both menus: select one
-exact rank from R0 through R5 and click **Sell All Rank N**. The quote includes
-every matching unequipped item across all pages, and never includes worn gear.
-All bulk sales require confirmation, even for one Rank 0 item. The dialog shows
-the number of items, total gold, and whether upgrades are included. Upgrades
-are included when they match the selected rank, so review the quote before selling.
-Only the quoted items can be sold. If one was equipped, enchanted, or removed
-before confirmation, the whole sale is rejected without removing any items or
-paying gold. Newly acquired items are not silently added to an existing quote.
-
-Destroy opens a confirmation naming the exact item and rank. **Cancel** or
-**Escape** closes that confirmation without removing the item; the armory stays
-open. Sale confirmations use the same cancellation rules. Keyboard menu switches
-cancel pending confirmations. A confirmation blocks other clicks until resolved. Selling
-and destruction update the existing save automatically. Sold or destroyed gear
-cannot be recovered, and disposing of the first-clear boots does not reset
-that one-time reward.
-
-## Tower progression and persistence
-
-A floor is complete only after all three phases are defeated: 2, 3, and 4
-spawners, nine in total. Each phase banks remaining gold and equipment. A
-3-second intermission separates phases; survivors remain dangerous. New mobs
-move at 100%, 115%, and 130% of their base speed in phases 1, 2, and 3.
-The stair portal and one-time first-floor boots require the final phase clear.
-
-At the portal, choose **Enter / Climb to Next Floor**. Gear, gold, potions, and
-kills carry forward; health and mana refill, and spell cooldowns reset. The
-ground floor leads to Thornveil Atrium, then the Alchemist's Workshop. All
-three use the same equipment economy. Each additional floor adds 15% to base
-enemy/spawner health and gold, and 12% to base attack damage. These values do
-not reset or heal between phases. Floor 3 ends this build; floors 4 and 5 are
-planned within the twenty-story Tower.
-
-Equipment, enchantments, gold, potions, kills, current level, highest reached
-depth, and the claimed boot reward are saved locally. Launching shows the title
-menu. Continue loads a fresh room at the current level with full health and
-mana. Level Select replays reached levels while keeping gear and unlocks.
-New destinations unlock on entry through the portal, rather than on clearing
-the previous room. Start Game resets the character, including gear and unlocks,
-after confirmation. Death keeps earned equipment and gold and retries the
-current level.
-The exact positions of enemies, temporary walls, and projectiles are not saved.
-Phases restart from phase 1 when loading a fresh room. Saves from the old
-endless-depth build above depth 3 map to the third authored floor without
-losing gear or gold. The legacy save folder is retained after the Frost Mage rename.
-
-Default save location:
-
-- Windows: `%LOCALAPPDATA%\Embervault\profile.json`
-- Linux: `$XDG_DATA_HOME/embervault/profile.json`, or
-  `~/.local/share/embervault/profile.json` when XDG_DATA_HOME is unset.
-
-Saves replace the previous file atomically. An unreadable, corrupt, or newer
-profile disables autosave and displays a warning, preserving the original file.
-`--no-save` uses a temporary character; `--profile PATH` selects another save.
-Headless runs do not touch a profile unless `--profile` is supplied explicitly.
-
-The numerical tables and prices are defined in `dungeon/items.py`.
+| Item | Slot | Icon description |
+|---|---|---|
+| Rimeweaver Crown | Helm | Angular silver crown with a central rime crystal. |
+| Frostmantle Vestment | Chest | Heavy blue vestment with a broad white fur mantle. |
+| Glacierweave Leggings | Legs | Layered blue leggings patterned like overlapping glacier plates. |
+| Wintercall Grips | Gloves | Dark gloves with bright frost runes across the knuckles. |
+| Everfrost Treads | Boots | Sturdy snow boots with icy soles and thick white cuffs. |
+| Apprentice’s Rimeband | Helm | Simple silver band with one pale-blue ice shard. |
+| Deepwell Circlet | Helm | Dark-blue circlet cradling a round, glowing mana gem. |
+| Snowseer Hood | Helm | Soft white hood with a widening snowflake halo. |
+| Snowbound Robe | Chest | Padded blue robe with a snow-covered heart clasp. |
+| Stillwater Vestment | Chest | Deep teal robe bearing a still pool and rising blue mote. |
+| Winterthorn Coat | Chest | Short fur-lined coat with icy thorns around the collar. |
+| Stonefrost Leggings | Legs | Slate-gray leg guards with frosted stone knee plates. |
+| Driftwalker Trousers | Legs | Light trousers with wind-swept snow curling around the cuffs. |
+| Runestitched Leggings | Legs | Indigo leggings stitched with small green restorative runes. |
+| Quickrime Gloves | Gloves | Slim icy gloves with a small hourglass rune. |
+| Frugalweave Wraps | Gloves | Blue cloth hand wraps protecting a single bright mana droplet. |
+| Lingering Frost Grips | Gloves | Long gloves with delicate frost tendrils trailing from the fingers. |
+| Snowstep Boots | Boots | Light blue boots with white wing-like snow streaks. |
+| Rimetrail Boots | Boots | Dark boots leaving a short trail of icy footprints. |
+| Shardhunter Boots | Boots | Sharp-toed boots with a tiny crystal crosshair on each cuff. |
+| Frostweave Crown | Helm | Tall translucent ice-crystal crown with a luminous blue core. |
+| Frostweave Vestment | Chest | Elegant white-and-cyan mage robe woven with branching frost crystals. |
+| Frostweave Leggings | Legs | Pale crystal armor plates over a dark blue woven underlayer. |
+| Frostweave Grips | Gloves | Crystalline blue gauntlets with sparkling ice fingertips. |
+| Frostweave Treads | Boots | Polished crystal boots with faceted toes and glowing frost seams. |

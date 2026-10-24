@@ -58,6 +58,8 @@ class MenagerieTests(unittest.TestCase):
         self.assertTrue(world.exit_open)
         self.assertIn(survivor, world.enemies)
         self.assertTrue(any(p.kind == "gold" for p in world.pickups))
+        for _ in range(92):
+            world.update(1 / 60)
         world.player.pos = world.exit
         world.update(1 / 60)
         self.assertTrue(world.next_level())
@@ -325,6 +327,40 @@ class KeeperTests(unittest.TestCase):
             self.assertLessEqual(len(fight.live_summons), TUNING.summon_cap)
         self.assertEqual(seen, {"repairs", "vines", "cleaning", "specimens"})
 
+    def test_scheduler_introduces_all_duties_early_without_repeats(self):
+        for stage in (1, 2, 3):
+            with self.subTest(stage=stage):
+                world = World(7, level=5)
+                fight = world.keeper
+                fight.boss.hp = TUNING.health * {1: 1, 2: .5, 3: .2}[stage]
+                world.player.invincible = 90
+                for _ in range(60 * 24):
+                    world.update(1 / 60)
+                    self.assertLessEqual(len(fight.active_kinds), 1 if stage == 1 else 2)
+                    if not fight.pending_duties:
+                        break
+                self.assertFalse(fight.pending_duties)
+                self.assertEqual(len(fight.history), 4)
+                self.assertEqual({row[2] for row in fight.history}, {"repairs", "vines", "cleaning", "specimens"})
+                self.assertAlmostEqual(fight.history[0][0], TUNING.opening_delay, delta=1 / 60)
+                self.assertTrue(all(TUNING.warning_min <= row[3] <= TUNING.warning_max for row in fight.history))
+
+    def test_cancelled_warning_stays_due_and_safety_still_blocks_casts(self):
+        from unittest.mock import patch
+
+        world, fight, boss = keeper()
+        self.assertTrue(fight.start("cleaning"))
+        with patch.object(fight, "_warning_still_safe", return_value=False), patch.object(fight, "_certify", return_value=False):
+            advance(world, .3)
+            self.assertFalse(fight.mechanics)
+            self.assertIn("cleaning", fight.pending_duties)
+            fight.next_cast = 0
+            advance(world, 1)
+            self.assertEqual(len(fight.history), 1)
+        fight.next_cast = 0
+        advance(world, .1)
+        self.assertTrue(fight.mechanics)
+
     def test_death_cleans_hazards_summons_and_hostile_projectiles(self):
         world, fight, boss = keeper()
         fight.start("cleaning")
@@ -353,6 +389,8 @@ class KeeperTests(unittest.TestCase):
         world._hit(boss, 10000)
         advance(world, 2)
         self.assertEqual((world.player.gold, world.player.inventory.to_dict()), (gold, gear))
+        for _ in range(92):
+            world.update(1 / 60)
         world.player.pos = world.exit
         world.update(1 / 60)
         self.assertEqual(world.state, "won")

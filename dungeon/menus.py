@@ -6,7 +6,7 @@ import pygame
 
 from .levels import FOCUS_FLOORS, MOTTO, PHASE_SPEEDS, PLAYABLE_FLOORS, TOWER_FLOORS, floor_name
 
-FRONTEND_MODES = {"title", "levels", "howto", "confirm_new", "story", "journal"}
+FRONTEND_MODES = {"title", "levels", "howto", "confirm_new", "tutorial_offer", "story", "journal", "achievements"}
 
 
 @dataclass(frozen=True, slots=True)
@@ -38,14 +38,17 @@ class Menus:
                         ("howto", "How to Play", True),
                         ("story", "The Story", True),
                         ("quit", "Quit", True),
-                    ))]
+                    ))] + [Button("codex", "Codex", pygame.Rect(800, 735, 160, 38)), Button("achievements", "Achievements", pygame.Rect(974, 735, 166, 38)), Button("tutorial", "Tutorial / Drearamore Practice", pygame.Rect(310, 725, 340, 48))]
+        if mode == "tutorial_offer":
+            return [Button("learn_first", "Play Tutorial", pygame.Rect(370, 530, 310, 48)),
+                    Button("skip_tutorial", "Skip / Start Game", pygame.Rect(760, 530, 310, 48))]
         if mode == "confirm_new":
             return [Button("cancel_new", "Keep Current Game", pygame.Rect(370, 530, 310, 48)),
                     Button("confirm_new", "Start Over at Level 1", pygame.Rect(760, 530, 310, 48))]
-        if mode in ("howto", "story", "journal"):
+        if mode in ("howto", "story", "journal", "achievements"):
             return [Button("back", "Back", pygame.Rect(552, 728, 336, 46))]
         if mode == "paused":
-            return [Button("resume", "Resume", pygame.Rect(669, 529, 366, 51)),
+            return [Button("codex", "Codex", pygame.Rect(669, 414, 366, 38)), Button("resume", "Resume", pygame.Rect(669, 529, 366, 51)),
                     Button("howto", "How to Play", pygame.Rect(669, 465, 366, 44)),
                     Button("main_menu", "Main Menu", pygame.Rect(669, 592, 366, 44))]
         if mode == "levels":
@@ -140,11 +143,28 @@ class Menus:
                 renderer.text("Start Game begins on the ground floor.", 970, 660, 13, muted, center=True)
             renderer.text("Start Game creates a fresh character.", 970, 690, 12, muted, center=True)
             renderer.text("Level Select keeps your equipment and gold.", 970, 714, 12, muted, center=True)
+        elif mode == "achievements":
+            from .achievements import DEFINITIONS
+            renderer.text("Achievements / Cosmetic Badges", 720, 195, 29, white, center=True)
+            for i, (key, definition) in enumerate(DEFINITIONS.items()):
+                y = 290 + i * 120
+                date = world.player.achievements.get(key)
+                pygame.draw.circle(renderer.screen, ice if date else muted, (310, y + 20), 25, 3)
+                renderer.text("*" if date else "?", 310, y + 7, 22, ice, center=True)
+                renderer.text(definition["title"], 360, y, 22, white)
+                renderer.text(definition["description"], 360, y + 34, 12, muted)
+                renderer.text(f"Unlocked: {date[:10]} (UTC)" if date else "Locked", 360, y + 60, 14, ice)
         elif mode == "levels":
             renderer.text("The Tower / First Five Floors", 720, 188, 29, white, serif=True, center=True)
             renderer.text("Twenty stories rise above you. Reach a floor to unlock it; replays keep your gear.",
                           720, 229, 13, muted, center=True)
             renderer.text(f"Page {self.page + 1} / {(self.level_count(world) + 5) // 6}", 720, 696, 12, muted, center=True)
+        elif mode == "tutorial_offer":
+            renderer.text("Remember your training?", 720, 270, 35, white, serif=True, center=True)
+            renderer.text("Practice movement, every spell, healing, and equipping gear at Drearamore.",
+                          720, 353, 16, ice, center=True)
+            renderer.text("A safe, separate practice character. Skip now or replay Tutorial from the main menu.",
+                          720, 401, 14, muted, center=True)
         elif mode == "confirm_new":
             renderer.text("Begin a new ascent?", 720, 270, 35, white, serif=True, center=True)
             renderer.text("Start on the ground floor with a fresh Frost Mage.", 720, 353, 18, ice, center=True)

@@ -14,7 +14,8 @@ from .geometry import Vec, project
 from .levels import MOTTO, PHASE_SPEEDS, PLAYABLE_FLOORS, TOWER_FLOORS, level_for_depth
 
 WIDTH, HEIGHT = 1440, 900
-ORIGIN = Vec(857, 226)
+from .geometry import WORLD_ORIGIN
+ORIGIN = WORLD_ORIGIN
 INK = (12, 17, 23)
 PANEL = (19, 26, 33)
 LINE = (48, 57, 64)
@@ -46,6 +47,10 @@ class Renderer:
         self.armory = Armory()
         self.menu = Menus()
         self.gear_button = pygame.Rect(1109, 113, 137, 28)
+        from .codex import Codex
+        self.codex = Codex()
+        self.codex_key = "c"
+        self.codex_button = pygame.Rect(730, 113, 184, 28)
         self.journal_button = pygame.Rect(924, 113, 173, 28)
         self.profile_notice = ""
         self.armed = None
@@ -692,7 +697,7 @@ class Renderer:
             color = RANK_COLORS[pickup.item.rank]
             self.glow(x, y - 8, color, 34, 35)
             pygame.draw.polygon(self.screen, color, [(x, y - 29), (x + 15, y - 12), (x, y + 1), (x - 15, y - 12)], 1)
-            item_icon(self.screen, pickup.item.slot, (x, y - 13 + bob), color, .42)
+            item_icon(self.screen, pickup.item.slot, (x, y - 13 + bob), color, .42, item=pickup.item)
         elif pickup.kind == "gold":
             self.glow(x, y - 4, GOLD, 25, 28)
             for dx, dy in ((-4, 0), (3, -2), (0, -5)):
@@ -774,7 +779,9 @@ class Renderer:
         x, y = iso(effect.pos)
         age = 1 - effect.life / effect.duration
         color = POTION if effect.kind == "potion_splash" else TEAL if effect.kind == "heal" else GOLD if effect.kind in ("gold", "critical") else VIOLET if effect.kind in ("spawn", "burst") else RED if effect.kind == "hurt" else ICE
-        if effect.kind in ("nova", "shatter"):
+        if effect.kind in ("nova", "shatter", "frostweave_shatter"):
+            if effect.kind == "frostweave_shatter":
+                self.radius(effect.pos, effect.radius * min(1, age * 2), GOLD, 5)
             self.radius(effect.pos, effect.radius * min(1, age * 1.5), ICE, 2)
             self.radius(effect.pos, effect.radius * age * 0.8, (80, 140, 177))
             for i in range(14):
@@ -866,9 +873,9 @@ class Renderer:
         self.spaced("VITALITY", 48, 346, 10)
         self.text(f"{player.hp} / {player.max_hp}", 193, 343, 12, WHITE)
         self.bar(48, 370, 210, 7, player.hp / player.max_hp, RED)
-        self.spaced("MANA", 48, 389, 10)
-        self.text(f"{int(player.mana)} / 100", 193, 386, 12, ICE)
-        self.bar(48, 414, 210, 7, player.mana / 100, (84, 151, 216))
+        self.text(f"MANA +{world._last_mana_regen:.2f}/s", 48, 389, 10, ICE)
+        self.text(f"{int(player.mana)} / {player.max_mana}", 193, 386, 12, ICE)
+        self.bar(48, 414, 210, 7, player.mana / player.max_mana, (84, 151, 216))
         pygame.draw.rect(self.screen, (31, 43, 51), self.potion_rect, border_radius=4)
         self.key("1", 53, 440, 23)
         self.text("Healing potion", 86, 445, 11, WHITE)
@@ -928,7 +935,7 @@ class Renderer:
         for key, rect in self.ability_rects.items():
             ability = ABILITIES[key]
             cooldown = world.player.cooldowns[key]
-            disabled = cooldown > 0 or world.player.mana < ability.mana or world.player.stasis > 0
+            disabled = cooldown > 0 or world.player.mana < world.player.mana_cost_for(key) or world.player.stasis > 0
             hovered = mouse is not None and rect.collidepoint(mouse)
             if hovered:
                 hover = key
@@ -942,13 +949,13 @@ class Renderer:
                 self.text(f"{cooldown:.1f}s", rect.x + 59, rect.y + 37, 17, ICE)
                 self.bar(rect.x + 59, rect.y + 61, 130, 2, 1 - cooldown / world.player.cooldown_for(key), ICE)
             else:
-                self.text(f"{int(ability.mana)} MANA" if ability.mana else "FREE · HOLD Q", rect.x + 59, rect.y + 42, 10, RED if world.player.mana < ability.mana else ICE)
+                self.text(f"{world.player.mana_cost_for(key):.1f} MANA" if ability.mana else "FREE · HOLD Q", rect.x + 59, rect.y + 42, 10, RED if world.player.mana < world.player.mana_cost_for(key) else ICE)
         if hover:
             ability = ABILITIES[hover]
             rect = self.ability_rects[hover]
             x = min(rect.x, 980)
             chance = world.player.inventory.stats.frostweave_freeze_chance if hover == "q" else 0
-            height = 130 if chance else 106
+            height = 256 if hover == "r" else 130 if chance else 106
             box = pygame.Rect(x, 771 - height, 406, height)
             pygame.draw.rect(self.screen, (20, 33, 46), box, border_radius=6)
             pygame.draw.rect(self.screen, (75, 111, 138), box, 1, border_radius=6)
@@ -965,7 +972,7 @@ class Renderer:
             self.text(line, x + 14, yy, 11, WHITE)
             if chance:
                 self.text(f"Frostweave: {chance:.0%} chance to freeze for {FROSTWEAVE_FREEZE:g}s.", x + 14, 724, 11, ICE)
-            self.text(f"{world.player.cooldown_for(hover):.2f}s cooldown · {int(ability.mana)} mana", x + 14, 748, 10, MUTED)
+            self.text(f"{world.player.cooldown_for(hover):.2f}s cooldown · {world.player.mana_cost_for(hover):.1f} mana", x + 14, 748, 10, MUTED)
 
     def pine(self, x, y, size, forest=False):
         pygame.draw.line(self.screen, (27, 36, 34), (x, y - size * 0.2), (x, y + 10), 5)
@@ -986,7 +993,7 @@ class Renderer:
             if self.armed == "e":
                 center, reason = world.patch_preview(self.aim)
                 color = RED if reason else ICE
-                self.radius(center, ICE_PATCH_RADIUS, color, 2)
+                self.radius(center, world.player.area_for("e"), color, 2)
                 px, py = iso(center)
                 self.snowflake(px, py, 10, color)
                 if reason:
@@ -996,6 +1003,9 @@ class Renderer:
                 pygame.draw.line(self.screen, (93, 166, 207), (start[0], start[1] - 15), (end[0], end[1] - 15), 1)
 
     def draw(self, world, mouse=None, mode="playing"):
+        if mode == "codex":
+            self.codex.draw(self, world, mouse)
+            return
         if mode in FRONTEND_MODES:
             self.menu.draw(self, world, mouse, mode)
             return
@@ -1013,11 +1023,14 @@ class Renderer:
         self.text(world.level_data.subtitle, 323, 116, 13, MUTED)
         self.text(f"FLOOR / {TOWER_FLOORS}", 1290, 49, 10, MUTED)
         self.text(f"{world.level:02d}", 1299, 65, 36, SILVER, serif=True)
+        Armory.button(self, self.codex_button, self.codex_key.upper() + " CODEX")
         Armory.button(self, self.journal_button, "J FLOOR JOURNAL")
         Armory.button(self, self.gear_button, "I GEAR / B SHOP")
         self.text("M / SOUND " + ("ON" if self.sound_enabled else "OFF"), 1266, 121, 10, MUTED)
         pygame.draw.line(self.screen, LINE, (324, 155), (1396, 155))
         self.screen.blit(self.floor, (0, 0))
+        for trail in world.rime_trails:
+            self.radius(trail.pos, trail.radius, (120, 186, 215), 1)
         for patch in world.ice_patches:
             self.ice_patch(patch, world.time)
         if world.frost_multiplier > 1:
@@ -1087,6 +1100,10 @@ class Renderer:
             pygame.draw.circle(self.screen, (140, 169, 88) if forest else (92, 122, 131), (px, py), 1)
         if mode == "playing" and world.state == "playing":
             self.low_health_warning(world.player)
+        from .timing import display
+        timing = world.player.timing
+        self.text(f"Floor {display(timing.floor_seconds)}  PB {display(timing.previous_best if timing.stopped else timing.best())}", 324, 137, 11, ICE)
+        self.text(f"{timing.category.title()} run {display(timing.total_seconds)}", 780, 137, 11, MUTED)
         self.phase_banner(world)
         duty_status(self, world)
         self.targeting(world, mouse)
@@ -1150,7 +1167,11 @@ class Renderer:
         pygame.draw.rect(self.screen, (20, 29, 36), rect, border_radius=12)
         pygame.draw.rect(self.screen, (110, 100, 75), rect, 1, border_radius=12)
         center = rect.centerx
-        if world.state == "dead":
+        if mode == "floor_clear":
+            kicker, title = "EVERY ENEMY AND SPAWNER DEFEATED", f"Congratulations! Floor {world.level} cleared."
+            subtitle = "Take a moment to check your inventory and equip your new items."
+            action = "ENTER  /  RETURN TO FLOOR"
+        elif world.state == "dead":
             kicker, title, subtitle = "THE TOWER ENDURES", "The wanderer falls.", "A steady hand. Another attempt."
             action = "ENTER  /  TRY AGAIN"
         elif world.state == "cleared":
@@ -1171,10 +1192,23 @@ class Renderer:
         self.text(kicker, center, 294, 11, GOLD, center=True)
         self.text(title, center, 333, 35, WHITE, serif=True, center=True)
         self.text(subtitle, center, 393, 14, MUTED, center=True)
-        self.text("Right click or hold to move   ·   Left click to select enemies", center, 438, 12, WHITE, center=True)
-        self.text("Q Frost Bolt   ·   W Frost Nova   ·   E Ice Patch   ·   R Glacial Prison", center, 465, 12, WHITE, center=True)
+        if mode == "floor_clear":
+            self.text("Press I to open your inventory and compare equipment.", center, 438, 14, GOLD, center=True)
+            self.text("Collect any remaining loot before heading upstairs." if world.level < 5 else
+                      "The Keeper is off duty. The upper tower awaits!", center, 465, 12, WHITE, center=True)
+        else:
+            self.text("Right click or hold to move   ·   Left click to select enemies", center, 438, 12, WHITE, center=True)
+            self.text("Q Frost Bolt   ·   W Frost Nova   ·   E Ice Patch   ·   R Glacial Prison", center, 465, 12, WHITE, center=True)
         self.button = pygame.Rect(center - 183, 529, 366, 51)
         pygame.draw.rect(self.screen, (64, 77, 69), self.button, border_radius=4)
         pygame.draw.rect(self.screen, GOLD, self.button, 1, border_radius=4)
         self.text(action, center, 546, 12, GOLD, bold=True, center=True)
-        self.text("I inventory   ·   B shop & enchantments   ·   1 potion   ·   Esc pause", center, 606, 11, MUTED, center=True)
+        if mode == "floor_clear":
+            from .timing import display, RULES
+            timing = world.player.timing
+            label = "NEW FLOOR BEST!" if timing.new_best else "Floor time"
+            self.text(f"{label} {display(timing.floor_seconds)}", center, 495, 13, ICE, center=True)
+            best = timing.records.get(f"{RULES}/campaign/first-five")
+            self.text(f"First-five campaign best: {display(best)}" + ("  NEW BEST!" if timing.new_run_best else ""), center, 580, 11, MUTED, center=True)
+        self.text("I inventory   ·   Enter / Esc close" if mode == "floor_clear" else
+                  "I inventory   ·   B shop & enchantments   ·   1 potion   ·   Esc pause", center, 606, 11, MUTED, center=True)

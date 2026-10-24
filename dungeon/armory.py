@@ -1,10 +1,12 @@
 """Equipment inventory, hover details, and the gold-based enchanter interface."""
 
 from dataclasses import replace
+from functools import lru_cache
+from pathlib import Path
 
 import pygame
 
-from .items import BLANK_COST, FROSTWEAVE_FREEZE, Item, RANK_COLORS, RANK_NAMES, SLOTS, SLOT_PURPOSE
+from .items import stock_price, DEFINITIONS, BLANK_COST, FROSTWEAVE_FREEZE, Item, RANK_COLORS, RANK_NAMES, SLOTS, SLOT_PURPOSE
 
 PANEL = (19, 29, 40)
 LINE = (55, 77, 94)
@@ -15,13 +17,70 @@ GOLD = (214, 180, 113)
 RED = (215, 96, 99)
 UPGRADE = (116, 226, 153)
 
+FROSTWEAVE_ART = {
+    "helm": "frostweave-crown.png",
+    "chest": "frostweave-vestment.png",
+    "legs": "frostweave-leggings.png",
+    "gloves": "frostweave-grips.png",
+    "boots": "frostweave-treads.png",
+}
+IMAGE_ROOT = Path(__file__).resolve().parents[1] / "Images" / "Icons" / "Equipment"
 
-def item_icon(surface, slot, center, color, scale=1):
+
+@lru_cache(maxsize=128)
+def equipment_art(filename):
+    try:
+        image = pygame.image.load(str(IMAGE_ROOT / filename))
+        bounds = image.get_bounding_rect(min_alpha=32)
+        return image.subsurface(bounds).copy() if bounds.width and bounds.height else None
+    except (OSError, pygame.error):
+        return None
+
+
+@lru_cache(maxsize=512)
+def equipment_icon(filename, size):
+    image = equipment_art(filename)
+    if image is None:
+        return None
+    factor = (size - 4) / max(image.get_size())
+    dimensions = tuple(max(1, round(value * factor)) for value in image.get_size())
+    return pygame.transform.smoothscale(image, dimensions)
+
+
+@lru_cache(maxsize=5)
+def frostweave_art(slot):
+    filename = FROSTWEAVE_ART.get(slot)
+    return equipment_art(filename) if filename else None
+
+
+@lru_cache(maxsize=32)
+def frostweave_icon(slot, size):
+    filename = FROSTWEAVE_ART.get(slot)
+    return equipment_icon(filename, size) if filename else None
+
+
+def item_icon(surface, slot, center, color, scale=1, item=None, set_id=None):
+    if (item.set_id if item is not None else set_id) == "frostweave":
+        image = frostweave_icon(slot, max(8, round(60 * scale)))
+        if image is not None:
+            surface.blit(image, image.get_rect(center=center))
+            return
+    elif item is not None:
+        filename = item.name.lower().replace("’", "").replace("'", "").replace(" ", "-") + ".png"
+        image = equipment_icon(filename, max(8, round(60 * scale)))
+        if image is not None:
+            surface.blit(image, image.get_rect(center=center))
+            return
     x, y = center
     def p(dx, dy):
         return round(x + dx * scale), round(y + dy * scale)
     def poly(points):
         pygame.draw.polygon(surface, color, [p(dx, dy) for dx, dy in points], max(1, round(scale)))
+    if item is not None and item.template_id and not item.set_id:
+        definition = DEFINITIONS[item.template_id]
+        variant = list(DEFINITIONS).index(item.template_id) % 3
+        rune = (160, 225, 245) if variant == 0 else (130, 220, 170) if variant == 1 else (200, 165, 240)
+        pygame.draw.circle(surface, rune, p(0, 0), max(2, round(4 * scale)), 1)
     if slot == "helm":
         poly([(-14, 8), (-15, -10), (-7, -5), (0, -17), (7, -5), (15, -10), (14, 8)])
         pygame.draw.line(surface, color, p(-13, 3), p(13, 3), max(1, round(scale)))
@@ -257,6 +316,12 @@ class Armory:
     @staticmethod
     def tooltip(r, item, point, owned=False, current=None, upgrade=False):
         lines = item.lines
+        if not owned and item.source == 'shop' and item.template_id and not item.set_id:
+            import textwrap
+            from .items import EFFECT_LABELS
+            definition = DEFINITIONS[item.template_id]
+            low, high = definition.ranges[item.rank - 1]
+            lines = ['One enchantment / rolled on purchase'] + textwrap.wrap(f'{low / 10:.1f}–{high / 10:.1f}% {EFFECT_LABELS[definition.effect]}', width=43)
         height = (198 + max(0, len(lines) - 1) * 21
                   + (35 if current and current.uid != item.uid else 0) + (24 if upgrade else 0)
                   + (64 if item.set_id == "frostweave" else 0))
@@ -293,8 +358,9 @@ class Armory:
             note = "Rank 3 is the best dropped rank"
         else:
             note = "Ranks 4–5 are enchantment-only"
+        note = ("Frostweave / unlocked by the Keeper" if item.set_id else "One rolled enchantment / maximum Rank 3") if item.template_id else note
         r.text(note, x + 14, yy + 45, 10, MUTED)
-        r.text("Owned equipment" if owned else "Walk over loot to collect it" if item.source == "drop" else "Unranked shop stock", x + 14, yy + 65, 9, MUTED)
+        r.text("Owned equipment" if owned else "Walk over loot to collect it" if item.source == "drop" else "Shop template / randomized on purchase" if not item.set_id and item.template_id else "Frostweave shop stock", x + 14, yy + 65, 9, MUTED)
 
     def draw(self, r, world, mouse, tab):
         inventory = world.player.inventory
@@ -321,7 +387,7 @@ class Armory:
             selected = item is not None and item.uid == self.selected_uid
             pygame.draw.rect(r.screen, (25, 43, 56) if selected else (22, 35, 47), rect, border_radius=5)
             pygame.draw.rect(r.screen, ICE if selected else color, rect, 1, border_radius=5)
-            item_icon(r.screen, slot, (rect.x + 31, rect.centery), color if item else MUTED, .7)
+            item_icon(r.screen, slot, (rect.x + 31, rect.centery), color if item else MUTED, .7, item=item)
             label = slot.title() + (" / Frostweave" if item and item.set_id == "frostweave" else "")
             r.text(label, rect.x + 61, rect.y + 9, 12, MUTED)
             r.text(f"Rank {item.rank} · {RANK_NAMES[item.rank]}" if item else "Empty slot", rect.x + 61, rect.y + 34, 13, color if item else MUTED)
@@ -332,14 +398,17 @@ class Armory:
             hovered = self.draw_backpack(r, world, mouse, tab) or hovered
             self.draw_stats(r, world)
         else:
-            r.spaced("FROSTWEAVE STOCK  /  RANK 0", 511, 236, 10, ICE)
+            unlocked = world.player.frostweave_unlocked
+            r.spaced("FROSTWEAVE STOCK / RANK 3" if unlocked else "ORDINARY STOCK / RANK 1", 511, 236, 10, ICE)
             for i, slot in enumerate(SLOTS):
-                stock = Item(1, slot, 0, "shop")
+                key = ('frostweave:' if unlocked else 'standard:') + slot
+                stock = Item(1, slot, 3 if unlocked else 1, 'shop', 'frostweave' if unlocked else None, key, None if unlocked else 5000)
+                cost = stock_price(slot, unlocked)
                 rect = pygame.Rect(511, 265 + i * 38, 374, 32)
                 pygame.draw.rect(r.screen, (22, 35, 47), rect, border_radius=5)
-                item_icon(r.screen, slot, (533, rect.centery), ICE, .43)
+                item_icon(r.screen, slot, (533, rect.centery), ICE, .43, item=stock)
                 r.text(stock.name, 555, rect.y + 8, 11, WHITE)
-                self.button(r, self.buy_rects[slot], f"BUY {BLANK_COST[slot]:,} G", enabled=world.player.gold >= BLANK_COST[slot])
+                self.button(r, self.buy_rects[slot], f"BUY {cost:,} G", enabled=world.player.gold >= cost)
                 if mouse and rect.collidepoint(mouse):
                     hovered = stock
             hovered = self.draw_backpack(r, world, mouse, tab) or hovered
@@ -379,7 +448,7 @@ class Armory:
                 x, y = mouse
                 pygame.draw.rect(r.screen, (20, 39, 54), (x - 28, y - 29, 56, 59), border_radius=5)
                 pygame.draw.rect(r.screen, ICE, (x - 28, y - 29, 56, 59), 1, border_radius=5)
-                item_icon(r.screen, dragged.slot, (x, y - 4), RANK_COLORS[dragged.rank], .65)
+                item_icon(r.screen, dragged.slot, (x, y - 4), RANK_COLORS[dragged.rank], .65, item=dragged)
                 r.text(f"R{dragged.rank}", x, y + 15, 10, ICE, center=True)
 
     def draw_backpack(self, r, world, mouse, tab):
@@ -404,7 +473,7 @@ class Armory:
                                    (rect.right - 6, rect.y + 7)], 2)
             if bag_item:
                 item_icon(r.screen, bag_item.slot, (rect.centerx, rect.y + (25 if shop else 30)),
-                          RANK_COLORS[bag_item.rank], .65 if shop else .8)
+                          RANK_COLORS[bag_item.rank], .65 if shop else .8, item=bag_item)
                 r.text(f"R{bag_item.rank}", rect.x + 9, rect.bottom - 21, 11, RANK_COLORS[bag_item.rank])
                 if bag_item.set_id == "frostweave":
                     r.text("FW", rect.right - 23, rect.bottom - 20, 9, ICE)
@@ -481,9 +550,9 @@ class Armory:
         player = world.player
         stats = player.inventory.stats
         r.spaced("CHARACTER STATS", 916, 236, 10, MUTED)
-        rows = [("Spell damage", f"+{stats.damage:.0%}"), ("Maximum health", str(player.max_hp)),
-                ("Armor / hit", str(stats.armor)), ("Cooldown reduction", f"{stats.cooldown:.0%}"),
-                ("Movement speed", f"{player.move_speed:.2f}"), ("Critical chance", f"{player.crit_chance:.0%}"),
+        rows = [("Spell damage", f"+{stats.damage:.1%}"), ("Maximum health", str(player.max_hp)),
+                ("Armor / hit", str(stats.armor)), ("Cooldown reduction", f"{stats.cooldown:.1%}"),
+                ("Movement speed", f"{player.move_speed:.2f}"), ("Critical chance", f"{player.crit_chance:.1%}"),
                 ("Critical damage", f"{player.crit_multiplier:.2f}×")]
         for i, (label, value) in enumerate(rows):
             yy = 272 + i * 39
@@ -500,6 +569,7 @@ class Armory:
         else:
             r.text("Equip all five pieces at Rank 3+.", 916, 609, 11, MUTED)
         r.text("R3: 15%  /  R4: 25%  /  R5: 40%", 916, 636, 10, ICE)
+        r.text("R5: Ice Patch + Prison Cataclysm (see R)", 916, 658, 10, ICE)
 
     def draw_enchanter(self, r, world, mouse):
         item = self.enchant_target(world)
@@ -511,12 +581,12 @@ class Armory:
             r.text("DROP EQUIPMENT HERE", 1061, 284, 14, ICE, center=True)
             r.text("Worn gear or backpack items", 1061, 313, 11, MUTED, center=True)
         else:
-            item_icon(r.screen, item.slot, (947, 306), RANK_COLORS[item.rank], .65)
+            item_icon(r.screen, item.slot, (947, 306), RANK_COLORS[item.rank], .65, item=item)
             r.text(item.name, 980, 282, 13, RANK_COLORS[item.rank], serif=True)
             r.text(f"Rank {item.rank} / {RANK_NAMES[item.rank]}", 980, 311, 11, MUTED)
         self.button(r, self.load_selected_rect, "PLACE SELECTED ITEM", enabled=self.selected(world) is not None)
         self.button(r, self.clear_enchant_rect, "CLEAR SLOT", enabled=item is not None)
-        r.text("R4: 2,500 G / R5: 15,000 G", 1030, 646, 9, GOLD)
+        r.text("Frostweave only: R4 / R5", 1030, 646, 9, GOLD)
         if item is None:
             r.text("Drag gear here, then choose Enchant.", 917, 425, 11, MUTED)
             r.text("Placing an item does not spend gold.", 917, 450, 11, MUTED)
@@ -524,13 +594,15 @@ class Armory:
             return
         for i, line in enumerate(item.lines):
             r.text(line, 917, 412 + i * 19, 10, WHITE)
-        if item.rank < 5:
+        if item.next_cost is not None:
+            if not item.set_id and world.player.unlocked_level < {1: 1, 2: 3, 3: 5}[item.rank + 1]:
+                r.text("Reach floor 3 for R2 / floor 5 for R3", 917, 552, 10, GOLD)
             next_item = replace(item, rank=item.rank + 1)
             r.text(f"NEXT: RANK {next_item.rank}", 917, 478, 12, RANK_COLORS[next_item.rank])
             for i, line in enumerate(next_item.lines):
                 r.text(line, 917, 503 + i * 19, 10, WHITE)
             self.button(r, self.upgrade_rect, f"ENCHANT  ·  {item.next_cost:,} GOLD",
-                        enabled=world.player.gold >= item.next_cost and world.state != "dead" and world.player.stasis <= 0)
+                        enabled=world.player.gold >= item.next_cost and (item.set_id is not None or world.player.unlocked_level >= {1: 1, 2: 3, 3: 5}[item.rank + 1]) and world.state != "dead" and world.player.stasis <= 0)
         else:
-            r.text("MYTHIC · MAXIMUM RANK", 917, 493, 14, GOLD)
+            r.text(f"RANK {item.max_rank} · MAXIMUM", 917, 493, 14, GOLD)
             self.button(r, self.upgrade_rect, "MAXIMUM RANK", enabled=False)

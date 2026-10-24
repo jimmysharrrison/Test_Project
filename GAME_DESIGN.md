@@ -50,7 +50,7 @@ Safe placement defers the encounter if terrain or actors occupy its positions.
 
 Frost interrupts pending signatures. Bosses take 35% extra damage during
 recovery. Bosses and companions guarantee equipment drops; the main boss drops
-150 base gold, scaled by floor. Boss and companions must all fall before the
+500 base gold, scaled by floor (500 / 575 / 650 on floors 1–3). Boss and companions must all fall before the
 portal opens; ordinary survivors remain optional. First-floor boots are awarded
 once after the encounter clears.
 

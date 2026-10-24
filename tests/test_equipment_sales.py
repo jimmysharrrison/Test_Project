@@ -71,8 +71,8 @@ class EquipmentSalesTests(unittest.TestCase):
         for change in ("equip", "enchant", "remove"):
             with self.subTest(change=change):
                 self.setUp()
-                first, second = self.add(rank=3), self.add("boots", 3)
-                quote = self.world.quote_sale(3)
+                first, second = self.add(rank=2), self.add("boots", 2)
+                quote = self.world.quote_sale(2)
                 if change == "equip":
                     self.inv.equip(second.uid)
                 elif change == "enchant":

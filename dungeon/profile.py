@@ -29,7 +29,7 @@ class ProfileStore:
             if not self.path.exists():
                 return None
             data = json.loads(self.path.read_text(encoding="utf-8"))
-            if not isinstance(data, dict) or data.get("version") != 1:
+            if not isinstance(data, dict) or data.get("version") not in (1, 2):
                 raise ValueError("Unsupported profile")
             inv = Inventory.from_dict(data["inventory"])
             values = {key: data.get(key, default) for key, default in
@@ -54,6 +54,25 @@ class ProfileStore:
             if cleared and (current != 5 or not completed):
                 raise ValueError("Invalid cleared floor")
             player = Player(cleared_floor=cleared, lower_tower_completed=completed, inventory=inv, first_clear_rewarded=rewarded, current_level=current, **values)
+            unlocked = data.get('frostweave_unlocked', completed)
+            if type(unlocked) is not bool:
+                raise ValueError('Invalid Frostweave unlock')
+            player.frostweave_unlocked = unlocked
+            from .timing import Timing
+            player.timing = Timing.from_dict(data.get("timing"))
+            if player.timing.floor != current:
+                player.timing.eligible = False
+                player.timing.begin_floor(current)
+            from .achievements import AchievementRun, load_unlocks
+            player.achievement_run = AchievementRun.from_dict(data.get("achievement_run"), current)
+            player.achievements = load_unlocks(data.get("achievements", {}))
+            pending = data.get("achievement_notifications", [])
+            if not isinstance(pending, list) or any(key not in player.achievements for key in pending):
+                raise ValueError("Invalid achievement notifications")
+            player.achievement_notifications = pending.copy()
+            from .codex import load_discoveries, observe_items
+            player.bestiary, player.item_discoveries = load_discoveries(data)
+            observe_items(player)  # Owned equipment is evidence; aggregate kills are not.
             player.hp = player.max_hp
             self._last = data
             return player
@@ -65,7 +84,11 @@ class ProfileStore:
     def save(self, player):
         if not self.writable:
             return False
-        data = {"version": 1, "gold": player.gold, "unlocked_level": player.unlocked_level,
+        if player.achievement_run.floor != player.current_level:
+            player.achievement_run.enter(player.current_level)
+        from .codex import observe_items
+        observe_items(player)
+        data = {"frostweave_unlocked": player.frostweave_unlocked, "bestiary": player.bestiary, "item_discoveries": player.item_discoveries.copy(), "achievement_notifications": player.achievement_notifications.copy(), "achievement_run": player.achievement_run.to_dict(), "achievements": player.achievements.copy(), "version": 2, "timing": player.timing.to_dict(), "gold": player.gold, "unlocked_level": player.unlocked_level,
                 "current_level": player.current_level,
                 "cleared_floor": player.cleared_floor, "lower_tower_completed": player.lower_tower_completed,
                 "potions": player.potions, "kills": player.kills,
@@ -78,7 +101,7 @@ class ProfileStore:
             self.path.parent.mkdir(parents=True, exist_ok=True)
             temporary.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
             temporary.replace(self.path)
-            self._last = data
+            self._last = json.loads(json.dumps(data))
             self.error = ""
             return True
         except OSError:

@@ -2,6 +2,8 @@
 
 import argparse
 import os
+from math import isfinite
+from .abilities import BASE_MANA_REGEN
 from pathlib import Path
 
 from .controls import Controls
@@ -10,6 +12,7 @@ from .profile import ProfileStore
 from .levels import PLAYABLE_FLOORS
 from .world import World
 from .telemetry import RunRecorder
+from .tutorial import Tutorial
 
 
 def main():
@@ -26,7 +29,19 @@ def main():
                          help="Record a local gameplay session (default for normal play)")
     logging.add_argument("--no-telemetry", dest="telemetry", action="store_false", help="Disable local gameplay logging")
     parser.add_argument("--telemetry-dir", type=Path, help="Choose the local log folder; also enables headless logging")
+    parser.add_argument("--miniboss-delay-ms", type=int, default=1500, help="Miniboss notice delay in milliseconds")
+    parser.add_argument("--completion-delay-ms", type=int, default=1500, help="Floor splash delay in milliseconds")
+    parser.add_argument("--mana-regen", type=float, default=BASE_MANA_REGEN, help="Mana recovered per combat second (default: 6)")
+    parser.add_argument("--development-mode", action="store_true", help="Enable read-only Codex developer inspection controls")
+    parser.add_argument("--codex-key", default="c", help="Unused single-letter Codex shortcut (default: c)")
     args = parser.parse_args()
+    if len(args.codex_key) != 1 or args.codex_key not in "acdfghklnoptuvxyz":
+        parser.error("--codex-key must be an unused letter: a c d f g h k l n o p t u v x y z")
+    if not isfinite(args.mana_regen) or args.mana_regen < 0:
+        parser.error("--mana-regen must be finite and nonnegative")
+    if args.miniboss_delay_ms < 0 or args.completion_delay_ms < 0:
+        parser.error("Presentation delays must be nonnegative")
+    presentation = dict(mana_regen=args.mana_regen, miniboss_delay_ms=args.miniboss_delay_ms, completion_delay_ms=args.completion_delay_ms)
     if args.frames is not None and args.frames <= 0:
         parser.error("--frames must be positive")
     if args.level is not None and args.level <= 0:
@@ -56,12 +71,18 @@ def main():
     unlocked_level = player.unlocked_level if player else 1
     locked_request = args.level is not None and args.level > unlocked_level and not args.headless
     start_level = args.level if args.level is not None and not locked_request else current_level
-    world = World(args.seed, player=player, level=start_level)
+    world = World(args.seed, player=player, level=start_level, **presentation)
+    if args.level is not None:
+        world.player.timing.restart(start_level, campaign=False)
+        world.player.achievement_run.invalidate()
     telemetry_enabled = args.telemetry if args.telemetry is not None else bool(args.telemetry_dir or not args.headless)
     recorder = RunRecorder(args.telemetry_dir, enabled=telemetry_enabled, headless=args.headless)
     recorder.attach(world, "continue" if player else "new_game")
     controls = Controls(world)
     renderer = Renderer(canvas, world)
+    from .codex import Codex
+    renderer.codex = Codex(args.development_mode)
+    renderer.codex_key = args.codex_key
     renderer.menu.has_character = has_character
     if locked_request:
         renderer.menu.notice = f"Level {args.level} is locked. Reach it through the portal first."
@@ -72,22 +93,94 @@ def main():
     save_timer = 0
     running = True
     frame = 0
+    tutorial = None
+    suspended_armory = None
+    practice_save_guard = False
+
+    def start_tutorial(from_new_game=False):
+        nonlocal tutorial, suspended_armory, world, controls, mode, menu_return, practice_save_guard
+        from .armory import Armory
+        tutorial = Tutorial(world, from_new_game)
+        practice_save_guard = True
+        suspended_armory = renderer.armory
+        renderer.armory = Armory()
+        world = tutorial.world
+        controls = Controls(world)
+        mode = menu_return = "playing"
+
+    def leave_tutorial(start_game=False):
+        nonlocal tutorial, world, controls, mode, menu_return, save_timer, practice_save_guard
+        fresh = (tutorial.from_new_game or not has_character) and start_game
+        world = tutorial.normal_world
+        renderer.armory = suspended_armory
+        tutorial = None
+        controls = Controls(world)
+        save_timer = 0
+        mode = "playing" if start_game else "title"
+        menu_return = "playing"
+        practice_save_guard = not start_game
+        if fresh:
+            begin_level(1, fresh=True)
+
+    def tutorial_action(action):
+        nonlocal controls, mode, menu_return
+        keep_inventory = tutorial.step == "inspect" and mode == "inventory" and action == "next" and tutorial.ready
+        if action in ("exit", "start_game"):
+            leave_tutorial(action == "start_game")
+            return
+        if action == "restart":
+            tutorial.index = 0
+            tutorial.completed.clear()
+            tutorial.skipped.clear()
+        if action in ("retry", "restart"):
+            tutorial.retry()
+        elif action in ("next", "skip"):
+            if not tutorial.next(skip=action == "skip"):
+                return
+        controls = Controls(world)
+        renderer.armory.cancel_confirmation()
+        renderer.armory.cancel_drag()
+        renderer.armory.selected_uid = None
+        renderer.armory.enchant_uid = None
+        renderer.armory.page = 0
+        mode = menu_return = "playing"
+        if keep_inventory:
+            renderer.armory.selected_uid = tutorial.item.uid
+            mode = "inventory"
 
     def begin_level(level, fresh=False, reason="retry"):
-        nonlocal world, controls, mode, menu_return, has_character
+        nonlocal world, controls, mode, menu_return, has_character, practice_save_guard
+        practice_save_guard = False
         recorder.end_attempt(world, "new_game" if fresh else reason)
         if fresh:
-            world = World(args.seed)
+            notifications = world.player.achievement_notifications.copy()
+            badges = world.player.achievements.copy()
+            records = world.player.timing.records.copy()
+            frostweave_unlocked = world.player.frostweave_unlocked
+            bestiary = world.player.bestiary
+            from .codex import observe_items
+            observe_items(world.player)
+            item_discoveries = world.player.item_discoveries.copy()
+            world = World(args.seed, **presentation)
+            world.player.timing.records = records
+            world.player.frostweave_unlocked = frostweave_unlocked
+            world.player.bestiary = bestiary
+            world.player.item_discoveries = item_discoveries
+            world.player.achievements = badges
+            world.player.achievement_notifications = notifications
         else:
             earned = world.player
+            earned.achievement_run.retry()
+            earned.timing.restart(level, campaign=False)
             earned.cleared_floor = 0
             earned.stasis_frost_multiplier = 1
-            earned.hp, earned.mana = earned.max_hp, 100
+            earned.hp, earned.mana = earned.max_hp, earned.max_mana
             earned.pos = Vec(3.5, 13.5)
+            earned.slow_time = earned.slow_pulse = earned.thorn_cooldown = 0
             earned.stasis = earned.cast_time = earned.flash = 0
             earned.invincible = 1
             earned.cooldowns = dict.fromkeys(earned.cooldowns, 0.0)
-            world = World(args.seed, player=earned, level=level)
+            world = World(args.seed, player=earned, level=level, **presentation)
         recorder.attach(world, "new_game" if fresh else reason)
         controls = Controls(world)
         renderer.armory.cancel_confirmation()
@@ -114,20 +207,30 @@ def main():
         mode = "playing"
 
     def menu_action(action):
-        nonlocal mode, help_return, running, has_character
+        nonlocal mode, help_return, running, has_character, practice_save_guard
         if action == "start":
             if has_character:
                 mode = "confirm_new"
             else:
-                # The initial level is already prepared, but has never ticked.
+                mode = "tutorial_offer"
+        elif action == "confirm_new":
+            mode = "tutorial_offer"
+        elif action == "tutorial":
+            start_tutorial()
+        elif action == "learn_first":
+            start_tutorial(from_new_game=True)
+        elif action == "skip_tutorial":
+            practice_save_guard = False
+            if has_character:
+                begin_level(1, fresh=True)
+            else:
                 mode = "playing"
                 renderer.menu.has_character = has_character = True
                 renderer.menu.notice = ""
-        elif action == "confirm_new":
-            begin_level(1, fresh=True)
         elif action == "cancel_new":
             mode = "title"
         elif action == "continue" and has_character:
+            practice_save_guard = False
             mode = "playing"
         elif action == "levels":
             renderer.menu.page = 0
@@ -136,13 +239,20 @@ def main():
             level = int(action.split(":")[1])
             if 1 <= level <= min(world.player.unlocked_level, PLAYABLE_FLOORS):
                 begin_level(level, reason="level_select")
-        elif action in ("howto", "story"):
+        elif action == "codex":
+            controls.cancel()
+            controls.right_up()
+            mode = renderer.codex.open(mode)
+        elif action in ("howto", "story", "achievements"):
             help_return, mode = mode, action
         elif action == "back":
-            mode = help_return if mode in ("howto", "story", "journal") else "title"
+            mode = help_return if mode in ("howto", "story", "journal", "achievements") else "title"
         elif action == "resume":
             mode = "playing"
         elif action == "main_menu":
+            if tutorial:
+                leave_tutorial()
+                return
             if world.keeper and not world.level_completed:
                 begin_level(5, reason="main_menu")
             controls.cancel()
@@ -185,6 +295,8 @@ def main():
                 return (round((point[0] - view.x) * WIDTH / view.width),
                         round((point[1] - view.y) * HEIGHT / view.height))
 
+            # Input spells and the following simulation step form one completion transaction.
+            world._in_tick = mode == "playing"
             events = pygame.event.get()
             mouse = logical(pygame.mouse.get_pos())
             in_world = renderer.world_area(mouse)
@@ -192,6 +304,24 @@ def main():
                 controls.point(unproject(Vec(*mouse), ORIGIN),
                                unproject(Vec(mouse[0], mouse[1] + 15), ORIGIN))
             for event in events:
+                if mode == "codex" and event.type not in (pygame.QUIT, pygame.WINDOWFOCUSLOST):
+                    point = logical(event.pos) if hasattr(event, "pos") else mouse
+                    if (event.type == pygame.KEYDOWN and event.key == pygame.key.key_code(args.codex_key)
+                            and not renderer.codex.search_active):
+                        mode = renderer.codex.close()
+                    else:
+                        mode = renderer.codex.event(event, world.player, point)
+                    continue
+                if event.type == pygame.KEYDOWN and event.key == pygame.key.key_code(args.codex_key):
+                    controls.cancel()
+                    controls.right_up()
+                    mode = renderer.codex.open(mode)
+                    continue
+                if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1 and mode == "playing" and renderer.codex_button.collidepoint(logical(event.pos)):
+                    controls.cancel()
+                    controls.right_up()
+                    mode = renderer.codex.open(mode)
+                    continue
                 if event.type == pygame.QUIT:
                     running = False
                 elif event.type == pygame.WINDOWFOCUSLOST:
@@ -200,10 +330,19 @@ def main():
                         mode = "paused"
                         controls.cancel()
                 elif event.type == pygame.KEYDOWN:
+                    if mode == "floor_clear":
+                        if event.key in (pygame.K_RETURN, pygame.K_SPACE, pygame.K_ESCAPE):
+                            mode = "playing"
+                        elif event.key == pygame.K_i:
+                            mode = "playing"
+                            open_armory("inventory")
+                        elif event.key == pygame.K_m:
+                            audio.toggle()
+                        continue
                     if event.key == pygame.K_ESCAPE:
-                        if mode in ("howto", "story", "journal"):
+                        if mode in ("howto", "story", "journal", "achievements"):
                             mode = help_return
-                        elif mode in ("levels", "confirm_new"):
+                        elif mode in ("levels", "confirm_new", "tutorial_offer"):
                             mode = "title"
                         elif mode == "title":
                             running = False
@@ -226,6 +365,8 @@ def main():
                             open_armory("inventory" if event.key == pygame.K_i else "shop")
                     elif event.key in (pygame.K_i, pygame.K_b):
                         open_armory("inventory" if event.key == pygame.K_i else "shop")
+                    elif event.key == pygame.K_RETURN and tutorial and mode == "playing":
+                        tutorial_action("next")
                     elif event.key == pygame.K_RETURN and mode not in ("inventory", "shop"):
                         enter_or_restart()
                     elif mode == "playing" and world.state == "playing":
@@ -247,6 +388,15 @@ def main():
                     mode = renderer.armory.mouse_motion(point, mode)
                 elif event.type == pygame.MOUSEBUTTONDOWN:
                     point = logical(getattr(event, "pos", pygame.mouse.get_pos()))
+                    if tutorial and event.button == 1:
+                        action = tutorial.click(point)
+                        if action:
+                            tutorial_action(action)
+                            continue
+                    if mode == "floor_clear":
+                        if event.button == 1 and renderer.button.collidepoint(point):
+                            mode = "playing"
+                        continue
                     if mode in FRONTEND_MODES or mode == "paused":
                         if event.button == 1:
                             menu_action(renderer.menu.click(world, mode, point))
@@ -287,12 +437,26 @@ def main():
                 keys = pygame.key.get_pressed()
                 if not pressed[2]:
                     controls.right_up()
-                controls.update(dt, controls.aim if pressed[2] and in_world else None,
-                                repeat_q=bool(keys[pygame.K_q]) and in_world)
-                world.update(dt, controls.aim)
-            recorder.frame(elapsed, mode if world.state == "playing" else world.state)
+                if not world.completion_pending:
+                    controls.update(dt, controls.aim if pressed[2] and in_world else None,
+                                    repeat_q=bool(keys[pygame.K_q]) and in_world)
+                world.update(dt if args.headless else elapsed, controls.aim)
+                if world.floor_clear_notice:
+                    world.floor_clear_notice = False
+                    controls.cancel()
+                    controls.right_up()
+                    world.stop()
+                    mode = "floor_clear"
+            if tutorial:
+                tutorial.observe(mode, renderer.armory, mouse)
+            else:
+                recorder.frame(elapsed, mode if world.state == "playing" else world.state)
+            if mode == "title" and world.player.achievement_notifications:
+                from .achievements import DEFINITIONS
+                key = world.player.achievement_notifications.pop(0)
+                renderer.menu.notice = "Badge unlocked: " + DEFINITIONS.get(key, {"title": key})["title"]
             save_timer += elapsed
-            if store and has_character and (save_timer >= 0.5 or (world.player.cleared_floor == 5 and "loot" in world.events)):
+            if store and has_character and not practice_save_guard:
                 store.save(world.player)
                 save_timer = 0
             audio.play(world.events)
@@ -303,6 +467,8 @@ def main():
             renderer.aim = controls.aim
             renderer.bolt_aim = controls.bolt_aim
             renderer.draw(world, mouse, mode)
+            if tutorial:
+                tutorial.draw(renderer, mode)
             window.fill((8, 12, 17))
             window.blit(pygame.transform.smoothscale(canvas, size), view)
             pygame.display.flip()
@@ -315,16 +481,16 @@ def main():
             print(f"Screenshot saved to {args.screenshot}")
     except Exception as error:
         crashed = True
-        recorder.crash(world, error)
+        recorder.crash(tutorial.normal_world if tutorial else world, error)
         raise
     finally:
         try:
-            if store and has_character:
+            if store and has_character and not practice_save_guard:
                 store.save(world.player)
                 if store.error:
                     print(store.error)
         finally:
-            recorder.close(world, crashed=crashed)
+            recorder.close(tutorial.normal_world if tutorial else world, crashed=crashed)
             pygame.quit()
 
 

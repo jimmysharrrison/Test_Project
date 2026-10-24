@@ -170,6 +170,8 @@ class TowerTests(unittest.TestCase):
             break_spawners(world)
             if phase < 3:
                 advance(world, 3.05)
+        for _ in range(92):
+            world.update(1 / 60)
         world.player.pos = world.exit
         world.update(1 / 60)
         self.assertEqual(world.state, "cleared")

@@ -65,6 +65,8 @@ class ForestLevelTests(unittest.TestCase):
         world.enemies.clear()
         finish_floor(world)
         player = world.player
+        for _ in range(92):
+            world.update(1 / 60)
         world.player.pos = world.exit
         world.update(1 / 60)
         gear, gold = inv.to_dict(), world.player.gold
@@ -95,6 +97,8 @@ class ForestLevelTests(unittest.TestCase):
         self.assertEqual(world.player.unlocked_level, 2)
         self.assertFalse(any(item.source == "reward" for item in world.player.inventory.items))
         self.assertTrue(any(p.kind in ("gold", "item") for p in world.pickups))
+        for _ in range(92):
+            world.update(1 / 60)
         world.player.pos = world.exit
         world.update(1 / 60)
         self.assertEqual(world.state, "cleared")

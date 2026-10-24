@@ -22,7 +22,7 @@ def utc_now():
 
 
 def equipment(player):
-    return {slot: {"name": item.name, "rank": item.rank, "set": item.set_id} if item else None
+    return {slot: {"name": item.name, "rank": item.rank, "set": item.set_id, "template_id": item.catalog_id, "quality": item.quality, "enchantment_value": item.enchantment_value} if item else None
             for slot in player.inventory.equipped
             for item in [player.inventory.worn(slot)]}
 
@@ -82,9 +82,11 @@ class RunRecorder:
             digest.update(name.encode())
             digest.update((ROOT / "dungeon" / name).read_bytes())
         from .world import ENEMY_STATS
+        from .items import DEFINITIONS
         self.report.update(started_utc=utc_now(), build_fingerprint=digest.hexdigest()[:16],
                            tuning={"spells": {key: asdict(value) for key, value in ABILITIES.items()},
                                    "keeper": asdict(TUNING), "enemy_stats": ENEMY_STATS,
+                                   "item_definitions": {key: asdict(value) for key, value in DEFINITIONS.items()},
                                    "phase_speeds": PHASE_SPEEDS,
                                    "ice_patch": {"radius": ICE_PATCH_RADIUS, "move_factor": ICE_PATCH_MOVE_FACTOR,
                                                  "attack_rate": ICE_PATCH_ATTACK_FACTOR, "frost_bonus": ICE_PATCH_FROST_BONUS}})

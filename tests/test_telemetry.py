@@ -130,6 +130,7 @@ class TelemetryTests(unittest.TestCase):
                     world._hit(spawner, 10000)
                 if phase < 3:
                     advance(world, 3.05)
+            advance(world, 1.55)
             world.player.pos = world.exit
             world.update(1 / 60)
             self.assertTrue(world.next_level())

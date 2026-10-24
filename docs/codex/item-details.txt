@@ -1,0 +1,24 @@
+Developer View (read-only)
+id: frostweave:boots
+name: Frostweave Treads
+slot: boots
+source: dungeon/items.py:129; dungeon/items.py:89 (DEFINITIONS); dungeon/items.py:72 (NEW_DEFINITIONS)
+preview: rank=5 (Mythic)
+availability: Available
+kind: Catalog template; not a rolled or owned instance. Ordinary values below use midpoint quality.
+base stats: ['+30% movement speed', '+12% critical-hit chance', '+0.75× critical damage']
+effective stats: ['+30% movement speed', '+12% critical-hit chance', '+0.75× critical damage']
+roll ranges: None: fixed Frostweave bonuses
+enchantment slots: 0
+enchantment progression / rank 4: 2500 gold (next step)
+enchantment progression / rank 5: 15000 gold (next step)
+roll upgrade rule: Preserve the original percentile; never reroll during enchanting
+set membership: frostweave
+acquisition: First Keeper victory gives a Rank 3 crown and unlocks Rank 3 stock/drops
+icon description: Polished crystal boots with faceted toes and glowing frost seams.
+set bonuses / required: All five equipped; set rank is the minimum equipped rank
+set bonuses / bolt freeze chance / 3: 0.15
+set bonuses / bolt freeze chance / 4: 0.25
+set bonuses / bolt freeze chance / 5: 0.4
+set bonuses / freeze seconds: 1.0
+set bonuses / rank5: Prison cast inside its still-active Ice Patch: triple critical shatter and double radius

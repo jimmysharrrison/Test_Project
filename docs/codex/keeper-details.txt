@@ -1,0 +1,54 @@
+Developer View (read-only)
+id: keeper
+name: The Keeper
+category: boss
+source: dungeon/world.py:26 (ENEMY_STATS); dungeon/world.py:113; dungeon/keeper.py:61; dungeon/combat_values.py
+preview: floor=5, phase=3, Keeper stage=3, Ice Patch=True, chilled=False
+base health hp: 3000
+effective health hp: 3000
+base damage hp per hit / Deep Cleaning: 12
+base damage hp per hit / Structural Repairs: 22
+effective damage hp per hit / Deep Cleaning: 12
+effective damage hp per hit / Structural Repairs: 22
+configured movement speed tiles per second: 0.0
+base speed tiles per second: 0.0
+effective speed tiles per second: 0.0
+base attack interval seconds: 3.2
+attack interval seconds: 2.2
+effective attack interval seconds: 3.66667
+attack range tiles: Duty zones; no conventional attack range
+detection range tiles: Not implemented; pursuit uses pathfinding (Codex visibility is separate)
+resistances: Freeze cap 0.45s; subsequent freeze resisted for 3s (not damage resistance).
+immunities: None permanent implemented
+parameters / health hp: 3000
+parameters / thresholds health ratio: (0.6666666666666666, 0.3333333333333333)
+parameters / summon cap actors: 4
+parameters / summon life seconds: 20
+parameters / freeze cap seconds: 0.45
+parameters / frost resistance seconds: 3
+parameters / vine life seconds: 7
+parameters / vine speed movement multiplier: 0.55
+parameters / nova suppression seconds: 4
+parameters / spill life seconds: 3.5
+parameters / warning min seconds: 2
+parameters / warning max seconds: 5
+parameters / reaction margin seconds: 0.8
+parameters / opening delay seconds: 1.5
+parameters / intervals seconds by stage: (3.2, 2.8, 2.2)
+parameters / completion gold gold: 2500
+parameters / selected stage interval seconds: 2.2
+modifiers / health per floor: 0
+modifiers / standard attack damage per floor: 0
+modifiers / signature and lunge damage: Fixed; no floor multiplier
+modifiers / phase speed: 1.3
+modifiers / attack clock rate: 0.6
+modifiers / chill movement multiplier: 1
+modifiers / note: Intervals exclude warning/recovery and scheduling delays; damage precedes player armor/invulnerability.
+The Keeper
+Category: boss
+Lore: The Tower's exhausted caretaker has had a very long shift.
+Encountered floors: None
+Lifetime defeats: 0
+First encounter (UTC): Never
+First defeat (UTC): Never
+Mechanics / advice: Stationary; marked repair lines and cleaning zones deal damage. Follow safe markers. Nova suppresses vines. Brief freezes have a resistance window; Ice Patch slows duty clocks. Later stages overlap duties and summon specimens; Prison protects during damage windows. Stand in your Ice Patch for stronger frost damage. Glacial Prison prevents damage while active, then shatters nearby enemies.

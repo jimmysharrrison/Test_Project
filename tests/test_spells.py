@@ -54,7 +54,7 @@ class SpellTests(unittest.TestCase):
         self.assertEqual(self.world.player.mana, 10)
         self.assertEqual(self.world.player.cooldowns["w"], 0)
         self.advance(1)
-        self.assertAlmostEqual(self.world.player.mana, 18)
+        self.assertAlmostEqual(self.world.player.mana, 16)
 
     def test_prison_prevents_damage_casting_and_movement_then_shatters(self):
         self.world.player.hp = 50

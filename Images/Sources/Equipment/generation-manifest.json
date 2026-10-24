@@ -1,0 +1,186 @@
+{
+  "generator": "Built-in image_gen",
+  "reference": "C:\\Projects\\Test_Project\\Images\\Icons\\Equipment\\frostweave-vestment.png",
+  "items": [
+    {
+      "name": "rimeweaver-crown",
+      "slot": "Helm",
+      "description": "Angular silver crown with a central frost crystal.",
+      "source": "C:\\Users\\jimmy.VCVSLAPTOP\\.codex\\generated_images\\01a16f11-0a53-7220-8cda-6192248a52fb\\exec-e2b30961-2614-4657-83af-4d404b618a05.png",
+      "prompt": "Use case: stylized-concept. Create ONE separate square fantasy-RPG inventory icon. The supplied robe is a STYLE reference ONLY: match its dimensional polished pre-rendered 3D appearance, material rendering, slightly elevated three-quarter perspective, soft upper-left lighting, and finish. Do not reproduce the robe or any Frostweave item. Broad crisp details and a strong silhouette readable at 32–48 pixels. Centered isolated equipment with 10% empty padding on all sides and no clipping. Real transparent alpha background including holes. No wearer, mannequin, body parts, text, readable letters, names, numbers, frames, borders, floor, checkerboard, or large clouds/glows. Compact motifs subordinate to the item. Subject: rimeweaver-crown. Angular silver crown with a central frost crystal.",
+      "original": "C:\\Projects\\Test_Project\\Images\\Sources\\Equipment\\rimeweaver-crown.png",
+      "icon": "C:\\Projects\\Test_Project\\Images\\Icons\\Equipment\\rimeweaver-crown.png"
+    },
+    {
+      "name": "apprentices-rimeband",
+      "slot": "Helm",
+      "description": "Simple silver band holding one small blue ice shard.",
+      "source": "C:\\Users\\jimmy.VCVSLAPTOP\\.codex\\generated_images\\01a16f11-0a53-7220-8cda-6192248a52fb\\exec-f963fba3-de2a-47fe-be31-25788c9b9ad7.png",
+      "prompt": "Use case: stylized-concept. Create ONE separate square fantasy-RPG inventory icon. The supplied robe is a STYLE reference ONLY: match its dimensional polished pre-rendered 3D appearance, material rendering, slightly elevated three-quarter perspective, soft upper-left lighting, and finish. Do not reproduce the robe or any Frostweave item. Broad crisp details and a strong silhouette readable at 32–48 pixels. Centered isolated equipment with 10% empty padding on all sides and no clipping. Real transparent alpha background including holes. No wearer, mannequin, body parts, text, readable letters, names, numbers, frames, borders, floor, checkerboard, or large clouds/glows. Compact motifs subordinate to the item. Subject: apprentices-rimeband. Simple silver band holding one small blue ice shard.",
+      "original": "C:\\Projects\\Test_Project\\Images\\Sources\\Equipment\\apprentices-rimeband.png",
+      "icon": "C:\\Projects\\Test_Project\\Images\\Icons\\Equipment\\apprentices-rimeband.png"
+    },
+    {
+      "name": "deepwell-circlet",
+      "slot": "Helm",
+      "description": "Dark-blue circlet surrounding a glowing mana gem.",
+      "source": "C:\\Users\\jimmy.VCVSLAPTOP\\.codex\\generated_images\\01a16f11-0a53-7220-8cda-6192248a52fb\\exec-fd774907-2693-4807-8285-55eddc35454e.png",
+      "prompt": "Use case: stylized-concept. Create ONE separate square fantasy-RPG inventory icon. The supplied robe is a STYLE reference ONLY: match its dimensional polished pre-rendered 3D appearance, material rendering, slightly elevated three-quarter perspective, soft upper-left lighting, and finish. Do not reproduce the robe or any Frostweave item. Broad crisp details and a strong silhouette readable at 32–48 pixels. Centered isolated equipment with 10% empty padding on all sides and no clipping. Real transparent alpha background including holes. No wearer, mannequin, body parts, text, readable letters, names, numbers, frames, borders, floor, checkerboard, or large clouds/glows. Compact motifs subordinate to the item. Subject: deepwell-circlet. Dark-blue circlet surrounding a glowing mana gem.",
+      "original": "C:\\Projects\\Test_Project\\Images\\Sources\\Equipment\\deepwell-circlet.png",
+      "icon": "C:\\Projects\\Test_Project\\Images\\Icons\\Equipment\\deepwell-circlet.png"
+    },
+    {
+      "name": "snowseer-hood",
+      "slot": "Helm",
+      "description": "White cloth hood framed by a faint snowflake halo.",
+      "source": "C:\\Users\\jimmy.VCVSLAPTOP\\.codex\\generated_images\\01a16f11-0a53-7220-8cda-6192248a52fb\\exec-59d68c2c-d0f6-4c51-9d23-aab6d4fccefc.png",
+      "prompt": "Use case: stylized-concept. Create ONE separate square fantasy-RPG inventory icon. The supplied robe is a STYLE reference ONLY: match its dimensional polished pre-rendered 3D appearance, material rendering, slightly elevated three-quarter perspective, soft upper-left lighting, and finish. Do not reproduce the robe or any Frostweave item. Broad crisp details and a strong silhouette readable at 32–48 pixels. Centered isolated equipment with 10% empty padding on all sides and no clipping. Real transparent alpha background including holes. No wearer, mannequin, body parts, text, readable letters, names, numbers, frames, borders, floor, checkerboard, or large clouds/glows. Compact motifs subordinate to the item. Subject: snowseer-hood. White cloth hood framed by a faint snowflake halo.",
+      "original": "C:\\Projects\\Test_Project\\Images\\Sources\\Equipment\\snowseer-hood.png",
+      "icon": "C:\\Projects\\Test_Project\\Images\\Icons\\Equipment\\snowseer-hood.png"
+    },
+    {
+      "name": "frostmantle-vestment",
+      "slot": "Chest",
+      "description": "Heavy blue robe with a broad white fur mantle. Heavy substantial cloth, broad white fur around shoulders is its defining design. Do not copy reference robe's metal and gem layout; no branching crystal decoration.",
+      "source": "C:\\Users\\jimmy.VCVSLAPTOP\\.codex\\generated_images\\01a16f11-0a53-7220-8cda-6192248a52fb\\exec-e18ec0da-5d4e-4c14-9e46-950cf5ac46cd.png",
+      "prompt": "Use case: stylized-concept. Create ONE separate square fantasy-RPG inventory icon. The supplied robe is a STYLE reference ONLY: match its dimensional polished pre-rendered 3D appearance, material rendering, slightly elevated three-quarter perspective, soft upper-left lighting, and finish. Do not reproduce the robe or any Frostweave item. Broad crisp details and a strong silhouette readable at 32–48 pixels. Centered isolated equipment with 10% empty padding on all sides and no clipping. Real transparent alpha background including holes. No wearer, mannequin, body parts, text, readable letters, names, numbers, frames, borders, floor, checkerboard, or large clouds/glows. Compact motifs subordinate to the item. Subject: frostmantle-vestment. Heavy blue robe with a broad white fur mantle. Heavy substantial cloth, broad white fur around shoulders is its defining design. Do not copy reference robe's metal and gem layout; no branching crystal decoration. Clothing displayed empty without a wearer; whole garment visible.",
+      "original": "C:\\Projects\\Test_Project\\Images\\Sources\\Equipment\\frostmantle-vestment.png",
+      "icon": "C:\\Projects\\Test_Project\\Images\\Icons\\Equipment\\frostmantle-vestment.png"
+    },
+    {
+      "name": "snowbound-robe",
+      "slot": "Chest",
+      "description": "Padded blue robe with a frost-covered heart clasp. Distinct quilted padded blue fabric; a prominent recognizable heart-shaped clasp at chest coated in frost. No broad fur mantle.",
+      "source": "C:\\Users\\jimmy.VCVSLAPTOP\\.codex\\generated_images\\01a16f11-0a53-7220-8cda-6192248a52fb\\exec-4e233854-52c2-4ee0-8297-40847375a4f6.png",
+      "prompt": "Use case: stylized-concept. Create ONE separate square fantasy-RPG inventory icon. The supplied robe is a STYLE reference ONLY: match its dimensional polished pre-rendered 3D appearance, material rendering, slightly elevated three-quarter perspective, soft upper-left lighting, and finish. Do not reproduce the robe or any Frostweave item. Broad crisp details and a strong silhouette readable at 32–48 pixels. Centered isolated equipment with 10% empty padding on all sides and no clipping. Real transparent alpha background including holes. No wearer, mannequin, body parts, text, readable letters, names, numbers, frames, borders, floor, checkerboard, or large clouds/glows. Compact motifs subordinate to the item. Subject: snowbound-robe. Padded blue robe with a frost-covered heart clasp. Distinct quilted padded blue fabric; a prominent recognizable heart-shaped clasp at chest coated in frost. No broad fur mantle. Clothing displayed empty without a wearer; whole garment visible. Padded quilting and heart clasp must dominate; preserve distinct design, not a recolor of the reference.",
+      "original": "C:\\Projects\\Test_Project\\Images\\Sources\\Equipment\\snowbound-robe.png",
+      "icon": "C:\\Projects\\Test_Project\\Images\\Icons\\Equipment\\snowbound-robe.png"
+    },
+    {
+      "name": "stillwater-vestment",
+      "slot": "Chest",
+      "description": "Teal robe bearing a still pool and rising mana mote. Teal cloth with a prominent chest medallion depicting a calm flat still pool of water, a single small luminous mana mote rising directly above it. Both pool and mote are recognizable compact motifs on the garment. No broad fur mantle.",
+      "source": "C:\\Users\\jimmy.VCVSLAPTOP\\.codex\\generated_images\\01a16f11-0a53-7220-8cda-6192248a52fb\\exec-fc3e126b-513f-4822-b1f2-49f5ced27abf.png",
+      "prompt": "Use case: stylized-concept. Create ONE separate square fantasy-RPG inventory icon. The supplied robe is a STYLE reference ONLY: match its dimensional polished pre-rendered 3D appearance, material rendering, slightly elevated three-quarter perspective, soft upper-left lighting, and finish. Do not reproduce the robe or any Frostweave item. Broad crisp details and a strong silhouette readable at 32–48 pixels. Centered isolated equipment with 10% empty padding on all sides and no clipping. Real transparent alpha background including holes. No wearer, mannequin, body parts, text, readable letters, names, numbers, frames, borders, floor, checkerboard, or large clouds/glows. Compact motifs subordinate to the item. Subject: stillwater-vestment. Teal robe bearing a still pool and rising mana mote. Teal cloth with a prominent chest medallion depicting a calm flat still pool of water, a single small luminous mana mote rising directly above it. Both pool and mote are recognizable compact motifs on the garment. No broad fur mantle. Clothing displayed empty without a wearer; whole garment visible. Original distinct design; sweeping teal drapery, simple fluid hems, round pool motif. Do not copy reference's silver armor filigree or diamond gemstone layout.",
+      "original": "C:\\Projects\\Test_Project\\Images\\Sources\\Equipment\\stillwater-vestment.png",
+      "icon": "C:\\Projects\\Test_Project\\Images\\Icons\\Equipment\\stillwater-vestment.png"
+    },
+    {
+      "name": "winterthorn-coat",
+      "slot": "Chest",
+      "description": "Fur-lined coat with sharp icy thorns around its collar. A substantial winter coat, with visible fur lining and an unmistakable collar encircled by short sharp icy thorn spikes. Distinct coat tailoring rather than an ornate gem robe.",
+      "source": "C:\\Users\\jimmy.VCVSLAPTOP\\.codex\\generated_images\\01a16f11-0a53-7220-8cda-6192248a52fb\\exec-3f54efab-8901-4dc2-b72d-520de09d4117.png",
+      "prompt": "Use case: stylized-concept. Create ONE separate square fantasy-RPG inventory icon. The supplied robe is a STYLE reference ONLY: match its dimensional polished pre-rendered 3D appearance, material rendering, slightly elevated three-quarter perspective, soft upper-left lighting, and finish. Do not reproduce the robe or any Frostweave item. Broad crisp details and a strong silhouette readable at 32–48 pixels. Centered isolated equipment with 10% empty padding on all sides and no clipping. Real transparent alpha background including holes. No wearer, mannequin, body parts, text, readable letters, names, numbers, frames, borders, floor, checkerboard, or large clouds/glows. Compact motifs subordinate to the item. Subject: winterthorn-coat. Fur-lined coat with sharp icy thorns around its collar. A substantial winter coat, with visible fur lining and an unmistakable collar encircled by short sharp icy thorn spikes. Distinct coat tailoring rather than an ornate gem robe. Clothing displayed empty without a wearer; whole garment visible. Distinct tailored coat with front opening, substantial fur lining and sharp ice thorn collar. Avoid reference robe's diamond gems and flared skirt.",
+      "original": "C:\\Projects\\Test_Project\\Images\\Sources\\Equipment\\winterthorn-coat.png",
+      "icon": "C:\\Projects\\Test_Project\\Images\\Icons\\Equipment\\winterthorn-coat.png"
+    },
+    {
+      "name": "glacierweave-leggings",
+      "slot": "Legs",
+      "description": "Layered blue leggings resembling overlapping glacier plates. Matching pair of legs on one garment, no feet or boots. Bold overlapping broad blue glacier plates and dark blue woven joints.",
+      "source": "C:\\Users\\jimmy.VCVSLAPTOP\\.codex\\generated_images\\01a16f11-0a53-7220-8cda-6192248a52fb\\exec-9afd2945-3185-4ac2-94b8-ae9831d46ea3.png",
+      "prompt": "Use case: stylized-concept. Create ONE separate square fantasy-RPG inventory icon. The supplied robe is a STYLE reference ONLY: match its dimensional polished pre-rendered 3D appearance, material rendering, slightly elevated three-quarter perspective, soft upper-left lighting, and finish. Do not reproduce the robe or any Frostweave item. Broad crisp details and a strong silhouette readable at 32–48 pixels. Centered isolated equipment with 10% empty padding on all sides and no clipping. Real transparent alpha background including holes. No wearer, mannequin, body parts, text, readable letters, names, numbers, frames, borders, floor, checkerboard, or large clouds/glows. Compact motifs subordinate to the item. Subject: glacierweave-leggings. Layered blue leggings resembling overlapping glacier plates. Matching pair of legs on one garment, no feet or boots. Bold overlapping broad blue glacier plates and dark blue woven joints. Whole leggings, waistband to ankle cuffs, empty and without any wearer. Blue overlapping glacier plates are the defining structure, not thin filigree.",
+      "original": "C:\\Projects\\Test_Project\\Images\\Sources\\Equipment\\glacierweave-leggings.png",
+      "icon": "C:\\Projects\\Test_Project\\Images\\Icons\\Equipment\\glacierweave-leggings.png"
+    },
+    {
+      "name": "stonefrost-leggings",
+      "slot": "Legs",
+      "description": "Slate-gray leg guards with frosted stone knee plates. Matching pair, slate gray cloth and stone armor. TWO prominent broad rough stone knee plates with white frosted edges, keep stone visibly rock rather than blue crystals. No feet or boots.",
+      "source": "C:\\Users\\jimmy.VCVSLAPTOP\\.codex\\generated_images\\01a16f11-0a53-7220-8cda-6192248a52fb\\exec-1ef170f9-b11e-4708-b2da-24a019d3acaa.png",
+      "prompt": "Use case: stylized-concept. Create ONE separate square fantasy-RPG inventory icon. The supplied robe is a STYLE reference ONLY: match its dimensional polished pre-rendered 3D appearance, material rendering, slightly elevated three-quarter perspective, soft upper-left lighting, and finish. Do not reproduce the robe or any Frostweave item. Broad crisp details and a strong silhouette readable at 32–48 pixels. Centered isolated equipment with 10% empty padding on all sides and no clipping. Real transparent alpha background including holes. No wearer, mannequin, body parts, text, readable letters, names, numbers, frames, borders, floor, checkerboard, or large clouds/glows. Compact motifs subordinate to the item. Subject: stonefrost-leggings. Slate-gray leg guards with frosted stone knee plates. Matching pair, slate gray cloth and stone armor. TWO prominent broad rough stone knee plates with white frosted edges, keep stone visibly rock rather than blue crystals. No feet or boots. Whole pair from upper leg to ankle cuff, empty equipment. Slate gray stone material is dominant. No bright blue diamond gems, no ornate silver lattice, no extra ice armor plates; frosted stone knees must be the focus.",
+      "original": "C:\\Projects\\Test_Project\\Images\\Sources\\Equipment\\stonefrost-leggings.png",
+      "icon": "C:\\Projects\\Test_Project\\Images\\Icons\\Equipment\\stonefrost-leggings.png"
+    },
+    {
+      "name": "driftwalker-trousers",
+      "slot": "Legs",
+      "description": "Light trousers with swirling snow around their cuffs. Matching pair of lightweight pale cloth trouser legs, with short compact white snow swirls hugging their ankle cuffs, keeping the silhouette clear. No feet or boots.",
+      "source": "C:\\Users\\jimmy.VCVSLAPTOP\\.codex\\generated_images\\01a16f11-0a53-7220-8cda-6192248a52fb\\exec-8e437b98-4c8e-4bb1-a270-9667a77e9685.png",
+      "prompt": "Use case: stylized-concept. Create ONE separate square fantasy-RPG inventory icon. The supplied robe is a STYLE reference ONLY: match its dimensional polished pre-rendered 3D appearance, material rendering, slightly elevated three-quarter perspective, soft upper-left lighting, and finish. Do not reproduce the robe or any Frostweave item. Broad crisp details and a strong silhouette readable at 32–48 pixels. Centered isolated equipment with 10% empty padding on all sides and no clipping. Real transparent alpha background including holes. No wearer, mannequin, body parts, text, readable letters, names, numbers, frames, borders, floor, checkerboard, or large clouds/glows. Compact motifs subordinate to the item. Subject: driftwalker-trousers. Light trousers with swirling snow around their cuffs. Matching pair of lightweight pale cloth trouser legs, with short compact white snow swirls hugging their ankle cuffs, keeping the silhouette clear. No feet or boots. Whole trousers from waistband to ankle cuffs, empty garment. Supple lightweight pale cloth, minimal armor and simple seams; no gems, no plate armor. Compact snow curls at cuffs only.",
+      "original": "C:\\Projects\\Test_Project\\Images\\Sources\\Equipment\\driftwalker-trousers.png",
+      "icon": "C:\\Projects\\Test_Project\\Images\\Icons\\Equipment\\driftwalker-trousers.png"
+    },
+    {
+      "name": "runestitched-leggings",
+      "slot": "Legs",
+      "description": "Indigo leggings stitched with glowing green healing runes. Matching pair of indigo fabric legs with broad luminous GREEN decorative healing symbols visibly stitched into them. Abstract decorative runes, not readable letters. No feet or boots.",
+      "source": "C:\\Users\\jimmy.VCVSLAPTOP\\.codex\\generated_images\\01a16f11-0a53-7220-8cda-6192248a52fb\\exec-b8ff8c4d-af66-44ca-9c7a-9ff8d5589f5e.png",
+      "prompt": "Use case: stylized-concept. Create ONE separate square fantasy-RPG inventory icon. The supplied robe is a STYLE reference ONLY: match its dimensional polished pre-rendered 3D appearance, material rendering, slightly elevated three-quarter perspective, soft upper-left lighting, and finish. Do not reproduce the robe or any Frostweave item. Broad crisp details and a strong silhouette readable at 32–48 pixels. Centered isolated equipment with 10% empty padding on all sides and no clipping. Real transparent alpha background including holes. No wearer, mannequin, body parts, text, readable letters, names, numbers, frames, borders, floor, checkerboard, or large clouds/glows. Compact motifs subordinate to the item. Subject: runestitched-leggings. Indigo leggings stitched with glowing green healing runes. Matching pair of indigo fabric legs with broad luminous GREEN decorative healing symbols visibly stitched into them. Abstract decorative runes, not readable letters. No feet or boots. Whole leggings from waistband to ankle cuffs, empty garment. INDIGO and GREEN color identity. Cloth leggings with clearly visible seams and green stitched symbols, not blue crystal armor. No diamond gems. Abstract healing symbols, no readable lettering.",
+      "original": "C:\\Projects\\Test_Project\\Images\\Sources\\Equipment\\runestitched-leggings.png",
+      "icon": "C:\\Projects\\Test_Project\\Images\\Icons\\Equipment\\runestitched-leggings.png"
+    },
+    {
+      "name": "wintercall-grips",
+      "slot": "Gloves",
+      "description": "Dark gloves with bright frost runes across the knuckles. ONE MATCHING PAIR of dark navy gloves, both visible, with bright icy blue decorative frost symbols crossing the knuckles. No hands or arms inside.",
+      "source": "C:\\Users\\jimmy.VCVSLAPTOP\\.codex\\generated_images\\01a16f11-0a53-7220-8cda-6192248a52fb\\exec-4615e62a-5bd1-47ea-9644-b3af28f55aeb.png",
+      "prompt": "Use case: stylized-concept. Create ONE separate square fantasy-RPG inventory icon. The supplied robe is a STYLE reference ONLY: match its dimensional polished pre-rendered 3D appearance, material rendering, slightly elevated three-quarter perspective, soft upper-left lighting, and finish. Do not reproduce the robe or any Frostweave item. Broad crisp details and a strong silhouette readable at 32–48 pixels. Centered isolated equipment with 10% empty padding on all sides and no clipping. Real transparent alpha background including holes. No wearer, mannequin, body parts, text, readable letters, names, numbers, frames, borders, floor, checkerboard, or large clouds/glows. Compact motifs subordinate to the item. Subject: wintercall-grips. Dark gloves with bright frost runes across the knuckles. ONE MATCHING PAIR of dark navy gloves, both visible, with bright icy blue decorative frost symbols crossing the knuckles. No hands or arms inside. Pair arranged as inventory equipment showing the backs and knuckles clearly; both gloves completely visible. Dark gloves contrast with bright knuckle runes, no crystal fingertips or large gauntlet plates.",
+      "original": "C:\\Projects\\Test_Project\\Images\\Sources\\Equipment\\wintercall-grips.png",
+      "icon": "C:\\Projects\\Test_Project\\Images\\Icons\\Equipment\\wintercall-grips.png"
+    },
+    {
+      "name": "quickrime-gloves",
+      "slot": "Gloves",
+      "description": "Slim icy gloves marked with a small hourglass rune. ONE MATCHING PAIR of slim icy pale blue gloves, distinct narrow silhouette, each with a small recognizable geometric hourglass symbol. No hands or arms inside.",
+      "source": "C:\\Users\\jimmy.VCVSLAPTOP\\.codex\\generated_images\\01a16f11-0a53-7220-8cda-6192248a52fb\\exec-285b7e94-baa4-49d5-9fda-ca413d35d3d6.png",
+      "prompt": "Use case: stylized-concept. Create ONE separate square fantasy-RPG inventory icon. The supplied robe is a STYLE reference ONLY: match its dimensional polished pre-rendered 3D appearance, material rendering, slightly elevated three-quarter perspective, soft upper-left lighting, and finish. Do not reproduce the robe or any Frostweave item. Broad crisp details and a strong silhouette readable at 32–48 pixels. Centered isolated equipment with 10% empty padding on all sides and no clipping. Real transparent alpha background including holes. No wearer, mannequin, body parts, text, readable letters, names, numbers, frames, borders, floor, checkerboard, or large clouds/glows. Compact motifs subordinate to the item. Subject: quickrime-gloves. Slim icy gloves marked with a small hourglass rune. ONE MATCHING PAIR of slim icy pale blue gloves, distinct narrow silhouette, each with a small recognizable geometric hourglass symbol. No hands or arms inside. Pair arranged showing the backs clearly. Slim smooth icy gloves with no fur cuffs and no bulky armor, one simple small hourglass rune on back of each hand, recognizable top and bottom triangles joined at narrow waist. Not readable lettering. No extra gemstone layout.",
+      "original": "C:\\Projects\\Test_Project\\Images\\Sources\\Equipment\\quickrime-gloves.png",
+      "icon": "C:\\Projects\\Test_Project\\Images\\Icons\\Equipment\\quickrime-gloves.png"
+    },
+    {
+      "name": "frugalweave-wraps",
+      "slot": "Gloves",
+      "description": "Blue hand wraps cradling a single bright mana droplet. ONE MATCHING PAIR of blue cloth hand wraps arranged in a gentle cupped shape around exactly one bright blue teardrop-shaped mana droplet centered closely between them. Empty wearable wraps without any actual hands, fingers, skin or arms inside. The broad droplet shape must stay recognizable.",
+      "source": "C:\\Users\\jimmy.VCVSLAPTOP\\.codex\\generated_images\\01a16f11-0a53-7220-8cda-6192248a52fb\\exec-b4ba12d3-5757-41f6-aad4-0011d1d1848d.png",
+      "prompt": "Use case: stylized-concept. Create ONE separate square fantasy-RPG inventory icon. The supplied robe is a STYLE reference ONLY: match its dimensional polished pre-rendered 3D appearance, material rendering, slightly elevated three-quarter perspective, soft upper-left lighting, and finish. Do not reproduce the robe or any Frostweave item. Broad crisp details and a strong silhouette readable at 32–48 pixels. Centered isolated equipment with 10% empty padding on all sides and no clipping. Real transparent alpha background including holes. No wearer, mannequin, body parts, text, readable letters, names, numbers, frames, borders, floor, checkerboard, or large clouds/glows. Compact motifs subordinate to the item. Subject: frugalweave-wraps. Blue hand wraps cradling a single bright mana droplet. ONE MATCHING PAIR of blue cloth hand wraps arranged in a gentle cupped shape around exactly one bright blue teardrop-shaped mana droplet centered closely between them. Empty wearable wraps without any actual hands, fingers, skin or arms inside. The broad droplet shape must stay recognizable. Distinct blue layered fabric strips form empty glove-like hand wraps, with hollow wrist openings visible. No metal gauntlet plates or diamond gem decoration. One luminous mana droplet with pointed top and rounded base suspended directly between cupped wraps, compact and clearly readable. No flesh or fingers inside the wraps.",
+      "original": "C:\\Projects\\Test_Project\\Images\\Sources\\Equipment\\frugalweave-wraps.png",
+      "icon": "C:\\Projects\\Test_Project\\Images\\Icons\\Equipment\\frugalweave-wraps.png"
+    },
+    {
+      "name": "lingering-frost-grips",
+      "slot": "Gloves",
+      "description": "Long gloves with frost tendrils trailing from their fingertips. ONE MATCHING PAIR of long gloves extending up the forearms, icy blue shaded fabric. A few short compact frost tendrils trail from fingertips; subordinate to gloves, contained within padding, no large cloud or glow. No hands or arms inside.",
+      "source": "C:\\Users\\jimmy.VCVSLAPTOP\\.codex\\generated_images\\01a16f11-0a53-7220-8cda-6192248a52fb\\exec-7e732112-7c82-4239-9992-4d4b5717a0a8.png",
+      "prompt": "Use case: stylized-concept. Create ONE separate square fantasy-RPG inventory icon. The supplied robe is a STYLE reference ONLY: match its dimensional polished pre-rendered 3D appearance, material rendering, slightly elevated three-quarter perspective, soft upper-left lighting, and finish. Do not reproduce the robe or any Frostweave item. Broad crisp details and a strong silhouette readable at 32–48 pixels. Centered isolated equipment with 10% empty padding on all sides and no clipping. Real transparent alpha background including holes. No wearer, mannequin, body parts, text, readable letters, names, numbers, frames, borders, floor, checkerboard, or large clouds/glows. Compact motifs subordinate to the item. Subject: lingering-frost-grips. Long gloves with frost tendrils trailing from their fingertips. ONE MATCHING PAIR of long gloves extending up the forearms, icy blue shaded fabric. A few short compact frost tendrils trail from fingertips; subordinate to gloves, contained within padding, no large cloud or glow. No hands or arms inside. Distinct long soft gloves, visible hollow forearm openings. A FEW SHORT curling frost tendrils only from fingertips, no trails longer than a finger and no cloud. Both gloves fully visible.",
+      "original": "C:\\Projects\\Test_Project\\Images\\Sources\\Equipment\\lingering-frost-grips.png",
+      "icon": "C:\\Projects\\Test_Project\\Images\\Icons\\Equipment\\lingering-frost-grips.png"
+    },
+    {
+      "name": "everfrost-treads",
+      "slot": "Boots",
+      "description": "Sturdy snow boots with icy soles and thick white cuffs. ONE MATCHING PAIR, sturdy blue snow boots, thick fluffy WHITE cuffs and visibly icy soles. Broad practical silhouette, both boots fully visible.",
+      "source": "C:\\Users\\jimmy.VCVSLAPTOP\\.codex\\generated_images\\01a16f11-0a53-7220-8cda-6192248a52fb\\exec-20e41ef4-b5d7-4eed-8644-152c17666b8d.png",
+      "prompt": "Use case: stylized-concept. Create ONE separate square fantasy-RPG inventory icon. The supplied robe is a STYLE reference ONLY: match its dimensional polished pre-rendered 3D appearance, material rendering, slightly elevated three-quarter perspective, soft upper-left lighting, and finish. Do not reproduce the robe or any Frostweave item. Broad crisp details and a strong silhouette readable at 32–48 pixels. Centered isolated equipment with 10% empty padding on all sides and no clipping. Real transparent alpha background including holes. No wearer, mannequin, body parts, text, readable letters, names, numbers, frames, borders, floor, checkerboard, or large clouds/glows. Compact motifs subordinate to the item. Subject: everfrost-treads. Sturdy snow boots with icy soles and thick white cuffs. ONE MATCHING PAIR, sturdy blue snow boots, thick fluffy WHITE cuffs and visibly icy soles. Broad practical silhouette, both boots fully visible. Both empty boots shown in three-quarter view, practical rounded toes and thick sturdy soles made icy. White fur cuffs are broad and thick. No feet inside, no ice trails. Distinct practical winter boot design.",
+      "original": "C:\\Projects\\Test_Project\\Images\\Sources\\Equipment\\everfrost-treads.png",
+      "icon": "C:\\Projects\\Test_Project\\Images\\Icons\\Equipment\\everfrost-treads.png"
+    },
+    {
+      "name": "snowstep-boots",
+      "slot": "Boots",
+      "description": "Lightweight blue boots with wing-like white snow streaks. ONE MATCHING PAIR, slim light blue boots with compact WHITE wing-like snow streaks close to outer ankle and heel; streaks are subordinate and not giant wings.",
+      "source": "C:\\Users\\jimmy.VCVSLAPTOP\\.codex\\generated_images\\01a16f11-0a53-7220-8cda-6192248a52fb\\exec-0afae707-02d5-4224-ab93-deef9517e141.png",
+      "prompt": "Use case: stylized-concept. Create ONE separate square fantasy-RPG inventory icon. The supplied robe is a STYLE reference ONLY: match its dimensional polished pre-rendered 3D appearance, material rendering, slightly elevated three-quarter perspective, soft upper-left lighting, and finish. Do not reproduce the robe or any Frostweave item. Broad crisp details and a strong silhouette readable at 32–48 pixels. Centered isolated equipment with 10% empty padding on all sides and no clipping. Real transparent alpha background including holes. No wearer, mannequin, body parts, text, readable letters, names, numbers, frames, borders, floor, checkerboard, or large clouds/glows. Compact motifs subordinate to the item. Subject: snowstep-boots. Lightweight blue boots with wing-like white snow streaks. ONE MATCHING PAIR, slim light blue boots with compact WHITE wing-like snow streaks close to outer ankle and heel; streaks are subordinate and not giant wings. Both empty lightweight boots visible, simple sleek supple blue fabric and leather, slim soles, no heavy armor or big gems. Compact white wing-like snow streaks follow closely alongside each boot, not big solid feather wings. No feet inside.",
+      "original": "C:\\Projects\\Test_Project\\Images\\Sources\\Equipment\\snowstep-boots.png",
+      "icon": "C:\\Projects\\Test_Project\\Images\\Icons\\Equipment\\snowstep-boots.png"
+    },
+    {
+      "name": "rimetrail-boots",
+      "slot": "Boots",
+      "description": "Dark boots leaving a short trail of frozen footprints. ONE MATCHING PAIR of dark boots, and a very SHORT compact trail of just two small frozen footprint marks closely behind the pair. No floor or ground plane. Boots remain dominant and footprints fit inside the padding.",
+      "source": "C:\\Users\\jimmy.VCVSLAPTOP\\.codex\\generated_images\\01a16f11-0a53-7220-8cda-6192248a52fb\\exec-f106d867-497d-4959-a8c2-36b8dc74d9be.png",
+      "prompt": "Use case: stylized-concept. Create ONE separate square fantasy-RPG inventory icon. The supplied robe is a STYLE reference ONLY: match its dimensional polished pre-rendered 3D appearance, material rendering, slightly elevated three-quarter perspective, soft upper-left lighting, and finish. Do not reproduce the robe or any Frostweave item. Broad crisp details and a strong silhouette readable at 32–48 pixels. Centered isolated equipment with 10% empty padding on all sides and no clipping. Real transparent alpha background including holes. No wearer, mannequin, body parts, text, readable letters, names, numbers, frames, borders, floor, checkerboard, or large clouds/glows. Compact motifs subordinate to the item. Subject: rimetrail-boots. Dark boots leaving a short trail of frozen footprints. ONE MATCHING PAIR of dark boots, and a very SHORT compact trail of just two small frozen footprint marks closely behind the pair. No floor or ground plane. Boots remain dominant and footprints fit inside the padding. Both boots fully visible. Dark charcoal and navy boots with restrained trim, no fur or wing motifs. Exactly two small icy bootprint shapes closely behind heels, isolated on transparency without floor, trail subordinate to boots.",
+      "original": "C:\\Projects\\Test_Project\\Images\\Sources\\Equipment\\rimetrail-boots.png",
+      "icon": "C:\\Projects\\Test_Project\\Images\\Icons\\Equipment\\rimetrail-boots.png"
+    },
+    {
+      "name": "shardhunter-boots",
+      "slot": "Boots",
+      "description": "Sharp-toed boots with crystal crosshairs on their cuffs. ONE MATCHING PAIR with distinctly sharp pointed toes and a prominent crystal crosshair symbol on each cuff; recognizable circular aiming reticle with four ticks, made of pale blue crystal. No readable text.",
+      "source": "C:\\Users\\jimmy.VCVSLAPTOP\\.codex\\generated_images\\01a16f11-0a53-7220-8cda-6192248a52fb\\exec-e84d4a5c-7bc3-424c-a488-945c92de3a49.png",
+      "prompt": "Use case: stylized-concept. Create ONE separate square fantasy-RPG inventory icon. The supplied robe is a STYLE reference ONLY: match its dimensional polished pre-rendered 3D appearance, material rendering, slightly elevated three-quarter perspective, soft upper-left lighting, and finish. Do not reproduce the robe or any Frostweave item. Broad crisp details and a strong silhouette readable at 32–48 pixels. Centered isolated equipment with 10% empty padding on all sides and no clipping. Real transparent alpha background including holes. No wearer, mannequin, body parts, text, readable letters, names, numbers, frames, borders, floor, checkerboard, or large clouds/glows. Compact motifs subordinate to the item. Subject: shardhunter-boots. Sharp-toed boots with crystal crosshairs on their cuffs. ONE MATCHING PAIR with distinctly sharp pointed toes and a prominent crystal crosshair symbol on each cuff; recognizable circular aiming reticle with four ticks, made of pale blue crystal. No readable text. Both boots visible, cuff crosshair emblems must unmistakably read as crystal aiming reticles: circular ring crossed by four short cardinal bars and a small center intersection. No diamond gems replacing these reticles. Sharp pointed toes, distinct angular boot silhouette. No feet inside, no footprints.",
+      "original": "C:\\Projects\\Test_Project\\Images\\Sources\\Equipment\\shardhunter-boots.png",
+      "icon": "C:\\Projects\\Test_Project\\Images\\Icons\\Equipment\\shardhunter-boots.png"
+    }
+  ]
+}

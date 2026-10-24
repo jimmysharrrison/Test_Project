@@ -36,14 +36,15 @@ class FrostweaveTests(unittest.TestCase):
         self.world.projectiles.append(Projectile(target.pos - Vec(.2, 0), Vec(10, 0), damage=damage, spell=spell))
         self.world._projectiles(.02)
 
-    def test_shop_blanks_are_named_as_set_and_keep_identity_through_all_enchants(self):
+    def test_unlocked_stock_starts_at_rank_three_and_keeps_set_identity(self):
+        self.world.player.frostweave_unlocked = True
         self.world.player.gold = 100000
         for slot in SLOTS:
             item = self.world.buy_item(slot)
-            self.assertEqual(item.rank, 0)
+            self.assertEqual(item.rank, 3)
             self.assertEqual(item.set_id, "frostweave")
             self.assertTrue(item.name.startswith("Frostweave "))
-            for rank in range(1, 6):
+            for rank in (4, 5):
                 self.assertTrue(self.world.enchant_item(item.uid))
                 updated = self.inv.get(item.uid)
                 self.assertEqual((updated.rank, updated.set_id, updated.name), (rank, "frostweave", item.name))
