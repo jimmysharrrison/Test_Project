@@ -13,6 +13,7 @@ MUTED = (137, 157, 172)
 ICE = (139, 216, 248)
 GOLD = (214, 180, 113)
 RED = (215, 96, 99)
+UPGRADE = (116, 226, 153)
 
 
 def item_icon(surface, slot, center, color, scale=1):
@@ -44,6 +45,9 @@ class Armory:
     def __init__(self):
         self.selected_uid = None
         self.pending_destroy_uid = None
+        self.pending_sale_items = ()
+        self.pending_sale_rank = None
+        self.sale_rank = 0
         self.page = 0
         self.close_rect = pygame.Rect(1184, 104, 38, 32)
         self.inventory_tab = pygame.Rect(222, 174, 174, 34)
@@ -57,6 +61,8 @@ class Armory:
         self.destroy_rect = pygame.Rect(612, 740, 77, 34)
         self.cancel_destroy_rect = pygame.Rect(490, 495, 210, 38)
         self.confirm_destroy_rect = pygame.Rect(720, 495, 230, 38)
+        self.sale_rank_rects = {rank: pygame.Rect(222 + rank * 42, 669, 36, 28) for rank in range(6)}
+        self.sell_all_rect = pygame.Rect(222, 730, 255, 34)
         self.enchant_tab_rect = pygame.Rect(888, 740, 314, 34)
         self.buy_rects = {slot: pygame.Rect(729, 278 + i * 70, 143, 34) for i, slot in enumerate(SLOTS)}
         self.upgrade_rect = pygame.Rect(917, 575, 288, 45)
@@ -65,7 +71,7 @@ class Armory:
         return world.player.inventory.get(self.selected_uid)
 
     def bag_page(self, world):
-        bag = world.player.inventory.backpack
+        bag = world.player.inventory.prioritized_backpack
         self.page = min(self.page, max(0, (len(bag) - 1) // 16))
         return bag[self.page * 16:(self.page + 1) * 16]
 
@@ -80,6 +86,15 @@ class Armory:
                 if world.destroy_item(uid):
                     self.selected_uid = None
             return tab
+        if self.pending_sale_items:
+            if self.cancel_destroy_rect.collidepoint(point):
+                self.cancel_confirmation()
+            elif self.confirm_destroy_rect.collidepoint(point):
+                items = self.pending_sale_items
+                self.cancel_confirmation()
+                if world.sell_items(items) and self.selected_uid in {item.uid for item in items}:
+                    self.selected_uid = None
+            return tab
         if self.close_rect.collidepoint(point):
             return "close"
         if self.inventory_tab.collidepoint(point):
@@ -87,9 +102,26 @@ class Armory:
         if self.shop_tab.collidepoint(point):
             return "shop"
         item = self.selected(world)
+        for rank, rect in self.sale_rank_rects.items():
+            if rect.collidepoint(point):
+                self.sale_rank = rank
+                return tab
+        if self.sell_all_rect.collidepoint(point):
+            if world._can_manage_gear():
+                items = world.quote_sale(self.sale_rank)
+                if items:
+                    self.pending_sale_items = items
+                    self.pending_sale_rank = self.sale_rank
+                else:
+                    world.announce(f"No unequipped Rank {self.sale_rank} equipment to sell.")
+            return tab
         if self.sell_rect.collidepoint(point):
-            if item and world.sell_item(item.uid):
-                self.selected_uid = None
+            if item and world._discardable_item(item.uid) is not None:
+                if item.rank >= 3:
+                    self.pending_sale_items = (item,)
+                    self.pending_sale_rank = None
+                elif world.sell_item(item.uid):
+                    self.selected_uid = None
             return tab
         if self.destroy_rect.collidepoint(point):
             if item and world._discardable_item(item.uid) is not None:
@@ -134,6 +166,12 @@ class Armory:
         self.pending_destroy_uid = None
         return pending
 
+    def cancel_confirmation(self):
+        pending = bool(self.pending_sale_items)
+        self.pending_sale_items = ()
+        self.pending_sale_rank = None
+        return self.cancel_destroy() or pending
+
     @staticmethod
     def button(r, rect, label, enabled=True, active=False):
         pygame.draw.rect(r.screen, (33, 61, 80) if active else (28, 43, 56), rect, border_radius=4)
@@ -142,9 +180,10 @@ class Armory:
                WHITE if enabled else MUTED, center=True)
 
     @staticmethod
-    def tooltip(r, item, point, owned=False, current=None):
+    def tooltip(r, item, point, owned=False, current=None, upgrade=False):
         lines = item.lines
-        height = 198 + max(0, len(lines) - 1) * 21 + (35 if current and current.uid != item.uid else 0)
+        height = (198 + max(0, len(lines) - 1) * 21
+                  + (35 if current and current.uid != item.uid else 0) + (24 if upgrade else 0))
         x, y = min(point[0] + 18, 1068), min(point[1] + 18, 888 - height)
         x, y = max(8, x), max(8, y)
         color = RANK_COLORS[item.rank]
@@ -156,6 +195,9 @@ class Armory:
         for i, line in enumerate(lines):
             r.text(line, x + 14, y + 74 + i * 21, 11, WHITE)
         yy = y + 86 + len(lines) * 21
+        if upgrade:
+            r.text("UPGRADE FOR YOUR EQUIPPED SLOT", x + 14, yy, 11, UPGRADE)
+            yy += 24
         if current and current.uid != item.uid:
             r.text(f"Equipped: Rank {current.rank} {current.name}", x + 14, yy, 10, MUTED)
             yy += 28
@@ -208,8 +250,16 @@ class Armory:
             for i, rect in enumerate(self.bag_rects):
                 bag_item = page_items[i] if i < len(page_items) else None
                 selected = bag_item and bag_item.uid == self.selected_uid
-                pygame.draw.rect(r.screen, (28, 48, 62) if selected else (22, 35, 47), rect, border_radius=5)
+                upgrade = bag_item is not None and inventory.is_upgrade(bag_item)
+                fill = (28, 48, 62) if selected else (23, 47, 39) if upgrade else (22, 35, 47)
+                pygame.draw.rect(r.screen, fill, rect, border_radius=5)
                 pygame.draw.rect(r.screen, ICE if selected else RANK_COLORS[bag_item.rank] if bag_item else LINE, rect, 1, border_radius=5)
+                if upgrade:
+                    pygame.draw.rect(r.screen, UPGRADE, rect.inflate(4, 4), 2, border_radius=6)
+                    pygame.draw.circle(r.screen, (19, 45, 32), (rect.right - 12, rect.y + 12), 10)
+                    pygame.draw.lines(r.screen, UPGRADE, False,
+                                      [(rect.right - 18, rect.y + 12), (rect.right - 13, rect.y + 17),
+                                       (rect.right - 6, rect.y + 7)], 2)
                 if bag_item:
                     item_icon(r.screen, bag_item.slot, (rect.centerx, rect.y + 30), RANK_COLORS[bag_item.rank], .8)
                     r.text(f"R{bag_item.rank}", rect.x + 9, rect.y + 55, 11, RANK_COLORS[bag_item.rank])
@@ -219,6 +269,7 @@ class Armory:
             self.button(r, self.next_page, ">")
             total_pages = max(1, (len(inventory.backpack) + 15) // 16)
             r.text(f"PAGE {self.page + 1} / {total_pages}", 680, 640, 11, MUTED, center=True)
+            r.text("GREEN CHECK = UPGRADE  /  UPGRADES FIRST", 511, 664, 10, UPGRADE)
             self.draw_stats(r, world)
         else:
             r.spaced("UNRANKED STOCK  /  RANK 0", 511, 236, 10, MUTED)
@@ -246,13 +297,11 @@ class Armory:
             self.button(r, self.enchant_tab_rect, "OPEN ENCHANTMENTS  >")
         else:
             r.text("Select gear to enchant above.", 906, 751, 11, MUTED)
-        r.text("New gear fills an empty slot automatically.", 222, 689, 10, MUTED)
-        r.text("Chest health must be healed after equipping.", 222, 712, 10, MUTED)
-        r.text("I inventory · B shop · Esc close", 222, 755, 10, MUTED)
+        self.draw_bulk_sale(r, world)
         if isinstance(hovered, Item):
             owned = inventory.get(hovered.uid) is hovered
             current = inventory.worn(hovered.slot) if not owned or inventory.equipped[hovered.slot] != hovered.uid else None
-            self.tooltip(r, hovered, mouse, owned, current)
+            self.tooltip(r, hovered, mouse, owned, current, upgrade=owned and inventory.is_upgrade(hovered))
         elif hovered:
             x, y = min(mouse[0] + 15, 1058), min(mouse[1] + 15, 744)
             pygame.draw.rect(r.screen, (13, 23, 33), (x, y, 368, 95), border_radius=5)
@@ -260,6 +309,48 @@ class Armory:
             r.text(SLOT_PURPOSE[hovered], x + 12, y + 44, 11, WHITE)
         if self.pending_destroy_uid is not None:
             self.draw_destroy_confirmation(r, world)
+        elif self.pending_sale_items:
+            self.draw_sale_confirmation(r, world)
+
+    def draw_bulk_sale(self, r, world):
+        items = world.quote_sale(self.sale_rank)
+        total = sum(item.sell_value for item in items)
+        r.spaced("SELL BACKPACK BY RANK", 222, 646, 10, MUTED, 1)
+        for rank, rect in self.sale_rank_rects.items():
+            self.button(r, rect, f"R{rank}", active=rank == self.sale_rank)
+        r.text(f"{len(items)} items  ·  {total:,} GOLD", 222, 706, 11, GOLD)
+        enabled = bool(items) and world.state != "dead" and world.player.stasis <= 0
+        self.button(r, self.sell_all_rect, f"SELL ALL RANK {self.sale_rank}", enabled=enabled)
+        r.text("Equipped items are never sold.", 222, 775, 10, MUTED)
+        r.text("I inventory · B shop · Esc close", 222, 796, 9, MUTED)
+
+    def draw_sale_confirmation(self, r, world):
+        items = self.pending_sale_items
+        total = sum(item.sell_value for item in items)
+        upgrades = sum(world.player.inventory.is_upgrade(item) for item in items)
+        shade = pygame.Surface(r.screen.get_size(), pygame.SRCALPHA)
+        shade.fill((4, 9, 16, 190))
+        r.screen.blit(shade, (0, 0))
+        box = pygame.Rect(448, 300, 544, 270)
+        pygame.draw.rect(r.screen, PANEL, box, border_radius=8)
+        pygame.draw.rect(r.screen, GOLD, box, 1, border_radius=8)
+        r.text("ARE YOU SURE?", 720, 321, 25, WHITE, serif=True, center=True)
+        if self.pending_sale_rank is not None:
+            detail = f"Sell all {len(items)} backpack items of Rank {self.pending_sale_rank}?"
+        else:
+            item = items[0]
+            detail = f"Sell Rank {item.rank} {item.name}?"
+        r.text(detail, 720, 368, 15, WHITE, center=True)
+        r.text(f"You will receive {total:,} gold.", 720, 402, 16, GOLD, center=True)
+        r.text("Equipped items are kept. This sale cannot be undone.", 720, 435, 12, MUTED, center=True)
+        if upgrades:
+            r.text(f"Includes {upgrades} upgrade{'s' if upgrades != 1 else ''} for your current equipment!",
+                   720, 462, 11, UPGRADE, center=True)
+        elif any(item.rank >= 3 for item in items):
+            r.text("This sale includes Rank 3 or higher equipment.", 720, 462, 11, GOLD, center=True)
+        self.button(r, self.cancel_destroy_rect, "CANCEL / ESC")
+        self.button(r, self.confirm_destroy_rect, "CONFIRM SALE")
+        pygame.draw.rect(r.screen, GOLD, self.confirm_destroy_rect, 1, border_radius=4)
 
     def draw_destroy_confirmation(self, r, world):
         item = world.player.inventory.get(self.pending_destroy_uid)

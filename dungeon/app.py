@@ -74,7 +74,7 @@ def main():
             earned.cooldowns = dict.fromkeys(earned.cooldowns, 0.0)
             world = World(args.seed, player=earned, level=level)
         controls = Controls(world)
-        renderer.armory.cancel_destroy()
+        renderer.armory.cancel_confirmation()
         renderer.armory.selected_uid = None
         renderer.armory.page = 0
         renderer.menu.notice = ""
@@ -138,7 +138,7 @@ def main():
         if mode in FRONTEND_MODES:
             return
         controls.cancel()
-        renderer.armory.cancel_destroy()
+        renderer.armory.cancel_confirmation()
         if mode == tab:
             mode = menu_return
         else:
@@ -181,7 +181,7 @@ def main():
                         elif mode == "title":
                             running = False
                         elif mode in ("inventory", "shop"):
-                            if not renderer.armory.cancel_destroy():
+                            if not renderer.armory.cancel_confirmation():
                                 mode = menu_return
                         elif not controls.cancel():
                             mode = "playing" if mode == "paused" else "paused"

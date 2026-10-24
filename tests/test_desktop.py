@@ -415,6 +415,60 @@ class DesktopTests(unittest.TestCase):
         self.assertEqual(worlds[0].player.gold, 122)
         self.assertTrue(all(mode == "shop" for mode, _ in frames[1:]))
 
+    def test_upgrade_first_grid_click_equips_correct_item_and_updates_markers(self):
+        snapshots = []
+        def observer(frame, world, renderer):
+            inv = world.player.inventory
+            if frame == 1:
+                inv.add(inv.create("helm", 1))
+                for _ in range(18):
+                    inv.add(inv.create("helm", 1), auto_equip=False)
+                inv.add(inv.create("helm", 3), auto_equip=False)
+            if frame in (2, 4):
+                snapshots.append([(item.uid, inv.is_upgrade(item)) for item in renderer.armory.bag_page(world)])
+        script = [[key(pygame.K_RETURN)], [key(pygame.K_i)],
+                  [click(1, (550, 300))], [click(1, (780, 757))]]
+        worlds, _ = self.run_app(script, observer)
+        inv = worlds[0].player.inventory
+        self.assertTrue(snapshots[0][0][1])
+        self.assertEqual(inv.worn("helm").uid, snapshots[0][0][0])
+        self.assertEqual(inv.worn("helm").rank, 3)
+        self.assertFalse(any(upgrade for _, upgrade in snapshots[1]))
+        self.assertEqual(len(inv.backpack), 19)
+
+    def test_bulk_confirmation_escape_tab_switch_and_confirm_persist_across_reload(self):
+        from pathlib import Path
+        from tempfile import TemporaryDirectory
+        from dungeon.profile import ProfileStore
+        pending, gold = [], []
+        sold = []
+        def observer(frame, world, renderer):
+            if frame == 1:
+                inv = world.player.inventory
+                inv.add(inv.create("chest", 2))
+                for i in range(21):
+                    item = inv.create("helm" if i % 2 else "boots", 2)
+                    inv.add(item, auto_equip=False)
+                    sold.append(item)
+                inv.add(inv.create("gloves", 3), auto_equip=False)
+            pending.append(len(renderer.armory.pending_sale_items))
+            gold.append(world.player.gold)
+        script = [[key(pygame.K_RETURN)], [key(pygame.K_i)],
+                  [click(1, (324, 683))], [click(1, (350, 747))],
+                  [key(pygame.K_ESCAPE)], [click(1, (350, 747))],
+                  [key(pygame.K_b)], [click(1, (350, 747))], [click(1, (830, 515))]]
+        with TemporaryDirectory() as folder:
+            profile = Path(folder) / "profile.json"
+            _, frames = self.run_app(script, observer, profile)
+            player = ProfileStore(profile).load()
+        self.assertEqual(pending[3:9], [21, 0, 21, 0, 21, 0])
+        self.assertEqual(frames[4][0], "inventory")
+        self.assertEqual(frames[6][0], "shop")
+        self.assertTrue(all(value == 0 for value in gold[:-1]))
+        self.assertEqual(player.gold, sum(item.sell_value for item in sold))
+        self.assertEqual(player.inventory.worn("chest").rank, 2)
+        self.assertEqual([(item.slot, item.rank) for item in player.inventory.backpack], [("gloves", 3)])
+
 
 if __name__ == "__main__":
     unittest.main()

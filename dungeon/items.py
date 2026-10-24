@@ -116,6 +116,20 @@ class Inventory:
         worn = set(self.equipped.values())
         return [item for item in self.items if item.uid not in worn]
 
+    def is_upgrade(self, item):
+        """Every slot's fixed bonuses increase with rank; compare like slots."""
+        current = self.worn(item.slot)
+        if current is not None and current.uid == item.uid:
+            return False
+        return item.rank > (current.rank if current is not None else 0)
+
+    @property
+    def prioritized_backpack(self):
+        def priority(item):
+            upgrade = self.is_upgrade(item)
+            return not upgrade, -item.rank if upgrade else 0, item.uid
+        return sorted(self.backpack, key=priority)
+
     def add(self, item, auto_equip=True):
         if self.get(item.uid) is not None:
             raise ValueError("Item is already owned")

@@ -63,6 +63,12 @@ first level clear, while higher-rank boots remain rare drops or costly enchants.
 Inventory, tooltips, live effective stats, a paged backpack, and the enchanter
 are available in paused menus. Spare items can be sold for a rank-based gold
 value or destroyed after confirmation. Equipped items must be unequipped first.
+Upgrades have green checks/borders and sort first in the backpack. Comparisons
+use rank within the matching equipment slot. Single sales at Rank 3 or higher
+require confirmation. Rank-filtered Sell All includes every matching backpack
+item across pages, keeps equipped gear, and always confirms the count and price.
+Confirmations warn when upgrades are included and validate the exact quoted
+items before any removal or payment.
 Gear cannot be changed during Glacial Prison.
 Chest swaps cannot heal the player. Saves preserve gear, enchants, gold, and
 current level and highest reached depth locally. Entering a new level unlocks

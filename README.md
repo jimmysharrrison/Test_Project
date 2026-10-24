@@ -121,11 +121,26 @@ enchanter. Both menus pause combat. Hover an item for its stats, rank, and next
 enchantment price. Click a backpack item and then **Equip Item**; click an
 already-equipped item and **Unequip** to return it to the backpack.
 
+Backpack upgrades have a **green border and checkmark** and appear first, with
+the highest ranks first. An upgrade means a higher rank than the piece worn in
+the same slot; helpful gear for an empty slot also counts. Equal ranks and
+unranked blanks for empty slots are not upgrades. Markers update when equipment
+or enchantments change, and upgrade tooltips explain the comparison.
+
 Select a spare item and click **Sell** for the displayed gold amount, or
-**Destroy** to remove it without payment. Destruction asks for confirmation;
-**Cancel** or **Escape** keeps the item. Equipped gear must be unequipped first.
+**Destroy** to remove it without payment. Individual sales of **Rank 3–5** ask
+**ARE YOU SURE?** before selling. Rank 0–2 single sales remain immediate.
+Destruction always asks for confirmation. **Cancel** or **Escape** keeps the
+items and leaves the menu open. Equipped gear must be unequipped first.
 Sell values also appear in item tooltips. Sales and removals save with your
 character, and the selected item can be sold or destroyed from either menu.
+
+For bulk cleanup, choose **R0–R5** under **Sell Backpack by Rank**, then click
+**Sell All Rank N**. This sells only that exact rank across every backpack page.
+Every bulk sale asks **ARE YOU SURE?**, showing the item count and total gold.
+The confirmation warns if upgrades are included. Equipped items are always
+kept. Switching menus cancels a pending confirmation.
+See the [bulk-sale confirmation preview](docs/sell-all.png).
 
 - Helm increases all spell damage; chest increases maximum health.
 - Legs add armor that reduces incoming hits; gloves shorten newly cast cooldowns.

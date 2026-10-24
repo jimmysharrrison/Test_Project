@@ -91,9 +91,29 @@ regardless of whether it was dropped or enchanted. For example:
 The quote appears on the Sell button and in the item tooltip. Buying or
 upgrading an item and reselling it always loses gold.
 
+Backpack upgrades are shown first, highest rank first, with a green border and
+checkmark. Each slot has fixed bonuses that increase with rank, so comparisons
+use the equipped item in the same slot. Helpful ranked items for empty slots
+count as upgrades; equal ranks and blank Rank 0 items do not. The comparison
+updates after equipping, unequipping, or enchanting. Items remain selected by
+their identifier when the order changes.
+
+Individual sales of Rank 3, 4, or 5 require **ARE YOU SURE?** confirmation with
+the item name, rank, and gold value. Single sales of Rank 0–2 remain immediate.
+The **Sell Backpack by Rank** controls are available in both menus: select one
+exact rank from R0 through R5 and click **Sell All Rank N**. The quote includes
+every matching unequipped item across all pages, and never includes worn gear.
+All bulk sales require confirmation, even for one Rank 0 item. The dialog shows
+the number of items, total gold, and whether upgrades are included. Upgrades
+are included when they match the selected rank, so review the quote before selling.
+Only the quoted items can be sold. If one was equipped, enchanted, or removed
+before confirmation, the whole sale is rejected without removing any items or
+paying gold. Newly acquired items are not silently added to an existing quote.
+
 Destroy opens a confirmation naming the exact item and rank. **Cancel** or
 **Escape** closes that confirmation without removing the item; the armory stays
-open. A confirmation blocks other menu actions until it is resolved. Selling
+open. Sale confirmations use the same cancellation rules. Keyboard menu switches
+cancel pending confirmations. A confirmation blocks other clicks until resolved. Selling
 and destruction update the existing save automatically. Sold or destroyed gear
 cannot be recovered, and disposing of the first-clear boots does not reset
 that one-time reward.

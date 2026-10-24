@@ -745,10 +745,36 @@ class World:
 
     def sell_item(self, uid):
         item = self._discardable_item(uid)
-        if item is None or self.player.inventory.remove(uid) is None:
+        return self.sell_items((item,)) if item is not None else False
+
+    def quote_sale(self, rank):
+        if type(rank) is not int or not 0 <= rank <= 5:
+            return ()
+        return tuple(item for item in self.player.inventory.backpack if item.rank == rank)
+
+    def sell_items(self, quoted_items):
+        """Validate the entire quoted snapshot before removing or paying for anything."""
+        if not self._can_manage_gear():
             return False
-        self.player.gold += item.sell_value
-        self.announce(f"Sold Rank {item.rank} {item.name} for {item.sell_value:,} gold.")
+        items = tuple(quoted_items)
+        inventory = self.player.inventory
+        if not items:
+            self.announce("No backpack equipment matches this sale.")
+            return False
+        if (len({item.uid for item in items}) != len(items)
+                or any(inventory.get(item.uid) != item or item.uid in inventory.equipped.values()
+                       for item in items)):
+            self.announce("Equipment changed. Review the items and request a new sale.")
+            return False
+        total = sum(item.sell_value for item in items)
+        for item in items:
+            inventory.remove(item.uid)
+        self.player.gold += total
+        if len(items) == 1:
+            item = items[0]
+            self.announce(f"Sold Rank {item.rank} {item.name} for {total:,} gold.")
+        else:
+            self.announce(f"Sold {len(items)} backpack items for {total:,} gold.")
         self.events.append("gold")
         return True
 
