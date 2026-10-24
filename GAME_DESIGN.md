@@ -52,7 +52,9 @@ The final upgrade costs 15,000 gold. Rank 1 boots are guaranteed once for the
 first level clear, while higher-rank boots remain rare drops or costly enchants.
 
 Inventory, tooltips, live effective stats, a paged backpack, and the enchanter
-are available in paused menus. Gear cannot be changed during Glacial Prison.
+are available in paused menus. Spare items can be sold for a rank-based gold
+value or destroyed after confirmation. Equipped items must be unequipped first.
+Gear cannot be changed during Glacial Prison.
 Chest swaps cannot heal the player. Saves preserve gear, enchants, gold, and
 unlocked depth locally. See `docs/EQUIPMENT.md` for the initial balance tables.
 

@@ -43,6 +43,7 @@ def item_icon(surface, slot, center, color, scale=1):
 class Armory:
     def __init__(self):
         self.selected_uid = None
+        self.pending_destroy_uid = None
         self.page = 0
         self.close_rect = pygame.Rect(1184, 104, 38, 32)
         self.inventory_tab = pygame.Rect(222, 174, 174, 34)
@@ -52,6 +53,10 @@ class Armory:
         self.previous_page = pygame.Rect(511, 630, 37, 30)
         self.next_page = pygame.Rect(811, 630, 37, 30)
         self.equip_rect = pygame.Rect(697, 740, 173, 34)
+        self.sell_rect = pygame.Rect(511, 740, 93, 34)
+        self.destroy_rect = pygame.Rect(612, 740, 77, 34)
+        self.cancel_destroy_rect = pygame.Rect(490, 495, 210, 38)
+        self.confirm_destroy_rect = pygame.Rect(720, 495, 230, 38)
         self.enchant_tab_rect = pygame.Rect(888, 740, 314, 34)
         self.buy_rects = {slot: pygame.Rect(729, 278 + i * 70, 143, 34) for i, slot in enumerate(SLOTS)}
         self.upgrade_rect = pygame.Rect(917, 575, 288, 45)
@@ -66,12 +71,37 @@ class Armory:
 
     def click(self, world, point, tab):
         inventory = world.player.inventory
+        if self.pending_destroy_uid is not None:
+            if self.cancel_destroy_rect.collidepoint(point):
+                self.cancel_destroy()
+            elif self.confirm_destroy_rect.collidepoint(point):
+                uid = self.pending_destroy_uid
+                self.cancel_destroy()
+                if world.destroy_item(uid):
+                    self.selected_uid = None
+            return tab
         if self.close_rect.collidepoint(point):
             return "close"
         if self.inventory_tab.collidepoint(point):
             return "inventory"
         if self.shop_tab.collidepoint(point):
             return "shop"
+        item = self.selected(world)
+        if self.sell_rect.collidepoint(point):
+            if item and world.sell_item(item.uid):
+                self.selected_uid = None
+            return tab
+        if self.destroy_rect.collidepoint(point):
+            if item and world._discardable_item(item.uid) is not None:
+                self.pending_destroy_uid = item.uid
+            return tab
+        if self.equip_rect.collidepoint(point):
+            if item:
+                if inventory.equipped[item.slot] == item.uid:
+                    world.unequip_item(item.slot)
+                else:
+                    world.equip_item(item.uid)
+            return tab
         for slot, rect in self.slot_rects.items():
             if rect.collidepoint(point):
                 item = inventory.worn(slot)
@@ -86,13 +116,6 @@ class Armory:
                 self.page = max(0, self.page - 1)
             elif self.next_page.collidepoint(point):
                 self.page = min(max(0, (len(inventory.backpack) - 1) // 16), self.page + 1)
-            elif self.equip_rect.collidepoint(point):
-                item = self.selected(world)
-                if item:
-                    if inventory.equipped[item.slot] == item.uid:
-                        world.unequip_item(item.slot)
-                    else:
-                        world.equip_item(item.uid)
             elif self.enchant_tab_rect.collidepoint(point):
                 return "shop"
         elif tab == "shop":
@@ -106,6 +129,11 @@ class Armory:
                 world.enchant_item(self.selected_uid)
         return tab
 
+    def cancel_destroy(self):
+        pending = self.pending_destroy_uid is not None
+        self.pending_destroy_uid = None
+        return pending
+
     @staticmethod
     def button(r, rect, label, enabled=True, active=False):
         pygame.draw.rect(r.screen, (33, 61, 80) if active else (28, 43, 56), rect, border_radius=4)
@@ -116,7 +144,7 @@ class Armory:
     @staticmethod
     def tooltip(r, item, point, owned=False, current=None):
         lines = item.lines
-        height = 175 + max(0, len(lines) - 1) * 21 + (35 if current and current.uid != item.uid else 0)
+        height = 198 + max(0, len(lines) - 1) * 21 + (35 if current and current.uid != item.uid else 0)
         x, y = min(point[0] + 18, 1068), min(point[1] + 18, 888 - height)
         x, y = max(8, x), max(8, y)
         color = RANK_COLORS[item.rank]
@@ -133,14 +161,15 @@ class Armory:
             yy += 28
         detail = "Maximum enchantment reached" if item.next_cost is None else f"Next enchantment: {item.next_cost:,} gold"
         r.text(detail, x + 14, yy, 11, GOLD)
+        r.text(f"Sell value: {item.sell_value:,} gold", x + 14, yy + 22, 11, GOLD)
         if item.slot == "boots":
             note = "Rare drop · first-level clear reward"
         elif item.rank <= 3 and item.rank > 0:
             note = "Rank 3 is the best dropped rank"
         else:
             note = "Ranks 4–5 are enchantment-only"
-        r.text(note, x + 14, yy + 23, 10, MUTED)
-        r.text("Owned equipment" if owned else "Walk over loot to collect it" if item.source == "drop" else "Unranked shop stock", x + 14, yy + 43, 9, MUTED)
+        r.text(note, x + 14, yy + 45, 10, MUTED)
+        r.text("Owned equipment" if owned else "Walk over loot to collect it" if item.source == "drop" else "Unranked shop stock", x + 14, yy + 65, 9, MUTED)
 
     def draw(self, r, world, mouse, tab):
         inventory = world.player.inventory
@@ -208,12 +237,15 @@ class Armory:
         r.text(item.name if item else "Select a piece of equipment", 511, 692, 18,
                RANK_COLORS[item.rank] if item else WHITE, serif=True)
         r.text(world.message if world.message_time > 0 else "Hover any item for its details.", 511, 722, 10, MUTED)
+        equipped = item is not None and inventory.equipped[item.slot] == item.uid
+        disposable = item is not None and not equipped and world.state != "dead" and world.player.stasis <= 0
+        self.button(r, self.sell_rect, f"SELL {item.sell_value:,}G" if item else "SELL", enabled=disposable)
+        self.button(r, self.destroy_rect, "DESTROY", enabled=disposable)
+        self.button(r, self.equip_rect, "UNEQUIP" if equipped else "EQUIP ITEM", enabled=item is not None)
         if tab == "inventory":
-            equipped = item is not None and inventory.equipped[item.slot] == item.uid
-            self.button(r, self.equip_rect, "UNEQUIP" if equipped else "EQUIP ITEM", enabled=item is not None)
             self.button(r, self.enchant_tab_rect, "OPEN ENCHANTMENTS  >")
         else:
-            r.text("Purchase a blank, select it, then enchant one rank at a time.", 511, 754, 11, MUTED)
+            r.text("Select gear to enchant above.", 906, 751, 11, MUTED)
         r.text("New gear fills an empty slot automatically.", 222, 689, 10, MUTED)
         r.text("Chest health must be healed after equipping.", 222, 712, 10, MUTED)
         r.text("I inventory · B shop · Esc close", 222, 755, 10, MUTED)
@@ -226,6 +258,27 @@ class Armory:
             pygame.draw.rect(r.screen, (13, 23, 33), (x, y, 368, 95), border_radius=5)
             r.text(hovered.title(), x + 12, y + 10, 17, ICE)
             r.text(SLOT_PURPOSE[hovered], x + 12, y + 44, 11, WHITE)
+        if self.pending_destroy_uid is not None:
+            self.draw_destroy_confirmation(r, world)
+
+    def draw_destroy_confirmation(self, r, world):
+        item = world.player.inventory.get(self.pending_destroy_uid)
+        if item is None:
+            self.cancel_destroy()
+            return
+        shade = pygame.Surface(r.screen.get_size(), pygame.SRCALPHA)
+        shade.fill((4, 9, 16, 180))
+        r.screen.blit(shade, (0, 0))
+        box = pygame.Rect(448, 300, 544, 270)
+        pygame.draw.rect(r.screen, PANEL, box, border_radius=8)
+        pygame.draw.rect(r.screen, RED, box, 1, border_radius=8)
+        r.text("Destroy this item?", 720, 324, 25, WHITE, serif=True, center=True)
+        r.text(item.name, 720, 370, 18, RANK_COLORS[item.rank], center=True)
+        r.text(f"Rank {item.rank} · {item.slot.title()}", 720, 401, 12, MUTED, center=True)
+        r.text("This permanently removes the item. No gold is received.", 720, 439, 12, WHITE, center=True)
+        self.button(r, self.cancel_destroy_rect, "CANCEL / ESC")
+        self.button(r, self.confirm_destroy_rect, "DESTROY ITEM")
+        pygame.draw.rect(r.screen, RED, self.confirm_destroy_rect, 1, border_radius=4)
 
     def draw_stats(self, r, world):
         player = world.player

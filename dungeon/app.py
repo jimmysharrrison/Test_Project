@@ -69,6 +69,7 @@ def main():
         if mode == "title":
             return
         controls.cancel()
+        renderer.armory.cancel_destroy()
         if mode == tab:
             mode = menu_return
         else:
@@ -105,7 +106,8 @@ def main():
                 elif event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_ESCAPE:
                         if mode in ("inventory", "shop"):
-                            mode = menu_return
+                            if not renderer.armory.cancel_destroy():
+                                mode = menu_return
                         elif not controls.cancel():
                             if mode == "title":
                                 running = False

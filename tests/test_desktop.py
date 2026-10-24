@@ -206,5 +206,47 @@ class DesktopTests(unittest.TestCase):
             self.assertEqual(worlds[0].level, 2)
 
 
+    def test_sell_and_destroy_confirmation_cancel_then_confirm(self):
+        pending = []
+        def observer(frame, world, renderer):
+            if frame == 1:
+                inv = world.player.inventory
+                inv.add(inv.create("helm", 1), auto_equip=False)
+                inv.add(inv.create("boots", 2), auto_equip=False)
+            pending.append(renderer.armory.pending_destroy_uid)
+        script = [
+            [key(pygame.K_RETURN)], [key(pygame.K_i)],
+            [click(1, (551, 757))],  # Sell the selected spare helm.
+            [click(1, (648, 757))],  # Request destruction of the remaining boots.
+            [click(1, (551, 757))],  # Underlying Sell button is blocked by the modal.
+            [key(pygame.K_ESCAPE)], # Cancel; inventory remains open.
+            [click(1, (648, 757))], [click(1, (830, 515))],
+        ]
+        worlds, frames = self.run_app(script, observer)
+        world = worlds[0]
+        self.assertEqual(world.player.gold, 22)
+        self.assertEqual(world.player.inventory.items, [])
+        self.assertIsNotNone(pending[3])
+        self.assertEqual(pending[3], pending[4])
+        self.assertIsNone(pending[5])
+        self.assertEqual(frames[5][0], "inventory")
+        self.assertIsNone(pending[-1])
+
+    def test_shop_supports_selling_and_destroy_cancel_button(self):
+        def observer(frame, world, renderer):
+            if frame == 1:
+                inv = world.player.inventory
+                inv.add(inv.create("helm", 1), auto_equip=False)
+                inv.add(inv.create("boots", 2), auto_equip=False)
+        script = [
+            [key(pygame.K_RETURN)], [key(pygame.K_b)], [click(1, (551, 757))],
+            [click(1, (648, 757))], [click(1, (590, 515))], [click(1, (551, 757))],
+        ]
+        worlds, frames = self.run_app(script, observer)
+        self.assertEqual(worlds[0].player.inventory.items, [])
+        self.assertEqual(worlds[0].player.gold, 122)
+        self.assertTrue(all(mode == "shop" for mode, _ in frames[1:]))
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -665,3 +665,32 @@ class World:
         self.announce(f"{item.name} enchanted to Rank {item.rank + 1}.")
         self.events.append("loot")
         return True
+
+    def _discardable_item(self, uid):
+        if not self._can_manage_gear():
+            return None
+        item = self.player.inventory.get(uid)
+        if item is None:
+            self.announce("Select an item from your backpack first.")
+            return None
+        if uid in self.player.inventory.equipped.values():
+            self.announce("Unequip this item before selling or destroying it.")
+            return None
+        return item
+
+    def sell_item(self, uid):
+        item = self._discardable_item(uid)
+        if item is None or self.player.inventory.remove(uid) is None:
+            return False
+        self.player.gold += item.sell_value
+        self.announce(f"Sold Rank {item.rank} {item.name} for {item.sell_value:,} gold.")
+        self.events.append("gold")
+        return True
+
+    def destroy_item(self, uid):
+        item = self._discardable_item(uid)
+        if item is None or self.player.inventory.remove(uid) is None:
+            return False
+        self.announce(f"Destroyed Rank {item.rank} {item.name}. No gold received.")
+        self.events.append("break")
+        return True

@@ -97,6 +97,12 @@ enchanter. Both menus pause combat. Hover an item for its stats, rank, and next
 enchantment price. Click a backpack item and then **Equip Item**; click an
 already-equipped item and **Unequip** to return it to the backpack.
 
+Select a spare item and click **Sell** for the displayed gold amount, or
+**Destroy** to remove it without payment. Destruction asks for confirmation;
+**Cancel** or **Escape** keeps the item. Equipped gear must be unequipped first.
+Sell values also appear in item tooltips. Sales and removals save with your
+character, and the selected item can be sold or destroyed from either menu.
+
 - Helm increases all spell damage; chest increases maximum health.
 - Legs add armor that reduces incoming hits; gloves shorten newly cast cooldowns.
 - Boots add movement speed, critical chance, and critical damage. They are the

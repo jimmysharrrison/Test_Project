@@ -71,6 +71,33 @@ purchase price. Rank 5 is intentionally an expensive long-term target. Existing
 Rank 1–3 loot can also be enchanted, saving the cost of the lower upgrades.
 Purchases and enchants check funds before changing ownership or taking gold.
 
+## Selling and destroying spare gear
+
+Select an unwanted item in the inventory. **Sell** exchanges it for the quoted
+gold amount; **Destroy** permanently removes it for no gold. Both actions are
+available in the inventory and enchanter menus for the selected owned item.
+Equipped items must be unequipped first. Disposal is blocked during Glacial
+Prison and after death, just like other gear changes.
+
+Sell value is one quarter of the sum of the blank price and all enchantment
+prices through that item's current rank, rounded down. The same rank has the same value
+regardless of whether it was dropped or enchanted. For example:
+
+- Rank 0 helm: 10 gold.
+- Rank 1 helm: 22 gold.
+- Rank 3 helm: 172 gold.
+- Rank 5 boots: 4,587 gold.
+
+The quote appears on the Sell button and in the item tooltip. Buying or
+upgrading an item and reselling it always loses gold.
+
+Destroy opens a confirmation naming the exact item and rank. **Cancel** or
+**Escape** closes that confirmation without removing the item; the armory stays
+open. A confirmation blocks other menu actions until it is resolved. Selling
+and destruction update the existing save automatically. Sold or destroyed gear
+cannot be recovered, and disposing of the first-clear boots does not reset
+that one-time reward.
+
 ## Depth progression and persistence
 
 A level is complete as soon as all three spawners are destroyed. The gate opens

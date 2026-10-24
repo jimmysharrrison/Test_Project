@@ -202,6 +202,76 @@ class InventoryTests(unittest.TestCase):
         self.assertFalse(any(item.source == "reward" for item in self.world.player.inventory.items))
 
 
+    def test_selling_spare_gear_credits_quoted_value_only_once(self):
+        worn = self.wear("helm", 3)
+        inv = self.world.player.inventory
+        spare = inv.create("helm", 2)
+        inv.add(spare, auto_equip=False)
+        self.world.player.gold = 100
+        quoted = spare.sell_value
+        self.assertTrue(self.world.sell_item(spare.uid))
+        self.assertEqual(self.world.player.gold, 100 + quoted)
+        self.assertIsNone(inv.get(spare.uid))
+        self.assertIs(inv.worn("helm"), worn)
+        self.assertEqual(inv.stats.damage, .3)
+        self.assertFalse(self.world.sell_item(spare.uid))
+        self.assertEqual(self.world.player.gold, 100 + quoted)
+
+    def test_equipped_gear_must_be_unequipped_before_disposal(self):
+        item = self.wear("chest", 3)
+        player = self.world.player
+        self.assertFalse(self.world.sell_item(item.uid))
+        self.assertFalse(self.world.destroy_item(item.uid))
+        self.assertIsNotNone(player.inventory.get(item.uid))
+        self.assertEqual(player.max_hp, 160)
+        self.assertEqual(player.gold, 0)
+        self.world.unequip_item("chest")
+        self.assertTrue(self.world.destroy_item(item.uid))
+        self.assertEqual(player.max_hp, 100)
+
+    def test_destroying_removes_only_selected_spare_and_grants_no_gold(self):
+        inv = self.world.player.inventory
+        first = inv.create("boots", 3)
+        second = inv.create("boots", 1)
+        inv.add(first, auto_equip=False)
+        inv.add(second, auto_equip=False)
+        self.world.player.gold = 300
+        self.world.player.first_clear_rewarded = True
+        self.assertTrue(self.world.destroy_item(first.uid))
+        self.assertIsNone(inv.get(first.uid))
+        self.assertIs(inv.get(second.uid), second)
+        self.assertEqual(self.world.player.gold, 300)
+        self.assertTrue(self.world.player.first_clear_rewarded)
+        self.assertFalse(self.world.destroy_item(first.uid))
+        self.assertGreater(inv.create("helm", 0).uid, second.uid)
+
+    def test_sale_values_scale_with_rank_without_buy_or_enchant_arbitrage(self):
+        from dungeon.items import BLANK_COST
+        for slot in SLOTS:
+            previous = 0
+            for rank in range(6):
+                item = Item(1, slot, rank)
+                self.assertGreater(item.sell_value, previous)
+                self.assertLess(item.sell_value, BLANK_COST[slot] + sum(ENCHANT_COST[r] for r in range(1, rank + 1)))
+                if rank:
+                    self.assertLess(item.sell_value - previous, ENCHANT_COST[rank])
+                previous = item.sell_value
+
+    def test_stasis_and_death_block_selling_and_destruction(self):
+        inv = self.world.player.inventory
+        item = inv.create("gloves", 2)
+        inv.add(item, auto_equip=False)
+        self.world.cast("r")
+        self.assertFalse(self.world.sell_item(item.uid))
+        self.assertFalse(self.world.destroy_item(item.uid))
+        self.world.player.stasis = 0
+        self.world.state = "dead"
+        self.assertFalse(self.world.sell_item(item.uid))
+        self.assertFalse(self.world.destroy_item(item.uid))
+        self.assertIs(inv.get(item.uid), item)
+        self.assertEqual(self.world.player.gold, 0)
+
+
 class ProfileTests(unittest.TestCase):
     def test_profile_round_trip_preserves_ownership_enchants_gold_and_depth(self):
         player = Player(gold=12345, unlocked_level=4, first_clear_rewarded=True)
@@ -218,6 +288,26 @@ class ProfileTests(unittest.TestCase):
             self.assertEqual(loaded.unlocked_level, 4)
             self.assertTrue(loaded.first_clear_rewarded)
             self.assertEqual(loaded.hp, loaded.max_hp)
+
+    def test_sold_and_destroyed_items_stay_removed_after_reload(self):
+        world = World(7)
+        inv = world.player.inventory
+        sold = inv.create("helm", 2)
+        destroyed = inv.create("gloves", 3)
+        kept = inv.create("boots", 1)
+        for item in (sold, destroyed, kept):
+            inv.add(item, auto_equip=False)
+        world.player.first_clear_rewarded = True
+        self.assertTrue(world.sell_item(sold.uid))
+        self.assertTrue(world.destroy_item(destroyed.uid))
+        with TemporaryDirectory() as folder:
+            store = ProfileStore(Path(folder) / "profile.json")
+            self.assertTrue(store.save(world.player))
+            player = ProfileStore(store.path).load()
+            self.assertEqual(player.gold, sold.sell_value)
+            self.assertEqual([item.uid for item in player.inventory.items], [kept.uid])
+            self.assertTrue(player.first_clear_rewarded)
+            self.assertGreater(player.inventory.create("helm", 0).uid, kept.uid)
 
     def test_corrupt_or_future_profile_is_preserved_and_not_overwritten(self):
         for contents in ("broken json", '{"version": 99}'):

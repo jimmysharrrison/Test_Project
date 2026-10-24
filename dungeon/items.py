@@ -74,6 +74,11 @@ class Item:
     def next_cost(self):
         return ENCHANT_COST.get(self.rank + 1)
 
+    @property
+    def sell_value(self):
+        investment = BLANK_COST[self.slot] + sum(ENCHANT_COST[rank] for rank in range(1, self.rank + 1))
+        return investment // 4
+
 
 @dataclass(frozen=True, slots=True)
 class GearStats:
@@ -143,6 +148,14 @@ class Inventory:
         self.items[index] = replace(item, rank=item.rank + 1, source="enchanted")
         self.revision += 1
         return True
+
+    def remove(self, uid):
+        item = self.get(uid)
+        if item is None or uid in self.equipped.values():
+            return None
+        self.items.remove(item)
+        self.revision += 1
+        return item
 
     @property
     def stats(self):
