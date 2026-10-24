@@ -4,7 +4,7 @@ from dataclasses import dataclass
 
 TOWER_FLOORS = 20
 FOCUS_FLOORS = 5
-PHASE_COUNTS = (2, 3, 4)
+PHASE_COUNTS = (2, 3, 0)
 PHASE_SPEEDS = (1.0, 1.15, 1.30)
 PHASE_DELAY = 3.0
 MOTTO = "elementis fidelis est"
@@ -54,7 +54,7 @@ FROSTFALL = Level(
     enemies=((7.5, 5.5, "husk"), (12.5, 7.5, "husk"), (10.5, 12.5, "skitter")),
     phase_spawners=(((4.5, 4.5), (12.5, 4.5)),
                     ((4.5, 8.5), (12.5, 8.5), (8.5, 12.5)),
-                    ((3.5, 3.5), (13.5, 3.5), (3.5, 10.5), (13.5, 12.5))),
+                    ((8.5, 5.5), (6.5, 5.5), (10.5, 5.5))),
     spawn_kinds=("husk", "skitter"), spawn_weights=(65, 35),
     pickups=((7.5, 13.5, "food", 25), (12.5, 8.5, "food", 25),
              (8.5, 6.5, "gold", 25), (5.5, 9.5, "gold", 25)),
@@ -63,7 +63,7 @@ FROSTFALL = Level(
            "She remembers the college motto, 'elementis fidelis est', as the first seals begin to split."),
     phase_lines=("Two ember rifts answer the wanderer's arrival.",
                  "Three seals crack behind the pillars. Their guardians move faster.",
-                 "Four rifts flare. The Tower refuses to yield its threshold."),
+                 "The Oathbound Warden and two animated shields guard the threshold. Dodge Winterbreaker; strike during recovery."),
     columns=COLUMNS,
 )
 
@@ -85,7 +85,7 @@ THORNVEIL = Level(
              (8.5, 11.5, "archer"), (12.5, 6.5, "archer")),
     phase_spawners=(((4.5, 5.5), (13.5, 4.5)),
                     ((5.5, 9.5), (13.5, 8.5), (12.5, 13.5)),
-                    ((2.5, 5.5), (10.5, 5.5), (6.5, 13.5), (14.5, 12.5))),
+                    ((8.5, 5.5), (6.5, 5.5), (10.5, 5.5))),
     spawn_kinds=("tree", "spider", "archer"), spawn_weights=(45, 35, 20),
     pickups=((7.5, 13.5, "food", 25), (13.5, 8.5, "food", 25),
              (8.5, 6.5, "gold", 25), (5.5, 9.5, "gold", 25)),
@@ -94,7 +94,7 @@ THORNVEIL = Level(
            "and a strange chemical glow seeps down from the floor above."),
     phase_lines=("Two Blighted Hearts beat beneath Thornveil's glass roof.",
                  "Three hearts tear roots through the planters. The dead draw their bows.",
-                 "Four hearts awaken. A sharp potion scent drifts down the stairwell."),
+                 "The Rootbound Heart awakens with two healing Thorn Tenders. Escape Briar Cage through its glowing gap."),
 )
 
 LAB_BENCHES = ((4, 4), (5, 4), (11, 4), (12, 4),
@@ -110,7 +110,7 @@ ALCHEMIST = Level(
              (8.5, 10.5, "fairy"), (13.5, 5.5, "fairy")),
     phase_spawners=(((3.5, 4.5), (13.5, 4.5)),
                     ((3.5, 8.5), (13.5, 8.5), (8.5, 12.5)),
-                    ((6.5, 3.5), (10.5, 3.5), (3.5, 12.5), (13.5, 12.5))),
+                    ((8.5, 5.5), (6.5, 5.5), (10.5, 5.5))),
     spawn_kinds=("armor", "grimoire", "fairy"), spawn_weights=(35, 35, 30),
     pickups=((7.5, 13.5, "food", 25), (13.5, 8.5, "food", 25),
              (8.5, 5.5, "gold", 25), (5.5, 8.5, "gold", 25)),
@@ -119,7 +119,7 @@ ALCHEMIST = Level(
            "keep making things worse. A lesson from Drearamore returns: an element obeys only a steady hand."),
     phase_lines=("Two unstable alembics belch sparks. The fairies insist this is under control.",
                  "Three stills boil over. Loose enchantments race between the benches.",
-                 "Four alembics erupt. The workshop's entire inventory has come alive."),
+                 "The Splintered Alchemist and two volatile duplicates prepare Chain Reaction. Lure duplicates into the potion pools."),
 )
 
 FLOORS = (FROSTFALL, THORNVEIL, ALCHEMIST)

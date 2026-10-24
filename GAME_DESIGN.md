@@ -24,7 +24,7 @@ suspend simulation and support mouse or keyboard navigation.
 
 1. Enter The Tower's ground floor, occupied by molten skeletons and skitters.
 2. Right click to move, aim with the mouse, and cast QWER frost spells.
-3. Destroy two spawners, wait three seconds, destroy three, then destroy four.
+3. Destroy two spawners, wait three seconds, destroy three, then face the floor mini-boss.
 4. Collect ranked gear, equip it with I, and visit the enchanter with B.
 5. Survive the remaining mobs while reaching the stair portal.
 6. Climb into Thornveil Atrium, then the Alchemist's Workshop.
@@ -32,24 +32,34 @@ suspend simulation and support mouse or keyboard navigation.
 
 ## Encounter phases
 
-Every authored floor uses the same controller:
+Each authored floor starts with two spawners, followed after a three-second
+intermission by three spawners. A second intermission leads to a mini-boss
+encounter instead of another spawner wave. Phase 2 mobs move at 115% speed;
+final encounter actors use 130%. Existing survivors retain their birth speed.
+Safe placement defers the encounter if terrain or actors occupy its positions.
 
-| Phase | Spawners | Movement speed of new mobs |
-| --- | ---: | ---: |
-| 1 | 2 | 100% |
-| 2 | 3 | 115% |
-| 3 | 4 | 130% |
+- **Ground Floor — Oathbound Warden:** two Animated Shields reduce damage to
+  the Warden while unfrozen. Winterbreaker marks a lane for 1.2 seconds, then
+  charges until terrain stops it (or the charge expires). Recovery lasts 2.2 seconds.
+- **Thornveil — Rootbound Heart:** stationary, healed by unfrozen Thorn Tenders
+  within five tiles. Briar Cage warns for 1.6 seconds, then closes around the
+  marked location. A green gap points toward the Heart. Recovery lasts 1.8 seconds.
+- **Workshop — Splintered Alchemist:** two Volatile Duplicates accompany the
+  caster. Chain Reaction marks three potion pools, igniting at 1.2, 1.75, and
+  2.3 seconds. Explosions also damage duplicates. Recovery lasts 1.8 seconds.
 
-Destroying a phase's last spawner banks gold and equipment and starts a
-three-second countdown. Survivors keep attacking and retain their birth-phase
-speed; the player may move and heal during the wait. Health, mana, and spell
-cooldowns continue normally. Upcoming spawners are previewed with ground rings.
+Frost interrupts pending signatures. Bosses take 35% extra damage during
+recovery. Bosses and companions guarantee equipment drops; the main boss drops
+150 base gold, scaled by floor. Boss and companions must all fall before the
+portal opens; ordinary survivors remain optional. First-floor boots are awarded
+once after the encounter clears.
 
-Spawners use clear reachable floor near the authored location when a player,
-survivor, or temporary Ice Wall occupies it. No spawner appears inside terrain
-or a character. A blocked phase is deferred until safe placement is possible.
-The portal stays sealed until phase 3 is finished. Surviving mobs are optional.
-The first-floor boots are awarded once, only after that final clear.
+Gold and equipment remain on the ground during intermissions and after victory,
+without a timer. Walk over them to collect them. Entering the stair portal banks
+any remaining gold and gear before leaving the room.
+
+Every fifth floor is reserved for an entire authored boss encounter, rather than
+ordinary mob-clearing phases. Floors 4 and 5 await their designs.
 
 ## Floors
 

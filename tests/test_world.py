@@ -130,7 +130,7 @@ class WorldTests(unittest.TestCase):
             self.advance(0.4)
         self.assertEqual(self.world.spawners, [])
         self.assertFalse(self.world.exit_open)
-        self.assertGreaterEqual(self.world.player.gold, 75)
+        self.assertTrue(any(p.kind == "gold" and p.value >= 75 for p in self.world.pickups))
         self.advance(1)
         self.assertEqual(self.world.enemies, [])
         self.advance(3)
@@ -170,6 +170,10 @@ class WorldTests(unittest.TestCase):
         for phase in range(1, 4):
             for spawner in self.world.spawners[:]:
                 self.world._hit(spawner, 10000)
+            if self.world.phase == 3:
+                for guardian in self.world.enemies[:]:
+                    if guardian.boss_role:
+                        self.world._hit(guardian, 10000)
             self.assertEqual(self.world.exit_open, phase == 3)
             if phase < 3:
                 self.advance(3.05)

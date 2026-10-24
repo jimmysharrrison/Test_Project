@@ -22,6 +22,10 @@ def advance(world, seconds):
 def break_spawners(world):
     for spawner in world.spawners[:]:
         world._hit(spawner, 10000)
+    if world.phase == 3:
+        for guardian in world.enemies[:]:
+            if guardian.boss_role:
+                world._hit(guardian, 10000)
 
 
 class TowerTests(unittest.TestCase):
@@ -35,11 +39,11 @@ class TowerTests(unittest.TestCase):
         self.assertEqual(MOTTO, "elementis fidelis est")
         self.assertIn("Drearamore", FLOORS[0].story)
 
-    def test_all_phase_positions_are_reachable_and_each_floor_uses_two_three_four(self):
+    def test_all_phase_positions_are_reachable_and_each_floor_has_two_waves_and_boss_positions(self):
         for depth, data in enumerate(FLOORS, 1):
             world = World(7, level=depth)
             reached = flood((3, 13), world.blocked)
-            self.assertEqual(tuple(len(phase) for phase in data.phase_spawners), PHASE_COUNTS)
+            self.assertEqual(tuple(len(phase) for phase in data.phase_spawners), (2, 3, 3))
             self.assertEqual(len(world.spawners), 2)
             for phase in data.phase_spawners:
                 for x, y in phase:
@@ -71,9 +75,9 @@ class TowerTests(unittest.TestCase):
                         self.assertTrue(world.exit_open)
                         self.assertTrue(world.level_completed)
                         self.assertEqual(world.player.first_clear_rewarded, depth == 1)
-                self.assertEqual(world.spawners_defeated, 9)
+                self.assertEqual(world.spawners_defeated, 5)
                 self.assertEqual(world.player.unlocked_level, depth)
-                self.assertFalse(any(p.kind in ("gold", "item") for p in world.pickups))
+                self.assertTrue(any(p.kind in ("gold", "item") for p in world.pickups))
                 count = len(world.player.inventory.items)
                 advance(world, .5)
                 self.assertEqual(len(world.player.inventory.items), count)
@@ -107,7 +111,7 @@ class TowerTests(unittest.TestCase):
         world = World(7)
         world.enemies.clear()
         spawned = []
-        for phase, multiplier in enumerate(PHASE_SPEEDS, 1):
+        for phase, multiplier in enumerate(PHASE_SPEEDS[:2], 1):
             for spawner in world.spawners:
                 spawner.timer = 999
             world.spawners[0].timer = 0
@@ -121,7 +125,7 @@ class TowerTests(unittest.TestCase):
             if phase < 3:
                 break_spawners(world)
                 advance(world, 3.05)
-        self.assertEqual([enemy.spawn_phase for enemy in spawned], [1, 2, 3])
+        self.assertEqual([enemy.spawn_phase for enemy in spawned], [1, 2])
         self.assertEqual(spawned[0].move_speed, Enemy(spawned[0].pos, spawned[0].kind).move_speed)
 
     def test_phase_speed_affects_actual_movement_and_chill_still_reduces_it(self):

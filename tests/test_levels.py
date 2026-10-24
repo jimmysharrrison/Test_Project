@@ -12,6 +12,10 @@ def finish_floor(world):
     for phase in range(1, 4):
         for spawner in world.spawners[:]:
             world._hit(spawner, 10000)
+        if world.phase == 3:
+            for guardian in world.enemies[:]:
+                if guardian.boss_role:
+                    world._hit(guardian, 10000)
         if phase < 3:
             for _ in range(183):
                 world.update(1 / 60)
@@ -60,9 +64,10 @@ class ForestLevelTests(unittest.TestCase):
         world.player.gold = 300
         world.enemies.clear()
         finish_floor(world)
-        player, gear, gold = world.player, inv.to_dict(), world.player.gold
+        player = world.player
         world.player.pos = world.exit
         world.update(1 / 60)
+        gear, gold = inv.to_dict(), world.player.gold
         world.projectiles.append(Projectile(Vec(7, 7), Vec(1, 0), hostile=True))
         world.player.hp, world.player.mana = 12, 8
         world.player.cooldowns["r"] = 20
@@ -89,7 +94,7 @@ class ForestLevelTests(unittest.TestCase):
         self.assertTrue(world.enemies)
         self.assertEqual(world.player.unlocked_level, 2)
         self.assertFalse(any(item.source == "reward" for item in world.player.inventory.items))
-        self.assertFalse(any(p.kind in ("gold", "item") for p in world.pickups))
+        self.assertTrue(any(p.kind in ("gold", "item") for p in world.pickups))
         world.player.pos = world.exit
         world.update(1 / 60)
         self.assertEqual(world.state, "cleared")

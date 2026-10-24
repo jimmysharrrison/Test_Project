@@ -193,7 +193,7 @@ class Menus:
                                   "Right click or Escape cancels a targeted spell.")):
             renderer.text(line, 764, 286 + i * 25, 11, white)
         renderer.text("THREE PHASES PER FLOOR", 764, 446, 13, ice)
-        for i, line in enumerate(("Destroy 2 spawners, then 3, then 4 to open the portal.",
+        for i, line in enumerate(("Destroy 2 spawners, then 3; defeat the final mini-boss encounter.",
                                   "A 3-second pause separates each phase.",
                                   "New mobs move 15% / 30% faster in phases 2 / 3.",
                                   "Survivors are optional; gear and gold carry forward.",
@@ -227,7 +227,7 @@ class Menus:
             "four great pillars guard the ground floor; above them, the gardens of Thornveil grow beneath glass.",
             "Higher still, a wizard's helper fairies have spilled the alchemist's potions. The helpers have "
             "lost their senses, and the enchanted objects around them are waking up. Something is wrong here.",
-            "Every floor answers in three phases: two spawners, then three, then four. Each new phase sends "
+            "Each opening floor has two spawner phases and a final mini-boss encounter. Every fifth floor is reserved for a full boss encounter. Each new phase sends "
             "swifter creatures into her path. Only when the final seals fall will The Tower allow her to climb.",
         ):
             y = self.paragraph(renderer, text, y) + 23
@@ -241,8 +241,9 @@ class Menus:
         for i, text in enumerate(world.level_data.phase_lines):
             y = 412 + i * 85
             tag = "CURRENT" if world.phase == i + 1 else ""
-            renderer.text(f"PHASE {i + 1} / {PHASE_COUNTS[i]} SPAWNERS / {PHASE_SPEEDS[i]:.0%} MOB SPEED  {tag}",
+            encounter = "BOSS ENCOUNTER" if i == 2 else f"{PHASE_COUNTS[i]} SPAWNERS"
+            renderer.text(f"PHASE {i + 1} / {encounter} / {PHASE_SPEEDS[i]:.0%} MOB SPEED  {tag}",
                           282, y, 12, (139, 216, 248))
             self.paragraph(renderer, text, y + 29, size=12)
-        renderer.text("All nine spawners must fall. Survivors do not keep the stair portal sealed.",
+        renderer.text("Break five spawners and defeat the boss and its companions. Collect loot before entering the portal.",
                       720, 685, 12, (145, 164, 174), center=True)

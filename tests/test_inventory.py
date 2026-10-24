@@ -31,6 +31,10 @@ class InventoryTests(unittest.TestCase):
         for phase in range(1, 4):
             for spawner in self.world.spawners[:]:
                 self.world._hit(spawner, 10000)
+            if self.world.phase == 3:
+                for guardian in self.world.enemies[:]:
+                    if guardian.boss_role:
+                        self.world._hit(guardian, 10000)
             if phase < 3:
                 self.advance(3.05)
 
@@ -178,7 +182,7 @@ class InventoryTests(unittest.TestCase):
         self.assertEqual(len([i for i in self.world.player.inventory.items if i.source == "reward"]), 1)
         self.assertTrue(self.world.player.first_clear_rewarded)
         self.assertEqual(self.world.player.unlocked_level, 1)
-        self.assertFalse(any(p.kind in ("item", "gold") for p in self.world.pickups))
+        self.assertTrue(any(p.kind in ("item", "gold") for p in self.world.pickups))
 
     def test_next_level_carries_gear_gold_and_scales_enemies(self):
         self.wear("helm", 3)

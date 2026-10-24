@@ -196,10 +196,10 @@ price, and drop rate. The menu displays your current effective character stats.
 
 Read [The Story](docs/story.png) from the title menu or press **J** for the
 current floor's journal. The [phase preview](docs/phase.png) shows the countdown
-and next spawner locations.
+and next encounter locations.
 
-Each floor has **three phases**. Destroy the current phase's spawners to begin
-a **3-second intermission**, then the next group appears. Survivors can still
+Each floor has **three phases**. Destroy the first two phases' spawners to begin
+a **3-second intermission**, then the next wave or final mini-boss appears. Survivors can still
 attack during the wait. The phase banner shows the countdown, remaining
 spawners, and movement speed; rings preview the next spawn locations. Spawners
 relocate to nearby clear floor if an actor or Ice Wall occupies a planned spot.
@@ -208,10 +208,11 @@ relocate to nearby clear floor if an actor or Ice Wall occupies a planned spot.
 | --- | ---: | ---: |
 | 1 | 2 | 100% |
 | 2 | 3 | 115% |
-| 3 | 4 | 130% |
+| 3 | Boss and two companions | 130% |
 
-The stair portal opens only after all **nine** spawners have fallen. Surviving
-monsters are optional. Equipment and gold are banked after each phase. The
+The stair portal opens after **five spawners** and the **boss and its companions**
+have fallen. Ordinary surviving monsters are optional. Gold and equipment stay
+on the ground until collected or banked on portal entry. The
 one-time first-floor boots arrive only after the final phase. Health, mana,
 and cooldowns continue normally between phases; they reset when climbing to
 the next floor. Gear, gold, potions, and kills carry forward.
@@ -315,3 +316,18 @@ headless environment. `--frames` exits after the given frame count.
 
 The original text prototype remains available with `uv run main.py --text`.
 See [GAME_DESIGN.md](GAME_DESIGN.md) for the direction and later milestones.
+
+## Floor mini-bosses and loot
+
+The third phase on each floor is now an encounter: the Oathbound Warden and
+Animated Shields, the Rootbound Heart and healing Thorn Tenders, or the Splintered
+Alchemist and Volatile Duplicates. Gold outlines warn of Winterbreaker charges,
+closing Briar Cages (escape through the green gap), and sequential potion pools.
+Frost interrupts signatures; attack during recovery for bonus damage. Potion
+explosions can also damage duplicates. Defeat the boss and its companions to
+open the portal.
+
+Drops stay on the floor until collected, including after the final encounter.
+Take your time before entering the portal; any remaining gold and gear are
+banked when you leave. Every fifth floor is planned as a complete boss encounter.
+Floors 4 and 5 are still awaiting design.

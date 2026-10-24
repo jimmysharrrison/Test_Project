@@ -36,8 +36,11 @@ def release(button, point):
 def final_phase_defeated(world):
     # Prepare the terminal state for input tests; the full phase sequence has simulation coverage.
     world.phase = 3
-    world.spawners_defeated = 9
+    world.spawners_defeated = 5
     world.spawners.clear()
+    world.boss_started = True
+    world._phase_resolved = False
+    world._phase_cleared()
 
 
 class DesktopTests(unittest.TestCase):
@@ -563,6 +566,10 @@ class DesktopTests(unittest.TestCase):
             if frame == 1:
                 for spawner in world.spawners[:]:
                     world._hit(spawner, 10000)
+                if world.phase == 3:
+                    for guardian in world.enemies[:]:
+                        if guardian.boss_role:
+                            world._hit(guardian, 10000)
             if frame == 5:
                 world.state = "won"
             remaining.append(world.intermission)

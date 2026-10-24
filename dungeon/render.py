@@ -10,7 +10,7 @@ from .armory import Armory, item_icon
 from .items import FROSTWEAVE_FREEZE, RANK_COLORS
 from .menus import FRONTEND_MODES, Menus
 from .geometry import Vec, project
-from .levels import MOTTO, PHASE_COUNTS, PHASE_SPEEDS, PLAYABLE_FLOORS, TOWER_FLOORS, level_for_depth
+from .levels import MOTTO, PHASE_SPEEDS, PLAYABLE_FLOORS, TOWER_FLOORS, level_for_depth
 
 WIDTH, HEIGHT = 1440, 900
 ORIGIN = Vec(857, 226)
@@ -337,7 +337,23 @@ class Renderer:
         ember = ICE if frozen or enemy.chilled > 0 else POTION if alchemy else BLIGHT if enemy.kind == "tree" else LEAF if forest else (245, 120, 61)
         color = WHITE if enemy.flash > 0 else (150, 178, 193) if frozen else (133, 104, 93)
         self.glow(x, y - 15, ember, 30, 24)
-        if enemy.kind in ("armor", "grimoire", "fairy"):
+        if enemy.boss_name == "Animated Shield":
+            shield = [(x - 17, y - 40), (x, y - 47), (x + 17, y - 40),
+                      (x + 13, y - 16), (x, y - 5), (x - 13, y - 16)]
+            pygame.draw.polygon(self.screen, (76, 86, 116), shield)
+            pygame.draw.polygon(self.screen, ICE if frozen else GOLD, shield, 3)
+            self.snowflake(x, y - 27, 8, ember)
+        elif enemy.boss_role == "boss" and enemy.kind == "grimoire":
+            robe = ICE if frozen else (108, 65, 141)
+            pygame.draw.polygon(self.screen, robe, [(x, y - 48), (x - 22, y), (x + 22, y)])
+            pygame.draw.circle(self.screen, (207, 183, 158), (x, y - 49), 9)
+            pygame.draw.polygon(self.screen, robe, [(x - 15, y - 54), (x + 3, y - 78), (x + 14, y - 54)])
+            pygame.draw.line(self.screen, GOLD, (x, y - 36), (x, y - 4), 2)
+            for side in (-1, 1):
+                pygame.draw.line(self.screen, robe, (x, y - 35), (x + side * 24, y - 22), 5)
+                pygame.draw.circle(self.screen, ember, (x + side * 24, y - 25), 7)
+                pygame.draw.rect(self.screen, GOLD, (x + side * 24 - 3, y - 35, 6, 5))
+        elif enemy.kind in ("armor", "grimoire", "fairy"):
             getattr(self, enemy.kind)(enemy, time, ember)
         elif enemy.kind == "tree":
             self.treant(enemy, time, ember)
@@ -379,6 +395,19 @@ class Renderer:
             self.snowflake(x, y - 52, 5, ICE)
         elif enemy.chilled > 0:
             pygame.draw.ellipse(self.screen, ICE, (x - 15, y - 5, 30, 14), 1)
+        if enemy.boss_role:
+            self.radius(enemy.pos, .55 if enemy.boss_role == "boss" else .35, GOLD, 2)
+            if enemy.boss_role == "boss":
+                if enemy.kind == "tree":
+                    self.glow(x, y - 28, BLIGHT, 38, 55)
+                    pygame.draw.circle(self.screen, ICE if frozen else BLIGHT, (x, y - 29), 9)
+                    self.snowflake(x, y - 29, 7, GOLD)
+                pygame.draw.lines(self.screen, GOLD, False,
+                                  [(x - 13, y - 64), (x - 15, y - 75), (x - 5, y - 70),
+                                   (x, y - 80), (x + 5, y - 70), (x + 15, y - 75), (x + 13, y - 64)], 2)
+            self.text(enemy.name, x, y - 96, 10, GOLD, center=True)
+            if enemy.boss_role == "boss" and enemy.recovery > 0:
+                self.text("RECOVERING / +35% DAMAGE", x, y - 111, 10, TEAL, center=True)
         if enemy.hp < enemy.max_hp:
             self.bar(x - 15, y - (62 if enemy.kind == "tree" else 49 if enemy.kind == "archer" else 44),
                      30, 3, enemy.hp / enemy.max_hp, ember)
@@ -781,7 +810,7 @@ class Renderer:
         size = 16 if self.font(16, serif=True).size(target.name)[0] <= 210 else 13
         self.text(target.name, 48, 530, size, WHITE, serif=True)
         self.bar(48, 563, 210, 6, target.hp / target.max_hp, VIOLET)
-        self.text(f"{target.hp} / {target.max_hp} health", 48, 576, 11, MUTED)
+        self.text(f"{target.hp:.0f} / {target.max_hp} health", 48, 576, 11, MUTED)
         for i, (name, seconds) in enumerate(target.statuses):
             self.snowflake(55, 606 + i * 21, 5, ICE)
             self.text(f"{name}  {seconds:.1f}s", 68, 598 + i * 21, 11, ICE)
@@ -818,9 +847,9 @@ class Renderer:
         self.target_frame(world)
         pygame.draw.line(self.screen, LINE, (47, 648), (259, 648))
         self.spaced("THE OBJECTIVE", 48, 667, 10)
-        completed = world.phase if not world.spawners else world.phase - 1
+        completed = 3 if world.level_completed else world.phase - 1 if world.spawners or world.phase == 3 else world.phase
         objectives = [("Phases cleared", f"{completed} / 3", world.exit_open),
-                      ("Spawners broken", f"{world.spawners_defeated} / 9", world.exit_open),
+                      ("Spawners broken", f"{world.spawners_defeated} / 5", world.exit_open),
                       ("Stair portal", "OPEN" if world.exit_open else "SEALED", world.exit_open)]
         for i, (label, value, done) in enumerate(objectives):
             yy = 696 + i * 27
@@ -962,6 +991,31 @@ class Renderer:
                 self.radius(Vec(x, y), .7, GOLD, 2)
                 px, py = iso(Vec(x, y))
                 self.text("FORMING", px, py - 30, 9, GOLD, center=True)
+        for hazard in world.hazards:
+            color = GOLD if hazard.delay > 0 else RED
+            if hazard.kind == "charge":
+                end = hazard.pos
+                for _ in range(120):
+                    candidate = end + hazard.direction * .1
+                    if not world.walkable(candidate, .3):
+                        break
+                    end = candidate
+                normal = Vec(-hazard.direction.y, hazard.direction.x) * .65
+                pygame.draw.polygon(self.screen, color,
+                    [iso(hazard.pos + normal), iso(end + normal), iso(end - normal), iso(hazard.pos - normal)], 2)
+                label = "WINTERBREAKER"
+            elif hazard.kind == "cage":
+                points = [iso(hazard.pos + Vec(cos(a), sin(a)) * hazard.radius)
+                          for a in [hazard.gap + .48 + i * (2 * pi - .96) / 60 for i in range(61)]]
+                pygame.draw.lines(self.screen, color, False, points, 4)
+                gap = hazard.pos + Vec(cos(hazard.gap), sin(hazard.gap)) * hazard.radius
+                self.radius(gap, .4, TEAL, 2)
+                label = "BRIAR CAGE / GAP"
+            else:
+                self.radius(hazard.pos, hazard.radius, color, 3)
+                label = "CHAIN REACTION"
+            hx, hy = iso(hazard.pos)
+            self.text(label, hx, hy - 18, 10, color, center=True)
         for enemy in world.enemies:
             if enemy.kind in ("archer", "fairy"):
                 self.archer_aim(enemy)
@@ -1024,13 +1078,19 @@ class Renderer:
         pygame.draw.rect(self.screen, LINE, (324, 168, 1072, 31), 1, border_radius=5)
         self.text(f"PHASE {world.phase} / 3", 338, 176, 11, ICE, bold=True)
         if world.intermission > 0:
-            detail = f"Next phase in {world.intermission:.1f}s / {PHASE_COUNTS[world.phase]} spawners forming"
+            detail = f"Next phase in {world.intermission:.1f}s / " + ("boss encounter forming" if world.phase == 2 else "3 spawners forming")
         elif world.exit_open:
-            detail = "Floor cleared / stair portal open"
+            detail = "Floor cleared / collect your loot, then enter the portal"
+        elif world.phase == 3:
+            detail = f"Final encounter / {sum(bool(e.boss_role) for e in world.enemies)} guardians remain"
         else:
             detail = f"{len(world.spawners)} / {world.phase_spawner_count} spawners remain"
         self.text(detail, 492, 176, 11, GOLD if world.intermission > 0 else WHITE)
         self.text(f"MOB SPEED {PHASE_SPEEDS[world.phase - 1]:.0%}   /   SURVIVORS {len(world.enemies)}", 1085, 176, 10, MUTED)
+        boss = next((e for e in world.enemies if e.boss_role == "boss"), None)
+        if boss:
+            self.bar(600, 206, 440, 6, boss.hp / boss.max_hp, GOLD)
+            self.text(f"{boss.name}  /  {boss.hp:.0f} HP", 820, 217, 10, GOLD, center=True)
 
     def overlay(self, world, mode):
         veil = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)

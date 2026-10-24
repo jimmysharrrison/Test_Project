@@ -6,6 +6,7 @@ from math import ceil, floor
 from random import Random
 
 from .abilities import ABILITIES
+from .encounters import BOSSES, signature, update_hazards
 from .geometry import Vec
 from .items import BLANK_COST, FROSTWEAVE_FREEZE, Inventory, Item, SLOTS
 from .levels import FROSTFALL, PHASE_COUNTS, PHASE_DELAY, PHASE_SPEEDS, PLAYABLE_FLOORS, level_for_depth
@@ -81,14 +82,19 @@ class Enemy:
     shot_target: Vec | None = None
     spawn_phase: int = 1
 
+    boss_role: str = ""
+    boss_name: str = ""
+    signature_timer: float = 3
+    recovery: float = 0
+
     @property
     def max_hp(self):
-        base = ENEMY_STATS[self.kind][1]
+        base = 380 if self.boss_role == "boss" else 85 if self.boss_role else ENEMY_STATS[self.kind][1]
         return round(base * (1 + .15 * (self.level - 1)))
 
     @property
     def name(self):
-        return ENEMY_STATS[self.kind][0]
+        return self.boss_name or ENEMY_STATS[self.kind][0]
 
     @property
     def move_speed(self):
@@ -171,6 +177,8 @@ class World:
         self.player.unlocked_level = max(self.player.unlocked_level, level)
         self.layout = self.level_data.layout
         self.level_completed = False
+        self.hazards = []
+        self.boss_started = False
         self.phase = 1
         self.intermission = 0.0
         self.spawners_defeated = 0
@@ -212,13 +220,15 @@ class World:
 
     @property
     def exit_open(self):
-        return self.phase == 3 and not self.spawners and self.intermission <= 0
+        return self.level_completed
 
     @property
     def phase_spawner_count(self):
         return PHASE_COUNTS[self.phase - 1]
 
     def _activate_phase(self, phase, initial=False):
+        if phase == 3:
+            return self._activate_boss()
         reached = flood((floor(self.player.pos.x), floor(self.player.pos.y)), self.blocked)
         reserved = []
         for x, y in self.level_data.phase_spawners[phase - 1]:
@@ -246,11 +256,42 @@ class World:
             self.events.append("phase")
         return True
 
+    def _activate_boss(self):
+        name, kind, move = BOSSES[self.level]
+        reached = flood((floor(self.player.pos.x), floor(self.player.pos.y)), self.blocked)
+        positions = sorted((Vec(x + .5, y + .5) for x, y in reached),
+                           key=lambda p: ((p - Vec(8.5, 5.5)).length(), p.x, p.y))
+        chosen = []
+        for point in positions:
+            if (self.walkable(point, .55) and (point - self.player.pos).length() >= 3
+                    and all((point - e.pos).length() >= 1 for e in self.enemies)
+                    and all((point - p).length() >= 2 for p in chosen)):
+                chosen.append(point)
+                if len(chosen) == 3:
+                    break
+        if len(chosen) < 3:
+            return False
+        self.phase, self.intermission, self._phase_resolved = 3, 0, False
+        self.boss_started = True
+        support_kind = {1: "armor", 2: "tree", 3: "fairy"}[self.level]
+        support_name = {1: "Animated Shield", 2: "Thorn Tender", 3: "Volatile Duplicate"}[self.level]
+        for i, point in enumerate(chosen):
+            enemy = Enemy(point, kind if i == 0 else support_kind, level=self.level, spawn_phase=3,
+                          boss_role="boss" if i == 0 else "duplicate" if self.level == 3 else "support",
+                          boss_name=name if i == 0 else support_name)
+            enemy.hp = enemy.max_hp
+            self.enemies.append(enemy)
+            self.effects.append(Effect(point, "spawn", .8, .8))
+        self.announce(f"Final encounter: {name}. Signature: {move}!")
+        self.events.append("phase")
+        return True
+
     def _phase_cleared(self):
         if self.spawners or self._phase_resolved:
             return
+        if self.phase == 3 and (not self.boss_started or any(e.boss_role for e in self.enemies)):
+            return
         self._phase_resolved = True
-        self._collect_remaining_rewards()
         if self.phase < 3:
             self.intermission = PHASE_DELAY
             self.announce(f"Phase {self.phase}/3 cleared. Next phase in {PHASE_DELAY:g} seconds. Reposition and prepare!")
@@ -512,6 +553,11 @@ class World:
     def _hit(self, target, damage):
         critical = self.combat_rng.random() < self.player.crit_chance
         amount = damage * (1 + self.player.inventory.stats.damage)
+        if isinstance(target, Enemy) and target.boss_role == "boss":
+            if target.recovery > 0:
+                amount *= 1.35
+            elif self.level == 1 and any(e.boss_role == "support" and e.frozen <= 0 for e in self.enemies):
+                amount *= .65
         if critical:
             amount *= self.player.crit_multiplier
         damage = max(1, round(amount))
@@ -536,10 +582,12 @@ class World:
             else:
                 self.enemies.remove(target)
                 self.player.kills += 1
-                self._drop_equipment(target.pos)
-                self.pickups.append(Pickup(target.pos, "gold", self.gold_value(10)))
+                self._drop_equipment(target.pos, guaranteed=bool(target.boss_role))
+                self.pickups.append(Pickup(target.pos, "gold", self.gold_value(150 if target.boss_role == "boss" else 10)))
                 if self.rng.random() < 0.12:
                     self.pickups.append(Pickup(target.pos + Vec(0.3, 0), "food", 15))
+                if target.boss_role:
+                    self._phase_cleared()
 
     def _projectiles(self, dt):
         if dt <= 0:
@@ -651,7 +699,10 @@ class World:
             self._navigation_changed()
         self._update_distances()
         self._spawn(dt)
-        for enemy in self.enemies:
+        update_hazards(self, dt)
+        if self.state == "dead":
+            return
+        for enemy in self.enemies[:]:
             enemy.flash = max(0, enemy.flash - dt)
             enemy.cooldown = max(0, enemy.cooldown - dt)
             enemy.phase += dt
@@ -661,6 +712,19 @@ class World:
             if was_frozen:
                 enemy.windup, enemy.shot_target = 0, None
                 continue
+            if enemy.boss_role == "boss":
+                enemy.recovery = max(0, enemy.recovery - dt)
+                if enemy.recovery > 0 or any(h.owner is enemy for h in self.hazards):
+                    continue
+                enemy.signature_timer -= dt
+                if enemy.signature_timer <= 0:
+                    signature(self, enemy)
+                    continue
+                if self.level == 2:
+                    for tender in self.enemies:
+                        if tender.boss_role == "support" and tender.frozen <= 0 and (tender.pos - enemy.pos).length() < 5:
+                            enemy.hp = min(enemy.max_hp, enemy.hp + 5 * dt)
+                    continue
             if enemy.kind in ("archer", "fairy"):
                 self._archer(enemy, dt)
                 continue
@@ -728,7 +792,7 @@ class World:
             self.events.append("loot")
         else:
             self.announce(f"Floor {self.level} cleared! All three phases defeated. The stair portal is open.")
-        self._collect_remaining_rewards()
+        self.hazards.clear()
 
     def _collect_remaining_rewards(self):
         # Never leave an earned equipment drop behind on a level transition.
