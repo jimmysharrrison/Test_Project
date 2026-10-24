@@ -4,7 +4,7 @@ from dataclasses import dataclass
 
 import pygame
 
-from .levels import FOCUS_FLOORS, MOTTO, PHASE_COUNTS, PHASE_SPEEDS, PLAYABLE_FLOORS, TOWER_FLOORS, floor_name
+from .levels import FOCUS_FLOORS, MOTTO, PHASE_SPEEDS, PLAYABLE_FLOORS, TOWER_FLOORS, floor_name
 
 FRONTEND_MODES = {"title", "levels", "howto", "confirm_new", "story", "journal"}
 
@@ -177,7 +177,7 @@ class Menus:
             renderer.text(line, 282, 286 + i * 25, 12, white)
         spells = (("Q", "Frost Bolt", "Hold Q to fire. Damages and slows enemies."),
                   ("W", "Frost Nova", "Freeze nearby enemies and stop their attacks."),
-                  ("E", "Ice Wall", "Block enemies and arrows with a temporary wall."),
+                  ("E", "Ice Patch", "Slow enemy movement and attacks; stand inside for +30% frost."),
                   ("R", "Glacial Prison", "Become immune, then shatter for area damage."))
         for i, (key, name, detail) in enumerate(spells):
             y = 389 + i * 65
@@ -193,10 +193,10 @@ class Menus:
                                   "Right click or Escape cancels a targeted spell.")):
             renderer.text(line, 764, 286 + i * 25, 11, white)
         renderer.text("THREE PHASES PER FLOOR", 764, 446, 13, ice)
-        for i, line in enumerate(("Destroy 2 spawners, then 3; defeat the final mini-boss encounter.",
-                                  "A 3-second pause separates each phase.",
+        for i, line in enumerate(("Floors 1-3: two waves, then a mini-boss. Menagerie: 2/3/4 devices.",
+                                  "Three-second intermissions. Floor 5 is the Keeper boss encounter.",
                                   "New mobs move 15% / 30% faster in phases 2 / 3.",
-                                  "Survivors are optional; gear and gold carry forward.",
+                                  "Defeat bosses and companions; ordinary survivors are optional.",
                                   "Reach the portal, then press Enter to climb.",
                                   "Each floor unlocks on arrival. Health and mana refill.")):
             renderer.text(line, 764, 483 + i * 25, 11, white)
@@ -227,7 +227,7 @@ class Menus:
             "four great pillars guard the ground floor; above them, the gardens of Thornveil grow beneath glass.",
             "Higher still, a wizard's helper fairies have spilled the alchemist's potions. The helpers have "
             "lost their senses, and the enchanted objects around them are waking up. Something is wrong here.",
-            "Each opening floor has two spawner phases and a final mini-boss encounter. Every fifth floor is reserved for a full boss encounter. Each new phase sends "
+            "Each opening floor has two spawner phases and a final mini-boss encounter. The fifth floor belongs to the lower tower's furious caretaker, the Keeper. Each new phase sends "
             "swifter creatures into her path. Only when the final seals fall will The Tower allow her to climb.",
         ):
             y = self.paragraph(renderer, text, y) + 23
@@ -241,9 +241,12 @@ class Menus:
         for i, text in enumerate(world.level_data.phase_lines):
             y = 412 + i * 85
             tag = "CURRENT" if world.phase == i + 1 else ""
-            encounter = "BOSS ENCOUNTER" if i == 2 else f"{PHASE_COUNTS[i]} SPAWNERS"
-            renderer.text(f"PHASE {i + 1} / {encounter} / {PHASE_SPEEDS[i]:.0%} MOB SPEED  {tag}",
+            encounter = "HEALTH STAGE" if world.keeper else "BOSS ENCOUNTER" if i == 2 and not world.level_data.menagerie else f"{world.level_data.phase_counts[i]} SPAWNERS"
+            label = (f"STAGE {i + 1} / {('100-67', '67-33', '33-0')[i]}% HEALTH / AT MOST TWO DUTIES  {tag}"
+                     if world.keeper else f"PHASE {i + 1} / {encounter} / {PHASE_SPEEDS[i]:.0%} MOB SPEED  {tag}")
+            renderer.text(label,
                           282, y, 12, (139, 216, 248))
             self.paragraph(renderer, text, y + 29, size=12)
-        renderer.text("Break five spawners and defeat the boss and its companions. Collect loot before entering the portal.",
+        footer = "Defeat the Keeper. Fifteen upper floors remain unexplored." if world.keeper else "Break nine containment devices. Take time to collect your loot." if world.level_data.menagerie else "Break five spawners and defeat the boss and its companions. Collect loot before entering the portal."
+        renderer.text(footer,
                       720, 685, 12, (145, 164, 174), center=True)

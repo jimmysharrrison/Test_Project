@@ -9,6 +9,7 @@ from .geometry import Vec, unproject
 from .profile import ProfileStore
 from .levels import PLAYABLE_FLOORS
 from .world import World
+from .telemetry import RunRecorder
 
 
 def main():
@@ -20,6 +21,11 @@ def main():
     parser.add_argument("--level", type=int, help="Choose a reached level; headless previews may use any level")
     parser.add_argument("--no-save", action="store_true", help="Do not load or save a local character")
     parser.add_argument("--profile", type=Path, help="Use an explicit character profile path")
+    logging = parser.add_mutually_exclusive_group()
+    logging.add_argument("--telemetry", dest="telemetry", action="store_true", default=None,
+                         help="Record a local gameplay session (default for normal play)")
+    logging.add_argument("--no-telemetry", dest="telemetry", action="store_false", help="Disable local gameplay logging")
+    parser.add_argument("--telemetry-dir", type=Path, help="Choose the local log folder; also enables headless logging")
     args = parser.parse_args()
     if args.frames is not None and args.frames <= 0:
         parser.error("--frames must be positive")
@@ -51,6 +57,9 @@ def main():
     locked_request = args.level is not None and args.level > unlocked_level and not args.headless
     start_level = args.level if args.level is not None and not locked_request else current_level
     world = World(args.seed, player=player, level=start_level)
+    telemetry_enabled = args.telemetry if args.telemetry is not None else bool(args.telemetry_dir or not args.headless)
+    recorder = RunRecorder(args.telemetry_dir, enabled=telemetry_enabled, headless=args.headless)
+    recorder.attach(world, "continue" if player else "new_game")
     controls = Controls(world)
     renderer = Renderer(canvas, world)
     renderer.menu.has_character = has_character
@@ -64,18 +73,22 @@ def main():
     running = True
     frame = 0
 
-    def begin_level(level, fresh=False):
+    def begin_level(level, fresh=False, reason="retry"):
         nonlocal world, controls, mode, menu_return, has_character
+        recorder.end_attempt(world, "new_game" if fresh else reason)
         if fresh:
             world = World(args.seed)
         else:
             earned = world.player
+            earned.cleared_floor = 0
+            earned.stasis_frost_multiplier = 1
             earned.hp, earned.mana = earned.max_hp, 100
             earned.pos = Vec(3.5, 13.5)
             earned.stasis = earned.cast_time = earned.flash = 0
             earned.invincible = 1
             earned.cooldowns = dict.fromkeys(earned.cooldowns, 0.0)
             world = World(args.seed, player=earned, level=level)
+        recorder.attach(world, "new_game" if fresh else reason)
         controls = Controls(world)
         renderer.armory.cancel_confirmation()
         renderer.armory.cancel_drag()
@@ -122,7 +135,7 @@ def main():
         elif action and action.startswith("level:"):
             level = int(action.split(":")[1])
             if 1 <= level <= min(world.player.unlocked_level, PLAYABLE_FLOORS):
-                begin_level(level)
+                begin_level(level, reason="level_select")
         elif action in ("howto", "story"):
             help_return, mode = mode, action
         elif action == "back":
@@ -130,6 +143,8 @@ def main():
         elif action == "resume":
             mode = "playing"
         elif action == "main_menu":
+            if world.keeper and not world.level_completed:
+                begin_level(5, reason="main_menu")
             controls.cancel()
             controls.right_up()
             world.stop()
@@ -155,6 +170,7 @@ def main():
                 menu_return = mode
             mode = tab
 
+    crashed = False
     try:
         while running:
             elapsed = clock.tick(60) / 1000
@@ -274,13 +290,14 @@ def main():
                 controls.update(dt, controls.aim if pressed[2] and in_world else None,
                                 repeat_q=bool(keys[pygame.K_q]) and in_world)
                 world.update(dt, controls.aim)
+            recorder.frame(elapsed, mode if world.state == "playing" else world.state)
             save_timer += elapsed
-            if store and has_character and save_timer >= 0.5:
+            if store and has_character and (save_timer >= 0.5 or (world.player.cleared_floor == 5 and "loot" in world.events)):
                 store.save(world.player)
                 save_timer = 0
             audio.play(world.events)
             world.events.clear()
-            renderer.profile_notice = store.error if store else ""
+            renderer.profile_notice = (store.error if store else "") or recorder.notice
             renderer.sound_enabled = audio.enabled
             renderer.armed = controls.armed
             renderer.aim = controls.aim
@@ -296,12 +313,19 @@ def main():
             args.screenshot.parent.mkdir(parents=True, exist_ok=True)
             pygame.image.save(canvas, str(args.screenshot))
             print(f"Screenshot saved to {args.screenshot}")
+    except Exception as error:
+        crashed = True
+        recorder.crash(world, error)
+        raise
     finally:
-        if store and has_character:
-            store.save(world.player)
-            if store.error:
-                print(store.error)
-        pygame.quit()
+        try:
+            if store and has_character:
+                store.save(world.player)
+                if store.error:
+                    print(store.error)
+        finally:
+            recorder.close(world, crashed=crashed)
+            pygame.quit()
 
 
 if __name__ == "__main__":

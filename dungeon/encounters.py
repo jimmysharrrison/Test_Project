@@ -44,6 +44,7 @@ def signature(world, boss):
             pos = player + offset
             if world.walkable(pos):
                 world.hazards.append(Hazard(boss, pos, 1.2 + i * .55))
+    world._record("boss_attack", source=boss.kind, attack=BOSSES[world.level][2])
     boss.signature_timer = 7
     world.announce(f"{BOSSES[world.level][2]}! " +
                    {1: "Dodge the marked charge lane.", 2: "Escape through the gap in the roots.",
@@ -55,17 +56,19 @@ def update_hazards(world, dt):
         if hazard.owner not in world.enemies or hazard.owner.frozen > 0:
             world.hazards.remove(hazard)
             continue
-        hazard.delay -= dt
+        world.refresh_patch_status(hazard.owner)
+        rate = hazard.owner.attack_rate if hazard.delay > 0 else world.enemy_move_factor(hazard.owner) if hazard.kind == "charge" else 1
+        hazard.delay -= dt * rate
         if hazard.delay > 0:
             continue
         boss = hazard.owner
         if hazard.kind == "charge":
-            destination = boss.pos + hazard.direction * (9 * dt)
+            destination = boss.pos + hazard.direction * (9 * dt * world.enemy_move_factor(boss))
             blocked = not world.walkable(destination, .3)
             if not blocked:
                 boss.pos = destination
             if (boss.pos - world.player.pos).length() < .8:
-                world._hurt_player(24)
+                world._hurt_player(24, source=boss.kind, attack="Winterbreaker")
             if blocked or hazard.delay < -1.4:
                 boss.recovery = 2.2
                 world.hazards.remove(hazard)
@@ -73,11 +76,11 @@ def update_hazards(world, dt):
             if hazard.kind == "cage":
                 hazard.radius = max(.25, 2.1 + hazard.delay * 1.8)
             if hazard.contains(world.player.pos):
-                world._hurt_player(22 if hazard.kind == "cage" else 18)
+                world._hurt_player(22 if hazard.kind == "cage" else 18, source=boss.kind, attack="Briar Cage" if hazard.kind == "cage" else "Chain Reaction")
             if hazard.kind == "pool":
                 for enemy in world.enemies[:]:
                     if enemy.boss_role == "duplicate" and hazard.contains(enemy.pos):
-                        world._hit(enemy, 45)
+                        world._hit(enemy, 45, spell="environment")
             if hazard.kind != "cage" or hazard.delay < -1.1:
                 boss.recovery = 1.8
                 world.hazards.remove(hazard)

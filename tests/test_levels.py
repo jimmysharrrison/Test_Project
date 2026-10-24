@@ -198,21 +198,22 @@ class ArcherTests(unittest.TestCase):
         self.assertEqual(self.world.player.hp, 100)
         self.assertEqual(self.world.projectiles, [])
 
-    def test_arrows_in_flight_are_blocked_by_ice_wall(self):
+    def test_ice_patch_does_not_block_arrows_in_flight(self):
         self.world.enemies.clear()
         self.arrow()
-        self.assertTrue(self.world.cast("e", Vec(5.5, 14.5)), self.world.message)
+        self.assertTrue(self.world.cast("e", Vec(5.5, 14.5)))
         self.advance(1.5)
-        self.assertEqual(self.world.player.hp, 100)
+        self.assertEqual(self.world.player.hp, 91)
         self.assertEqual(self.world.projectiles, [])
 
-    def test_ice_wall_cancels_an_obstructed_bow_draw(self):
+    def test_ice_patch_slows_bow_draw_without_cancelling_it(self):
         self.advance(.1)
-        self.assertGreater(self.archer.windup, 0)
-        self.assertTrue(self.world.cast("e", Vec(5.5, 14.5)), self.world.message)
+        before = self.archer.windup
+        self.assertTrue(self.world.cast("e", Vec(5.5, 14.5)))
         self.advance(.3)
         self.assertNotIn("arrow", self.world.events)
-        self.assertEqual(self.archer.windup, 0)
+        self.assertAlmostEqual(before - self.archer.windup, .3 * .6)
+        self.assertGreater(self.archer.windup, 0)
         self.assertEqual(self.world.player.hp, 100)
 
     def test_arrows_respect_armor_and_shared_hit_invulnerability(self):

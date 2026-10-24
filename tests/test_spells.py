@@ -76,45 +76,47 @@ class SpellTests(unittest.TestCase):
         self.assertGreater(self.world.player.cooldowns["r"], 40)
         self.assertNotEqual(self.world.player.pos, start)
 
-    def test_wall_blocks_movement_and_bolts_then_melts(self):
+    def test_patch_is_walkable_bolts_cross_it_and_it_expires(self):
         target = Vec(6.5, 13.5)
-        self.assertTrue(self.world.cast("e", target), self.world.message)
-        self.assertFalse(self.world.walkable(target))
+        self.assertTrue(self.world.cast("e", target))
+        self.assertTrue(self.world.walkable(target))
         self.assertEqual(self.world.player.mana, 70)
-        self.advance(0.25)
+        self.advance(.25)
         rift = Spawner(Vec(9.5, 13.5), timer=999)
         self.world.spawners = [rift]
         self.world.cast("q", rift.pos)
         self.advance(1)
-        self.assertEqual(rift.hp, 176)
+        self.assertEqual(rift.hp, 152)
         self.advance(5)
-        self.assertTrue(self.world.walkable(target))
-        self.assertEqual(self.world.ice_walls, [])
+        self.assertEqual(self.world.ice_patches, [])
 
-    def test_wall_replans_existing_move_order(self):
+    def test_patch_preserves_existing_move_order_and_mage_speed(self):
         goal = Vec(9.5, 13.5)
         self.world.request_move(goal)
         self.assertTrue(self.world.cast("e", Vec(6.5, 13.5)))
-        for _ in range(300):
-            self.world.update(1 / 60)
-            self.assertTrue(self.world.walkable(self.world.player.pos))
-        self.assertLess((self.world.player.pos - goal).length(), 0.03)
+        self.advance(2.3)
+        self.assertLess((self.world.player.pos - goal).length(), .03)
 
-    def test_wall_invalid_placement_does_not_spend_mana_or_cooldown(self):
-        targets = [Vec(15.5, 2.5), self.world.player.pos, Vec(4.5, 3.5)]
-        for target in targets:
+    def test_patch_invalid_placement_does_not_spend_resources(self):
+        for target in (Vec(15.5, 2.5), Vec(5.5, 11.5), Vec(6.5, 10.5)):
             self.assertFalse(self.world.cast("e", target))
-        self.world.enemies = [Enemy(Vec(6.5, 13.5))]
-        self.assertFalse(self.world.cast("e", Vec(6.5, 13.5)))
         self.assertEqual(self.world.player.mana, 100)
         self.assertEqual(self.world.player.cooldowns["e"], 0)
 
-    def test_wall_cannot_seal_off_a_corridor(self):
+    def test_patch_can_cover_the_mage_or_an_enemy(self):
+        self.world.enemies = [Enemy(self.world.player.pos + Vec(1, 0))]
+        self.assertTrue(self.world.cast("e", self.world.player.pos))
+        self.assertEqual(self.world.frost_multiplier, 1.3)
+        self.assertEqual(self.world.enemies[0].attack_rate, .6)
+
+    def test_patch_in_a_doorway_does_not_seal_the_corridor(self):
+        from dungeon.navigation import flood
         self.world.player.pos = Vec(3.5, 8.5)
         self.world.walls.update((7, y) for y in range(1, 16) if y not in (7, 8, 9))
-        self.assertFalse(self.world.cast("e", Vec(7.5, 8.5)))
-        self.assertEqual(self.world.ice_walls, [])
-        self.assertIn("seal off", self.world.message)
+        before = flood((3, 8), self.world.blocked)
+        self.assertTrue(self.world.cast("e", Vec(7.5, 8.5)))
+        self.assertEqual(flood((3, 8), self.world.blocked), before)
+        self.assertTrue(self.world.walkable(Vec(7.5, 8.5)))
 
     def test_target_clears_after_death(self):
         target = Enemy(Vec(5.5, 13.5))

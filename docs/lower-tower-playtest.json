@@ -1,0 +1,123 @@
+[
+  {
+    "seed": 3,
+    "floor": 4,
+    "cleared": true,
+    "seconds": 39.65,
+    "hp": 160,
+    "kills": 13,
+    "peak_mechanics": 0,
+    "stages": [],
+    "attacks": []
+  },
+  {
+    "seed": 3,
+    "floor": 5,
+    "cleared": true,
+    "seconds": 24.33,
+    "hp": 133,
+    "kills": 14,
+    "peak_mechanics": 2,
+    "stages": [
+      1,
+      2,
+      3
+    ],
+    "attacks": [
+      "cleaning",
+      "repairs",
+      "specimens",
+      "vines"
+    ]
+  },
+  {
+    "seed": 7,
+    "floor": 4,
+    "cleared": true,
+    "seconds": 38.9,
+    "hp": 147,
+    "kills": 13,
+    "peak_mechanics": 0,
+    "stages": [],
+    "attacks": []
+  },
+  {
+    "seed": 7,
+    "floor": 5,
+    "cleared": true,
+    "seconds": 24.07,
+    "hp": 160,
+    "kills": 14,
+    "peak_mechanics": 2,
+    "stages": [
+      1,
+      2,
+      3
+    ],
+    "attacks": [
+      "cleaning",
+      "repairs",
+      "vines"
+    ]
+  },
+  {
+    "seed": 19,
+    "floor": 4,
+    "cleared": true,
+    "seconds": 45.03,
+    "hp": 147,
+    "kills": 15,
+    "peak_mechanics": 0,
+    "stages": [],
+    "attacks": []
+  },
+  {
+    "seed": 19,
+    "floor": 5,
+    "cleared": true,
+    "seconds": 24.32,
+    "hp": 124,
+    "kills": 16,
+    "peak_mechanics": 2,
+    "stages": [
+      1,
+      2,
+      3
+    ],
+    "attacks": [
+      "cleaning",
+      "repairs",
+      "vines"
+    ]
+  },
+  {
+    "seed": 41,
+    "floor": 4,
+    "cleared": true,
+    "seconds": 44.98,
+    "hp": 134,
+    "kills": 16,
+    "peak_mechanics": 0,
+    "stages": [],
+    "attacks": []
+  },
+  {
+    "seed": 41,
+    "floor": 5,
+    "cleared": true,
+    "seconds": 23.22,
+    "hp": 124,
+    "kills": 17,
+    "peak_mechanics": 2,
+    "stages": [
+      1,
+      2,
+      3
+    ],
+    "attacks": [
+      "cleaning",
+      "repairs",
+      "vines"
+    ]
+  }
+]

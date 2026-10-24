@@ -1,11 +1,18 @@
 # Frost Mage
 
+Normal play now records local playthrough logs automatically. After playing,
+close the game and upload the newest ZIP from `C:\Projects\Test_Project\logs`.
+Each bundle contains readable summaries and detailed combat events for balance
+review. Nothing is uploaded automatically. See [playthrough logging](docs/TELEMETRY.md)
+for contents, crash recovery and the `--no-telemetry` option.
+
 A Python 3.14 desktop action dungeon crawler inspired by Gauntlet and Diablo.
 An as-yet nameless wanderer, trained at Drearamore's elemental college, arrives
 at **The Tower**. She carries its motto, **elementis fidelis est**, into a
-twenty-story mystery. This build covers the first three floors of the opening
-five-floor arc: a stone entrance hall, a vast indoor forest atrium, and an
-alchemist's workshop where spilled potions have driven the helpers mad.
+twenty-story mystery. This build completes the first five-floor section: a stone entrance hall, an
+indoor forest atrium, a chaotic alchemy workshop, the escaped specimens of the
+Menagerie, and the lower tower's furious caretaker, the Keeper. Fifteen upper
+floors remain unexplored.
 
 ![Title menu](docs/title.png)
 
@@ -71,7 +78,7 @@ level. The game stays paused while you read instructions or browse levels.
 | Left click empty ground | Clear selection |
 | Q / hold Q | Cast / repeat Frost Bolt toward the cursor |
 | W | Cast Frost Nova around the mage |
-| E | Place Ice Wall at the cursor |
+| E | Place Ice Patch at the cursor |
 | R | Enter Glacial Prison |
 | Left click a spell button | Cast a self spell, or arm an aimed spell |
 | Left click ground after arming Q or E | Confirm the aimed spell |
@@ -87,8 +94,8 @@ level. The game stays paused while you read instructions or browse levels.
 | Up / Down + Enter | Navigate title, level, instructions, and pause menus |
 
 Left click selects enemies; it never performs an automatic attack. A selection
-does not redirect skill shots. Q aims where the cursor is pointing. Ice Wall's
-placement preview appears when its button is clicked; red tiles explain an
+does not redirect skill shots. Q aims where the cursor is pointing. Ice Patch's
+circular placement preview appears when its button is clicked; red marks an
 invalid placement. Clicking a disabled spell reports why it cannot be cast.
 
 WASD and left-click attacks from the Warden prototype have been replaced. E and R
@@ -100,7 +107,7 @@ are now spells; healing moved to 1 and restarting moved to Enter.
 | --- | --- | --- | --- | --- |
 | Q | Frost Bolt | 24 damage; chills movement by 40% for 2 seconds | 0 | 0.35s |
 | W | Frost Nova | 14 damage within 2.8 tiles; freezes movement and attacks for 2.25 seconds | 25 | 8s |
-| E | Ice Wall | Three-tile barrier lasting 6 seconds; blocks characters and projectiles | 30 | 14s |
+| E | Ice Patch | 6s ground field, 2.4-tile radius; enemies move 50% slower and attack 40% slower; mage gains 30% frost damage inside | 30 | 14s |
 | R | Glacial Prison | Stationary and immune to damage for 2.5 seconds; shatters for 90 damage within 3.2 tiles and freezes survivors for 2 seconds | 45 | 45s |
 
 Spell values in the table are base values before equipment and critical hits.
@@ -110,12 +117,17 @@ casting and potion use while encased; its explosion happens automatically.
 Walls block area effects as well as projectiles. Cooldowns and effect timers
 freeze while the game is paused.
 
-Ice Wall has a range of 5 tiles. Placement cannot overlap walls, characters,
-rifts, or the gate, and cannot seal off a reachable part of the map. Both the
-mage and enemies update their routes when a wall appears or melts. Clicking an
-unreachable position chooses nearby reachable floor.
+Ice Patch has a range of 5 tiles and can be placed under the mage or enemies.
+Its center needs clear floor and line of sight. The field remains walkable and
+projectiles pass through it. Enemies regain normal movement and attack rates
+when they leave or the six seconds expire. Overlapping patches do not stack;
+Frost Bolt's chill multiplies with the field's movement slow. The mage keeps
+normal movement and cooldowns. The +30% bonus is captured when Frost Bolt,
+Frost Nova or Glacial Prison is cast from inside, including bolts or shatters
+that land after the mage leaves or the patch expires. Stone terrain still
+blocks movement and shots. Clicking unreachable ground chooses nearby floor.
 
-The target frame shows real health and timed freeze/chill effects. Current
+The target frame shows real health and timed frost/patch effects. Current
 enemies have no mana resource; no decorative mana bar is shown for them. Damage
 over time spells and further buff types are future work.
 
@@ -202,7 +214,7 @@ Each floor has **three phases**. Destroy the first two phases' spawners to begin
 a **3-second intermission**, then the next wave or final mini-boss appears. Survivors can still
 attack during the wait. The phase banner shows the countdown, remaining
 spawners, and movement speed; rings preview the next spawn locations. Spawners
-relocate to nearby clear floor if an actor or Ice Wall occupies a planned spot.
+relocate to nearby clear floor if an actor occupies a planned spot.
 
 | Phase | Spawners | New mob movement speed |
 | --- | ---: | ---: |
@@ -234,7 +246,7 @@ Thornwood Spiders, and Briarbone Archers emerge from Blighted Hearts.
 Archers show a dotted aim line during a **0.65-second bow draw**. Aim locks when
 the draw begins, so moving sideways can dodge the arrow. A shot travels at 5.5
 tiles per second, followed by a 2.8-second cooldown before the next draw. Terrain
-and Ice Wall block arrows; freeze interrupts a bow draw, and Glacial Prison
+blocks arrows; freeze interrupts a bow draw, and Glacial Prison
 absorbs incoming arrows. Armor and the shared brief protection after taking a
 hit apply to arrow damage too. Archers navigate around blocked sight lines.
 
@@ -249,17 +261,17 @@ spilled the potions and lost their senses, while enchanted belongings run amok.
 | Potion-Maddened Fairy | 36 | 9 | Aims for 0.8s, then throws a dodgeable potion bolt |
 
 Fairy bolts travel at 4.4 tiles/second, with 2.3 seconds between casts after
-release. Terrain and Ice Wall block them; freeze interrupts the cast. Each
+release. Terrain blocks them; freeze interrupts the cast. Each
 additional floor adds 15% to base enemy/spawner health and gold, and 12% to
 base attack damage. Phase speed changes apply to newly spawned mobs; survivors
 keep the speed of their original phase.
 
-Floors 4 and 5 are visible as **Coming Later**. Clearing floor 3 reaches a
-**To Be Continued** screen and returns to the title menu; there is no repeated
-placeholder floor. The Tower itself remains twenty stories in the story.
+Floor 3 now leads to **The Menagerie**, then **The Keeper**. His defeat completes
+this five-floor section. Approach the sealed upper stair to see **To Be Continued**;
+there is no playable floor 6 and the twenty-story mystery continues.
 Level Select replays reached floors while preserving gear. The optional
 `--level N` flag chooses a reached floor in interactive play. Headless previews
-can choose any implemented floor (1–3), for example `--headless --level 3 --frames 120`.
+can choose any implemented floor (1–5), for example `--headless --level 3 --frames 120`.
 
 Gold and equipment can be collected on contact before the clear. Food heals
 injured players. Potions restore up to 40 health, respect your equipped maximum
@@ -268,8 +280,8 @@ health, and are not consumed at full health.
 The local character saves equipment, enchantments, gold, potions, kills, current
 level, and highest reached depth automatically. On Windows the save is in
 `%LOCALAPPDATA%\Embervault\profile.json`. The legacy folder name is retained to
-preserve existing characters after the rename. Old endless depths above 3 map
-to floor 3, retaining equipment, gold, and the first-clear reward state.
+preserve existing characters after the rename. Old endless depths above 5 map
+to floor 5, retaining equipment, gold, and the first-clear reward state.
 Continue loads your current level, which can differ from your highest unlock.
 Use `uv run main.py --no-save` for a temporary
 character, or `--profile PATH` to choose another save file. Profile errors appear
@@ -329,5 +341,36 @@ open the portal.
 
 Drops stay on the floor until collected, including after the final encounter.
 Take your time before entering the portal; any remaining gold and gear are
-banked when you leave. Every fifth floor is planned as a complete boss encounter.
-Floors 4 and 5 are still awaiting design.
+banked when you leave. Floor 4 uses nine containment devices across 2/3/4 waves; floor 5 is the complete
+Keeper encounter. See [lower-tower mechanics and validation](docs/LOWER_TOWER.md).
+
+
+## The Menagerie and the Keeper
+
+[Floor 4 screenshot](docs/floor-4.png) · [The Keeper](docs/floor-5.png) ·
+[Active Deep Cleaning spill](docs/keeper-cleaning.png)
+
+Crystalback Beasts lock a charge lane, Runeclaw Prowlers warn before pouncing,
+and Arcane Drifters fire slow bolts. Ice Patch slows their movement and attacks; terrain stops charges and shots,
+and beasts stagger on impact. Freeze interrupts specimens. The floor caps its population
+at 14 and allows at most two simultaneous charge/pounce warnings.
+
+The Keeper is a maintenance construct with keys, vines, flasks and an oversized
+broom. His 3,000 HP crosses stages at two-thirds and one-third health. He marks
+stone eruptions, grows temporary slowing vines, throws telegraphed cleaning
+spills, and calls escaped specimens. Stage 1 separates duties; stages 2–3 combine
+at most two, counting active spills, vines and living summons. Green markers
+show reachable safe floor; obstructed warnings are replanned or cancelled.
+Frost Nova suppresses nearby vines for four seconds. The Keeper freezes for
+at most 0.45 seconds and then resists new freezes for three seconds; ordinary
+enemies retain their existing frost behavior. Glacial Prison is optional.
+
+His defeat grants 500 gold and a Rank 3 helm once per encounter, recalls summons,
+clears hazards, and immediately saves the completion flag and reward together.
+Continue after reloading restores the defeated room. Selecting floor 5 again
+starts a fresh replay and can earn its encounter reward again. Starting over
+still creates an entirely new character. The original save location and version
+remain compatible; legacy saves need no conversion.
+
+
+![Ice Patch slowing enemies and empowering the mage](docs/ice-patch.png)

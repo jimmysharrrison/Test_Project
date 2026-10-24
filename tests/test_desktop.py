@@ -81,6 +81,8 @@ class DesktopTests(unittest.TestCase):
 
         args = ["main.py", "--frames", str(len(script)), "--seed", "7"]
         args += ["--profile", str(profile_path)] if profile_path is not None else ["--no-save"]
+        if "--telemetry" not in extra_args and "--telemetry-dir" not in extra_args:
+            args += ["--no-telemetry"]
         args += list(extra_args)
         with (
             patch.object(sys, "argv", args),
@@ -303,7 +305,7 @@ class DesktopTests(unittest.TestCase):
         self.assertGreater(world.player.pos.x, 3.5)
         self.assertLess((world.destination - Vec(8.5, 14.5)).length(), 0.1)
 
-    def test_clickable_self_cast_and_cancelled_wall_targeting(self):
+    def test_clickable_self_cast_and_cancelled_patch_targeting(self):
         script = [[key(pygame.K_RETURN)], [click(1, (840, 823))]]
         script += [[] for _ in range(13)]
         script += [[click(1, (1054, 823))], [click(3, (900, 650))]]
@@ -312,7 +314,7 @@ class DesktopTests(unittest.TestCase):
         self.assertLess(world.player.mana, 80)
         self.assertGreater(world.player.cooldowns["w"], 0)
         self.assertEqual(world.player.cooldowns["e"], 0)
-        self.assertEqual(world.ice_walls, [])
+        self.assertEqual(world.ice_patches, [])
         self.assertIsNone(world.destination)
 
 
@@ -559,6 +561,137 @@ class DesktopTests(unittest.TestCase):
         self.assertEqual(frames[2][1], frames[3][1])
         self.assertEqual(frames[3][1], frames[4][1])
         self.assertGreater(frames[5][1], frames[4][1])
+
+    def test_keeper_main_menu_leaves_a_fresh_encounter_for_continue(self):
+        from pathlib import Path
+        from tempfile import TemporaryDirectory
+        from dungeon.profile import ProfileStore
+        from dungeon.world import Player
+        seen = []
+
+        def observer(frame, world, renderer):
+            if frame == 1:
+                world.keeper.boss.hp = 100
+                world.keeper.start("cleaning")
+            if frame == 3:
+                seen.append((world.keeper.boss.hp, len(world.keeper.mechanics), len(world.keeper.live_summons)))
+
+        with TemporaryDirectory() as folder:
+            path = Path(folder) / "profile.json"
+            ProfileStore(path).save(Player(current_level=5, unlocked_level=5))
+            worlds, frames = self.run_app([[click(1, (970, 364))], [key(pygame.K_ESCAPE)],
+                                          [click(1, (852, 614))], [click(1, (970, 364))]], observer, path)
+        from dungeon.keeper import TUNING
+        self.assertEqual(seen, [(TUNING.health, 0, 0)])
+        self.assertEqual(frames[-1][0], "playing")
+
+    def test_keeper_victory_is_saved_before_next_frame(self):
+        from pathlib import Path
+        from tempfile import TemporaryDirectory
+        from dungeon.profile import ProfileStore
+        from dungeon.world import Player
+        snapshots = []
+        with TemporaryDirectory() as folder:
+            path = Path(folder) / "profile.json"
+            ProfileStore(path).save(Player(current_level=5, unlocked_level=5))
+
+            def observer(frame, world, renderer):
+                if frame == 1:
+                    world._hit(world.keeper.boss, 10000)
+                if frame == 2:
+                    loaded = ProfileStore(path).load()
+                    snapshots.append((loaded.cleared_floor, loaded.lower_tower_completed, loaded.gold))
+
+            self.run_app([[click(1, (970, 364))], []], observer, path)
+        from dungeon.keeper import TUNING
+        self.assertEqual(snapshots, [(5, True, TUNING.completion_gold)])
+
+    def test_glacial_prison_keeper_finish_saves_and_reloads_without_extra_rewards(self):
+        from pathlib import Path
+        from tempfile import TemporaryDirectory
+        from dungeon.geometry import Vec
+        from dungeon.keeper import TUNING
+        from dungeon.profile import ProfileStore
+        from dungeon.world import Player
+        snapshots = []
+        with TemporaryDirectory() as folder:
+            path = Path(folder) / "profile.json"
+            ProfileStore(path).save(Player(current_level=5, unlocked_level=5))
+
+            def observer(frame, world, renderer):
+                if frame == 1:
+                    world.keeper.next_cast = 999
+                    world.player.pos = Vec(8.5, 9.5)
+                    world.keeper.boss.pos, world.keeper.boss.hp = Vec(8.5, 8.5), 1
+                    for position in (Vec(7.5, 9.5), Vec(9.5, 9.5), Vec(8.5, 10.5), Vec(9.5, 8.5)):
+                        enemy = world.make_enemy(position, "predator", summoned=True, summon_life=20, frozen=10)
+                        enemy.hp = 1
+                if frame == 160:
+                    saved = ProfileStore(path).load()
+                    snapshots.append((world.exit_open, saved.cleared_floor, saved.gold))
+
+            self.run_app([[], [key(pygame.K_r)]] + [[] for _ in range(158)], observer, path,
+                         extra_args=("--headless",))
+            saved = ProfileStore(path).load()
+            restored = World(7, player=saved, level=5)
+            self.assertTrue(restored.exit_open)
+            self.assertEqual(restored.player.gold, TUNING.completion_gold)
+            self.assertEqual(len(restored.player.inventory.items), 1)
+        self.assertEqual(snapshots, [(True, 5, TUNING.completion_gold)])
+
+    def test_playthrough_log_is_lazy_in_title_and_bundled_after_play(self):
+        from pathlib import Path
+        from tempfile import TemporaryDirectory
+        import json
+        from zipfile import ZipFile
+        with TemporaryDirectory() as folder:
+            extra = ("--telemetry-dir", folder)
+            self.run_app([[], []], extra_args=extra)
+            self.assertEqual(list(Path(folder).iterdir()), [])
+            self.run_app([[key(pygame.K_RETURN)], [key(pygame.K_q)],
+                          [key(pygame.K_ESCAPE)], []], extra_args=extra)
+            bundles = list(Path(folder).glob("*.zip"))
+            self.assertEqual(len(bundles), 1)
+            with ZipFile(bundles[0]) as bundle:
+                summary = json.loads(bundle.read("summary.json"))
+                rows = [json.loads(line) for line in bundle.read("events.jsonl").decode().splitlines()]
+            self.assertTrue(summary["complete"])
+            self.assertEqual(summary["input_mode"], "interactive")
+            self.assertEqual(summary["attempts"][0]["spells"]["q"]["casts"], 1)
+            self.assertIn("paused", summary["performance"]["wall_seconds_by_mode"])
+            self.assertTrue(any(r["event"] == "spell_cast" for r in rows))
+
+    def test_gameplay_crash_creates_log_and_preserves_the_original_exception(self):
+        from pathlib import Path
+        from tempfile import TemporaryDirectory
+        import json
+        from zipfile import ZipFile
+
+        def observer(frame, world, renderer):
+            if frame == 2:
+                raise RuntimeError("synthetic gameplay crash")
+
+        with TemporaryDirectory() as folder:
+            with self.assertRaisesRegex(RuntimeError, "synthetic gameplay crash"):
+                self.run_app([[key(pygame.K_RETURN)], []], observer,
+                             extra_args=("--telemetry-dir", folder))
+            bundles = list(Path(folder).glob("*.zip"))
+            self.assertEqual(len(bundles), 1)
+            with ZipFile(bundles[0]) as bundle:
+                summary = json.loads(bundle.read("summary.json"))
+            self.assertEqual(summary["ended_by"], "crash")
+            self.assertEqual(summary["crash"]["type"], "RuntimeError")
+
+    def test_explicit_headless_telemetry_is_marked_as_automated(self):
+        from pathlib import Path
+        from tempfile import TemporaryDirectory
+        import json
+        from zipfile import ZipFile
+        with TemporaryDirectory() as folder:
+            self.run_app([[], []], extra_args=("--headless", "--telemetry-dir", folder))
+            with ZipFile(next(Path(folder).glob("*.zip"))) as bundle:
+                summary = json.loads(bundle.read("summary.json"))
+            self.assertEqual(summary["input_mode"], "headless")
 
     def test_journal_pauses_phase_countdown_and_terminal_screen_returns_to_title(self):
         remaining = []

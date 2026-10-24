@@ -11,7 +11,7 @@ from dungeon.levels import COLUMNS, FLOORS, MOTTO, PHASE_COUNTS, PHASE_DELAY, PH
 from dungeon.menus import Menus
 from dungeon.navigation import flood
 from dungeon.profile import ProfileStore
-from dungeon.world import Enemy, IceWall, Player, World
+from dungeon.world import Enemy, Player, World
 
 
 def advance(world, seconds):
@@ -43,8 +43,9 @@ class TowerTests(unittest.TestCase):
         for depth, data in enumerate(FLOORS, 1):
             world = World(7, level=depth)
             reached = flood((3, 13), world.blocked)
-            self.assertEqual(tuple(len(phase) for phase in data.phase_spawners), (2, 3, 3))
-            self.assertEqual(len(world.spawners), 2)
+            expected = () if depth == 5 else (2, 3, 4) if depth == 4 else (2, 3, 3)
+            self.assertEqual(tuple(len(phase) for phase in data.phase_spawners), expected)
+            self.assertEqual(len(world.spawners), 0 if depth == 5 else 2)
             for phase in data.phase_spawners:
                 for x, y in phase:
                     self.assertTrue(world.walkable(Vec(x, y)))
@@ -143,13 +144,13 @@ class TowerTests(unittest.TestCase):
         self.assertAlmostEqual(distances[1] / distances[0], 1.30)
         self.assertAlmostEqual(distances[2] / distances[1], .60)
 
-    def test_new_spawners_avoid_player_survivors_and_temporary_ice(self):
+    def test_new_spawners_avoid_player_survivors_and_terrain(self):
         world = World(7)
         world.enemies.clear()
         break_spawners(world)
         world.player.pos = Vec(4.5, 8.5)
         world.enemies = [Enemy(Vec(8.5, 12.5), frozen=20)]
-        world.ice_walls.append(IceWall(((12, 7), (12, 8), (12, 9))))
+        world.walls.update(((12, 7), (12, 8), (12, 9)))
         world._navigation_changed()
         advance(world, 3.05)
         self.assertEqual((world.phase, len(world.spawners)), (2, 3))
@@ -159,8 +160,8 @@ class TowerTests(unittest.TestCase):
             self.assertGreaterEqual((spawner.pos - world.enemies[0].pos).length(), .8)
         self.assertEqual(len({spawner.pos for spawner in world.spawners}), 3)
 
-    def test_only_three_authored_floors_are_playable_and_terminal_portal_ends_build(self):
-        for invalid in (0, 4, 20):
+    def test_five_authored_floors_and_third_floor_now_leads_to_menagerie(self):
+        for invalid in (0, 6, 20):
             with self.assertRaises(ValueError):
                 World(7, level=invalid)
         world = World(7, level=3)
@@ -171,17 +172,17 @@ class TowerTests(unittest.TestCase):
                 advance(world, 3.05)
         world.player.pos = world.exit
         world.update(1 / 60)
-        self.assertEqual(world.state, "won")
-        self.assertFalse(world.next_level())
-        self.assertEqual(world.player.unlocked_level, 3)
+        self.assertEqual(world.state, "cleared")
+        self.assertTrue(world.next_level())
+        self.assertEqual(world.player.unlocked_level, 4)
         menu = Menus()
         choices = [b for b in menu.buttons(world, "levels") if b.action.startswith("level:")]
         self.assertEqual(len(choices), 5)
-        self.assertEqual([b.enabled for b in choices], [True, True, True, False, False])
-        self.assertIn("COMING LATER", choices[3].label)
+        self.assertEqual([b.enabled for b in choices], [True, True, True, True, False])
+        self.assertIn("LOCKED", choices[4].label)
         self.assertIn("story", [b.action for b in menu.buttons(world, "title")])
 
-    def test_legacy_endless_depth_maps_to_third_floor_without_losing_gear_or_gold(self):
+    def test_legacy_endless_depth_maps_to_authored_limit_without_losing_gear_or_gold(self):
         player = Player(unlocked_level=18, current_level=17, gold=12345, first_clear_rewarded=True)
         item = player.inventory.create("helm", 5, "shop")
         player.inventory.add(item)
@@ -189,7 +190,7 @@ class TowerTests(unittest.TestCase):
             path = Path(folder) / "profile.json"
             ProfileStore(path).save(player)
             loaded = ProfileStore(path).load()
-        self.assertEqual((loaded.current_level, loaded.unlocked_level, loaded.gold), (3, 3, 12345))
+        self.assertEqual((loaded.current_level, loaded.unlocked_level, loaded.gold), (5, 5, 12345))
         self.assertEqual(loaded.inventory.to_dict(), player.inventory.to_dict())
         self.assertTrue(loaded.first_clear_rewarded)
 
@@ -231,7 +232,7 @@ class AlchemistTests(unittest.TestCase):
         advance(self.world, 1)
         self.assertEqual(self.world.player.hp, 91)
 
-    def test_fairy_potion_can_be_dodged_and_blocked_by_ice_wall(self):
+    def test_fairy_potion_can_be_dodged_but_not_blocked_by_ice_patch(self):
         advance(self.world, .1)
         self.world.request_move(Vec(3.5, 12.5))
         advance(self.world, 1.7)
@@ -240,7 +241,7 @@ class AlchemistTests(unittest.TestCase):
         advance(self.world, .95)
         self.assertTrue(self.world.cast("e", Vec(5.5, 14.5)), self.world.message)
         advance(self.world, 1.5)
-        self.assertEqual(self.world.player.hp, 100)
+        self.assertEqual(self.world.player.hp, 91)
         self.assertEqual(self.world.projectiles, [])
 
     def test_frostweave_can_freeze_all_three_alchemical_enemy_types(self):

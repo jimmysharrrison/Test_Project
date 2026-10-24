@@ -47,7 +47,13 @@ class ProfileStore:
             rewarded = data.get("first_clear_rewarded", False)
             if type(rewarded) is not bool:
                 raise ValueError("Invalid reward state")
-            player = Player(inventory=inv, first_clear_rewarded=rewarded, current_level=current, **values)
+            cleared = data.get("cleared_floor", 0)
+            completed = data.get("lower_tower_completed", False)
+            if type(cleared) is not int or cleared not in (0, 5) or type(completed) is not bool:
+                raise ValueError("Invalid tower completion state")
+            if cleared and (current != 5 or not completed):
+                raise ValueError("Invalid cleared floor")
+            player = Player(cleared_floor=cleared, lower_tower_completed=completed, inventory=inv, first_clear_rewarded=rewarded, current_level=current, **values)
             player.hp = player.max_hp
             self._last = data
             return player
@@ -61,6 +67,7 @@ class ProfileStore:
             return False
         data = {"version": 1, "gold": player.gold, "unlocked_level": player.unlocked_level,
                 "current_level": player.current_level,
+                "cleared_floor": player.cleared_floor, "lower_tower_completed": player.lower_tower_completed,
                 "potions": player.potions, "kills": player.kills,
                 "first_clear_rewarded": player.first_clear_rewarded,
                 "inventory": player.inventory.to_dict()}

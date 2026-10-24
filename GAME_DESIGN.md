@@ -7,9 +7,9 @@ Drearamore, a college focused on the elemental arts, whose motto is
 **elementis fidelis est**. Her travels bring her to **The Tower**, a twenty-story
 structure where each floor conceals a different kind of magical disorder.
 
-The opening story arc focuses on the first five floors. This build authors the
-first three; floors 4 and 5 remain visible as coming later. Reaching the third
-floor's exit ends this chapter instead of generating another placeholder room.
+The opening story arc focuses on the first five floors. This build authors all
+five. The Keeper completes this section; fifteen more stories remain. His upper
+stair is sealed until a future chapter, rather than loading a placeholder floor.
 The title's Story screen introduces the setting. Each floor has a journal
 opened with J, a story subtitle, and phase-specific narrative announcements.
 
@@ -32,19 +32,19 @@ suspend simulation and support mouse or keyboard navigation.
 
 ## Encounter phases
 
-Each authored floor starts with two spawners, followed after a three-second
+Floors 1-3 each start with two spawners, followed after a three-second
 intermission by three spawners. A second intermission leads to a mini-boss
 encounter instead of another spawner wave. Phase 2 mobs move at 115% speed;
 final encounter actors use 130%. Existing survivors retain their birth speed.
 Safe placement defers the encounter if terrain or actors occupy its positions.
 
-- **Ground Floor — Oathbound Warden:** two Animated Shields reduce damage to
+- **Ground Floor â€” Oathbound Warden:** two Animated Shields reduce damage to
   the Warden while unfrozen. Winterbreaker marks a lane for 1.2 seconds, then
   charges until terrain stops it (or the charge expires). Recovery lasts 2.2 seconds.
-- **Thornveil — Rootbound Heart:** stationary, healed by unfrozen Thorn Tenders
+- **Thornveil â€” Rootbound Heart:** stationary, healed by unfrozen Thorn Tenders
   within five tiles. Briar Cage warns for 1.6 seconds, then closes around the
   marked location. A green gap points toward the Heart. Recovery lasts 1.8 seconds.
-- **Workshop — Splintered Alchemist:** two Volatile Duplicates accompany the
+- **Workshop â€” Splintered Alchemist:** two Volatile Duplicates accompany the
   caster. Chain Reaction marks three potion pools, igniting at 1.2, 1.75, and
   2.3 seconds. Explosions also damage duplicates. Recovery lasts 1.8 seconds.
 
@@ -59,7 +59,8 @@ without a timer. Walk over them to collect them. Entering the stair portal banks
 any remaining gold and gear before leaving the room.
 
 Every fifth floor is reserved for an entire authored boss encounter, rather than
-ordinary mob-clearing phases. Floors 4 and 5 await their designs.
+ordinary mob-clearing phases. Floor 4 uses 2/3/4 containment devices, and floor 5
+is the Keeper's health-stage encounter; see `docs/LOWER_TOWER.md`.
 
 ## Floors
 
@@ -84,12 +85,12 @@ Archers lock an aim line during a 0.65-second draw, shoot at 5.5 tiles/second,
 and wait 2.8 seconds before drawing again. Fairies aim for 0.8 seconds, throw
 potion bolts at 4.4 tiles/second, and wait 2.3 seconds before casting again.
 Both seek line of sight, retreat when approached, and can be frozen to interrupt
-the windup. Terrain and Ice Wall block their shots; Glacial Prison absorbs them.
+the windup. Terrain blocks their shots; Glacial Prison absorbs them.
 
 ## Interaction rules and spells
 
 - Right click owns movement. Orders persist until arrival, stop, or replacement.
-- Paths route around permanent terrain and temporary ice.
+- Paths route around terrain; Ice Patch is walkable ground.
 - Left click owns selection and UI; it never performs an automatic attack.
 - QWER hotkeys and spell buttons share the same resource and cooldown checks.
 - Q and E buttons arm targeting; left click confirms, right click or Escape cancels.
@@ -97,13 +98,13 @@ the windup. Terrain and Ice Wall block their shots; Glacial Prison absorbs them.
 - Glacial Prison prevents movement, casting, potion use, and damage until shatter.
 - Escape pauses, focus loss pauses, I opens gear, B opens the shop, and J opens the journal.
 - Enter climbs after a floor clear, retries the current floor after death, or returns
-  to the title after the third floor's ending.
+  to the title after the lower five-floor section.
 
 | Key | Ability | Role |
 | --- | --- | --- |
 | Q | Frost Bolt | Free repeatable skill shot; damage and chill |
 | W | Frost Nova | Close damage and hard freeze |
-| E | Ice Wall | Temporary terrain that blocks movement and projectiles |
+| E | Ice Patch | Six-second, 2.4-tile-radius field: half enemy movement, 60% attack rate, +30% mage frost damage |
 | R | Glacial Prison | Defensive stasis followed by an area shatter |
 
 Base values remain in `dungeon/abilities.py` and README.md. Freeze stops movement
@@ -134,7 +135,8 @@ cannot be sold. Confirmed quotes validate every item before paying or removing.
 Chest swaps cannot heal the mage. Saves preserve equipment, gold, potions, kills,
 current floor, highest reached floor, and the first-clear reward state. Replays
 keep unlocks; entering the next floor unlocks it. Rooms and phases restart when
-loading or retrying. Old endless depths above 3 map to floor 3 without losing
+loading or retrying, except a saved defeated Keeper room, which stays cleared
+until an explicit replay. Old endless depths above 5 map to floor 5 without losing
 gear or gold. The legacy save location remains to preserve local characters.
 See `docs/EQUIPMENT.md` for the complete balance and economy tables.
 
@@ -144,11 +146,34 @@ Simulation and navigation remain independent of Pygame. World coordinates are
 projected to an isometric screen. Selection, movement, and skill-shot aim are
 separate state. Phase countdowns and status timers use simulation time, so
 pausing freezes them. Authored floor data contains terrain, story, enemy rosters,
-and three spawner layouts; future floors use the same controller.
+and encounter layouts. Floors 1-3 retain mini-boss finales; floor 4 uses three
+spawner waves. The separate Keeper controller schedules persistent mechanics
+and certifies escape routes against actual terrain, enemies, movement
+speed and vine costs. It never counts casting animations alone.
 
-The next story milestones are floors 4 and 5. Further work can develop their
-themes, encounters, and bosses, followed by final directional sprites and a
-balance pass through the opening arc. Co-op remains a separate future project.
+The next story milestones lie above floor 5. Further work can develop the upper
+tower, final directional sprites, and a human balance pass through the opening arc. Co-op remains a separate future project.
 
-Runtime: Python 3.14.8 and Pygame CE, with three authored tower interiors and
+Runtime: Python 3.14.8 and Pygame CE, with five authored tower interiors and
 one Frost Mage. The preserved console prototype runs with `main.py --text`.
+
+
+Ice Patch keeps E's 30 mana, 14s cooldown and five-tile placement range. It can be
+placed under actors, does not block paths or projectiles, and does not stack
+with itself. Enemy windups, attack cooldowns, recovery and boss scheduling slow
+inside; charges and pounces also travel slower. Freeze/status durations and
+existing hostile projectile flight remain unchanged. Chill multiplies with the
+movement slow. The mage's frost bonus is captured when casting Q, W or R, then
+multiplies with equipment and critical damage. No patch state enters the save.
+
+
+## Local playthrough telemetry
+
+Normal desktop play records local event journals and per-floor summaries under
+`logs/`. Closing a session creates an uploadable ZIP with detailed combat data,
+gear and tuning snapshots, health/resource pressure, outcomes and performance
+context. Pauses are excluded from simulation/combat time. Gameplay exceptions
+are captured without replacing the original traceback, and recorder failures
+must not interrupt play. Headless logging is opt-in and labelled. No network
+transport is used. See `docs/TELEMETRY.md` for upload instructions and metric
+interpretation. Logging is covered by combat/RNG equivalence tests.

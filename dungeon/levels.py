@@ -40,6 +40,18 @@ class Level:
         return self.theme == "alchemy"
 
     @property
+    def menagerie(self):
+        return self.theme == "menagerie"
+
+    @property
+    def keeper(self):
+        return self.theme == "keeper"
+
+    @property
+    def phase_counts(self):
+        return (0, 0, 0) if self.keeper else (2, 3, 4) if self.menagerie else PHASE_COUNTS
+
+    @property
     def spawners(self):
         return self.phase_spawners[0]
 
@@ -122,7 +134,42 @@ ALCHEMIST = Level(
                  "The Splintered Alchemist and two volatile duplicates prepare Chain Reaction. Lure duplicates into the potion pools."),
 )
 
-FLOORS = (FROSTFALL, THORNVEIL, ALCHEMIST)
+PENS = ((4, 4), (5, 4), (11, 4), (12, 4), (4, 10), (12, 10))
+MENAGERIE = Level(
+    name="The Menagerie", chapter="THE TOWER    /    CONTAINMENT FAILURE",
+    subtitle="Broken pens. Fractured runes. The feeding schedule has gone terribly wrong.",
+    theme="menagerie", layout=room(PENS),
+    enemies=((8.5, 5.5, "crystal"), (12.5, 8.5, "predator"), (6.5, 9.5, "arcane")),
+    phase_spawners=(((3.5, 5.5), (13.5, 5.5)),
+                    ((3.5, 8.5), (13.5, 8.5), (8.5, 12.5)),
+                    ((3.5, 3.5), (13.5, 3.5), (3.5, 11.5), (13.5, 11.5))),
+    spawn_kinds=("crystal", "predator", "arcane"), spawn_weights=(30, 35, 35),
+    pickups=((7.5, 13.5, "food", 30), (13.5, 8.5, "food", 30)),
+    story=("The wizard's collection has escaped its enclosures. Crystal-backed beasts grind past broken "
+           "containment runes, little predators stalk the feeding stations, and arcane drifters bob above "
+           "the wreckage. From upstairs comes a weary voice: 'Unauthorized specimens must return to their "
+           "enclosures.' Drearamore never mentioned a caretaker."),
+    phase_lines=("Two containment devices malfunction. Watch the beasts' charge lanes; Ice Patch slows them.",
+                 "Three devices fail. Predators crouch before pouncing; sidestep the drifters' slow bolts.",
+                 "Four devices fracture. Recover your loot before meeting the furious caretaker upstairs."),
+)
+
+KEEPER = Level(
+    name="The Keeper", chapter="THE TOWER    /    A VERY LONG SHIFT",
+    subtitle="He maintains five floors. You have made a mess of every one of them.",
+    theme="keeper", layout=room(((3, 3), (13, 3), (3, 11), (13, 11))),
+    enemies=(), phase_spawners=(), spawn_kinds=(), spawn_weights=(),
+    pickups=((2.5, 8.5, "food", 30), (14.5, 8.5, "food", 30)),
+    story=("The Keeper is the lower tower's enchanted caretaker, burdened with keys, potion containers, "
+           "tangled vines, and a broom bigger than the wanderer. He repairs the stonework, tends Thornveil, "
+           "cleans the workshop, and retrieves escaped specimens. He is furious about the damage, not "
+           "the ruler of The Tower. Beyond his station, fifteen more stories remain unexplored."),
+    phase_lines=("Structural Repairs, Overgrowth, Deep Cleaning, and Escaped Specimens appear separately.",
+                 "Below two-thirds health, the Keeper pairs compatible duties. Never more than two at once.",
+                 "Below one-third health, combinations tighten. Frost briefly arrests him; resistance prevents freeze-lock."),
+)
+
+FLOORS = (FROSTFALL, THORNVEIL, ALCHEMIST, MENAGERIE, KEEPER)
 PLAYABLE_FLOORS = len(FLOORS)
 
 

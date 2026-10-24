@@ -2,6 +2,11 @@
 
 from dataclasses import dataclass
 
+ICE_PATCH_RADIUS = 2.4
+ICE_PATCH_MOVE_FACTOR = .5
+ICE_PATCH_ATTACK_FACTOR = .6
+ICE_PATCH_FROST_BONUS = .30
+
 
 @dataclass(frozen=True, slots=True)
 class Ability:
@@ -23,8 +28,8 @@ ABILITIES = {
                  "24 damage. Chills for 2s. Hold Q to repeat.", 10, damage=24, duration=2, slow=0.4),
     "w": Ability("w", "Frost Nova", 8, 25, False,
                  "14 damage nearby. Freezes enemies for 2.25s.", 2.8, damage=14, freeze=2.25),
-    "e": Ability("e", "Ice Wall", 14, 30, True,
-                 "A barrier lasting 6s. Blocks movement and projectiles.", 5, duration=6),
+    "e": Ability("e", "Ice Patch", 14, 30, True,
+                 "6s frost field. Enemies: -50% move, -40% attack rate. Mage: +30% frost damage inside.", 5, duration=6),
     "r": Ability("r", "Glacial Prison", 45, 45, False,
                  "Invulnerable for 2.5s, then shatters for 90 damage.", 3.2, damage=90, duration=2.5, freeze=2),
 }

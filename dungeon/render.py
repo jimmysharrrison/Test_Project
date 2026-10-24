@@ -5,7 +5,8 @@ from random import Random
 
 import pygame
 
-from .abilities import ABILITIES
+from .abilities import ABILITIES, ICE_PATCH_RADIUS
+from .tower_art import containment, decorate_floor, duty_status, low_enclosure, new_enemy, telegraphs
 from .armory import Armory, item_icon
 from .items import FROSTWEAVE_FREEZE, RANK_COLORS
 from .menus import FRONTEND_MODES, Menus
@@ -158,6 +159,7 @@ class Renderer:
                 if x in (1, 15) or y in (1, 15):
                     px, py = iso(Vec(x + 0.5, y + 0.5))
                     pygame.draw.line(self.floor, (76, 74, 62), (px - 4, py), (px + 4, py), 1)
+        decorate_floor(self, world)
         # The entrance is picked out in brass rather than a separate image asset.
         for pos in (Vec(2.5, 13.5), Vec(3.5, 13.5), Vec(4.5, 13.5)):
             px, py = iso(pos)
@@ -174,6 +176,9 @@ class Renderer:
         pygame.draw.ellipse(self.screen, (22, 29, 35), (x - width // 2, y - 4, width, 10))
 
     def wall(self, tile, world):
+        if 0 < tile[0] < 16 and 0 < tile[1] < 16 and (world.level_data.menagerie or world.level_data.keeper):
+            low_enclosure(self, tile, keeper=world.level_data.keeper)
+            return
         if tile in world.level_data.columns:
             self.column(tile, world)
             return
@@ -337,7 +342,9 @@ class Renderer:
         ember = ICE if frozen or enemy.chilled > 0 else POTION if alchemy else BLIGHT if enemy.kind == "tree" else LEAF if forest else (245, 120, 61)
         color = WHITE if enemy.flash > 0 else (150, 178, 193) if frozen else (133, 104, 93)
         self.glow(x, y - 15, ember, 30, 24)
-        if enemy.boss_name == "Animated Shield":
+        if new_enemy(self, enemy, time):
+            pass
+        elif enemy.boss_name == "Animated Shield":
             shield = [(x - 17, y - 40), (x, y - 47), (x + 17, y - 40),
                       (x + 13, y - 16), (x, y - 5), (x - 13, y - 16)]
             pygame.draw.polygon(self.screen, (76, 86, 116), shield)
@@ -559,6 +566,9 @@ class Renderer:
         pygame.draw.circle(self.screen, color, (round(end.x), round(end.y - 15)), 7, 1)
 
     def spawner(self, spawner, time):
+        if spawner.menagerie:
+            containment(self, spawner, time)
+            return
         if spawner.alchemist:
             self.alembic(spawner, time)
             return
@@ -649,7 +659,7 @@ class Renderer:
 
     def gate(self, world, time):
         x, y = iso(world.exit)
-        color = TEAL if world.exit_open else (110, 118, 129)
+        color = GOLD if world.level_data.keeper and world.exit_open else TEAL if world.exit_open else (110, 118, 129)
         self.glow(x, y - 20, TEAL if world.exit_open else (87, 110, 145), 70, 35)
         pygame.draw.ellipse(self.screen, color, (x - 27, y - 10, 54, 23), 1)
         for side in (-1, 1):
@@ -663,6 +673,10 @@ class Renderer:
                 pygame.draw.lines(self.screen, (83, 112, 63), False,
                                   [(x + side * 29, y - 4), (x + side * 20, y - 23),
                                    (x + side * 27, y - 44), (x + side * 19, y - 59)], 3)
+        if world.exit_open and world.level_data.keeper:
+            self.text("UPPER FLOORS SEALED", x, y - 92, 10, GOLD, center=True)
+            self.text("Approach to finish this section", x, y + 20, 10, GOLD, center=True)
+            return
         if world.exit_open:
             for i in range(5):
                 yy = y - 8 - ((time * 25 + i * 10) % 50)
@@ -695,6 +709,12 @@ class Renderer:
         direction = project(shot.velocity).unit()
         side = Vec(-direction.y, direction.x)
         if shot.hostile:
+            if shot.spell == "arcane":
+                self.glow(x, y - 15, BLIGHT, 27, 35)
+                pygame.draw.circle(self.screen, BLIGHT, (x, y - 15), 7)
+                pygame.draw.circle(self.screen, SILVER, (x, y - 15), 7, 1)
+                pygame.draw.circle(self.screen, GOLD, (x, y - 15), 3)
+                return
             if shot.spell == "potion":
                 self.glow(x, y - 15, POTION, 26, 40)
                 pygame.draw.line(self.screen, BLIGHT, (x - direction.x * 17, y - 15 - direction.y * 17), (x, y - 15), 3)
@@ -734,16 +754,21 @@ class Renderer:
                     turn = angle + pi + branch * pi / 3
                     pygame.draw.line(self.screen, color, (ex, ey), (ex + cos(turn) * size * 0.28 * side, ey + sin(turn) * size * 0.28 * side), 1)
 
-    def icewall(self, cell, time):
-        x, y = cell
-        corners = [iso(Vec(x, y)), iso(Vec(x + 1, y)), iso(Vec(x + 1, y + 1)), iso(Vec(x, y + 1))]
-        roof = [(px, py - (32 if i % 2 else 42)) for i, (px, py) in enumerate(corners)]
-        pygame.draw.polygon(self.screen, (49, 100, 136), [roof[1], roof[2], corners[2], corners[1]])
-        pygame.draw.polygon(self.screen, (75, 140, 173), [roof[2], roof[3], corners[3], corners[2]])
-        pygame.draw.polygon(self.screen, (153, 217, 239), roof)
-        pygame.draw.polygon(self.screen, ICE, [roof[1], roof[2], corners[2], corners[1]], 1)
-        pygame.draw.lines(self.screen, (207, 241, 250), False, [roof[3], roof[0], roof[1]], 1)
-        self.snowflake(corners[2][0] - 10, corners[2][1] - 19, 6, SILVER)
+    def ice_patch(self, patch, time):
+        x, y = iso(patch.pos)
+        rx, ry = round(patch.radius * 39.6), round(patch.radius * 19.8)
+        surface = pygame.Surface((rx * 2 + 8, ry * 2 + 8), pygame.SRCALPHA)
+        fade = min(1, patch.life / .7)
+        pygame.draw.ellipse(surface, (93, 172, 215, round(100 * fade)), (4, 4, rx * 2, ry * 2))
+        pygame.draw.ellipse(surface, (160, 228, 249, round(210 * fade)), (4, 4, rx * 2, ry * 2), 2)
+        for i in range(7):
+            angle = i * 2 * pi / 7
+            dx, dy = cos(angle) * rx * .7, sin(angle) * ry * .7
+            pygame.draw.lines(surface, (196, 239, 255, round(155 * fade)), False,
+                              [(rx + 4, ry + 4), (rx + 4 + dx * .5, ry + 4 + dy * .25),
+                               (rx + 4 + dx, ry + 4 + dy)], 1)
+        self.screen.blit(surface, (x - rx - 4, y - ry - 4))
+        self.snowflake(x, y, 10, ICE)
 
     def effect(self, effect):
         x, y = iso(effect.pos)
@@ -790,6 +815,10 @@ class Renderer:
         for target in world.enemies + world.spawners:
             x, y = iso(target.pos)
             width, height = ((52, 68) if target in world.spawners else
+                             (90, 98) if target.kind == "keeper" else
+                             (56, 60) if target.kind == "crystal" else
+                             (54, 60) if target.kind == "arcane" else
+                             (54, 39) if target.kind == "predator" else
                              (60, 63) if target.kind == "tree" else
                              (50, 30) if target.kind == "spider" else
                              (48, 54) if target.kind in ("fairy", "armor") else
@@ -812,13 +841,14 @@ class Renderer:
         self.bar(48, 563, 210, 6, target.hp / target.max_hp, VIOLET)
         self.text(f"{target.hp:.0f} / {target.max_hp} health", 48, 576, 11, MUTED)
         for i, (name, seconds) in enumerate(target.statuses):
-            self.snowflake(55, 606 + i * 21, 5, ICE)
-            self.text(f"{name}  {seconds:.1f}s", 68, 598 + i * 21, 11, ICE)
+            self.snowflake(55, 602 + i * 13, 5, ICE)
+            self.text(f"{name}  {seconds:.1f}s", 68, 596 + i * 13, 11, ICE)
         if not target.statuses:
             self.text("No active effects", 48, 604, 10, MUTED)
         if getattr(target, "windup", 0) > 0:
             label = "Mixing potion" if getattr(target, "kind", "") == "fairy" else "Drawing bow"
-            self.text(f"{label}  {target.windup:.1f}s", 48, 625, 10, GOLD)
+            rate = getattr(target, "attack_rate", 1)
+            self.text(f"{label}  {target.windup / rate:.1f}s", 48, 631, 10, GOLD)
 
     def hud(self, world):
         player = world.player
@@ -843,14 +873,20 @@ class Renderer:
         self.key("1", 53, 440, 23)
         self.text("Healing potion", 86, 445, 11, WHITE)
         self.text(f"×{player.potions}", 230, 442, 14, GOLD)
+        if world.frost_multiplier > 1:
+            self.text("ICE PATCH  /  +30% FROST", 48, 473, 9, ICE)
         pygame.draw.line(self.screen, LINE, (47, 485), (259, 485))
         self.target_frame(world)
         pygame.draw.line(self.screen, LINE, (47, 648), (259, 648))
         self.spaced("THE OBJECTIVE", 48, 667, 10)
         completed = 3 if world.level_completed else world.phase - 1 if world.spawners or world.phase == 3 else world.phase
         objectives = [("Phases cleared", f"{completed} / 3", world.exit_open),
-                      ("Spawners broken", f"{world.spawners_defeated} / 5", world.exit_open),
+                      ("Spawners broken", f"{world.spawners_defeated} / {sum(world.level_data.phase_counts)}", world.exit_open),
                       ("Stair portal", "OPEN" if world.exit_open else "SEALED", world.exit_open)]
+        if world.keeper:
+            objectives = [("Keeper stage", f"{world.phase} / 3", world.level_completed),
+                          ("Duties active", f"{len(world.keeper.active_kinds)} / 2", world.level_completed),
+                          ("Upper stair", "SEALED", world.level_completed)]
         for i, (label, value, done) in enumerate(objectives):
             yy = 696 + i * 27
             pygame.draw.circle(self.screen, TEAL if done else (83, 94, 100), (53, yy + 7), 3, 0 if done else 1)
@@ -870,8 +906,9 @@ class Renderer:
             self.snowflake(x, y, 15, ICE)
             pygame.draw.circle(self.screen, (72, 123, 164), (x, y), 19, 1)
         elif key == "e":
-            for dx in (-11, 0, 11):
-                pygame.draw.polygon(self.screen, ICE, [(x + dx - 4, y + 12), (x + dx - 5, y - 5), (x + dx, y - 13), (x + dx + 5, y - 2), (x + dx + 4, y + 12)], 1)
+            pygame.draw.ellipse(self.screen, ICE, (x - 19, y - 8, 38, 17), 2)
+            pygame.draw.ellipse(self.screen, (72, 123, 164), (x - 14, y - 5, 28, 11), 1)
+            self.snowflake(x, y, 9, SILVER)
         else:
             pygame.draw.polygon(self.screen, ICE, [(x - 12, y + 8), (x - 13, y - 6), (x, y - 18), (x + 13, y - 6), (x + 12, y + 8), (x, y + 17)], 2)
             self.snowflake(x, y, 7, SILVER)
@@ -947,11 +984,11 @@ class Renderer:
             pygame.draw.circle(self.screen, ICE, (x, y), 2)
         if self.armed and mouse and self.world_area(mouse):
             if self.armed == "e":
-                cells, reason = world.wall_preview(self.aim)
+                center, reason = world.patch_preview(self.aim)
                 color = RED if reason else ICE
-                for x, y in cells:
-                    polygon = [iso(Vec(x, y)), iso(Vec(x + 1, y)), iso(Vec(x + 1, y + 1)), iso(Vec(x, y + 1))]
-                    pygame.draw.polygon(self.screen, color, polygon, 2)
+                self.radius(center, ICE_PATCH_RADIUS, color, 2)
+                px, py = iso(center)
+                self.snowflake(px, py, 10, color)
                 if reason:
                     self.text(reason, 861, 748, 11, RED, center=True)
             else:
@@ -981,11 +1018,16 @@ class Renderer:
         self.text("M / SOUND " + ("ON" if self.sound_enabled else "OFF"), 1266, 121, 10, MUTED)
         pygame.draw.line(self.screen, LINE, (324, 155), (1396, 155))
         self.screen.blit(self.floor, (0, 0))
+        for patch in world.ice_patches:
+            self.ice_patch(patch, world.time)
+        if world.frost_multiplier > 1:
+            self.radius(world.player.pos, .48, ICE, 2)
         if world.selected:
             self.radius(world.selected.pos, 0.55, GOLD, 2)
         for spawner in world.spawners:
             x, y = iso(spawner.pos)
             self.glow(x, y, POTION if alchemy else BLIGHT if forest else VIOLET, 95, 35)
+        telegraphs(self, world)
         if world.intermission > 0:
             for x, y in world.level_data.phase_spawners[world.phase]:
                 self.radius(Vec(x, y), .7, GOLD, 2)
@@ -1020,7 +1062,6 @@ class Renderer:
             if enemy.kind in ("archer", "fairy"):
                 self.archer_aim(enemy)
         objects = [(x + y + 1, "wall", (x, y)) for x, y in world.walls]
-        objects += [(x + y + 1, "icewall", (x, y)) for wall in world.ice_walls for x, y in wall.cells]
         objects += [(p.pos.x + p.pos.y, "pickup", p) for p in world.pickups]
         objects += [(s.pos.x + s.pos.y, "spawner", s) for s in world.spawners]
         objects += [(e.pos.x + e.pos.y, "enemy", e) for e in world.enemies]
@@ -1047,6 +1088,7 @@ class Renderer:
         if mode == "playing" and world.state == "playing":
             self.low_health_warning(world.player)
         self.phase_banner(world)
+        duty_status(self, world)
         self.targeting(world, mouse)
         self.hud(world)
         self.spellbar(world, mouse)
@@ -1076,21 +1118,29 @@ class Renderer:
     def phase_banner(self, world):
         pygame.draw.rect(self.screen, PANEL, (324, 168, 1072, 31), border_radius=5)
         pygame.draw.rect(self.screen, LINE, (324, 168, 1072, 31), 1, border_radius=5)
-        self.text(f"PHASE {world.phase} / 3", 338, 176, 11, ICE, bold=True)
-        if world.intermission > 0:
-            detail = f"Next phase in {world.intermission:.1f}s / " + ("boss encounter forming" if world.phase == 2 else "3 spawners forming")
+        self.text(f"{'STAGE' if world.keeper else 'PHASE'} {world.phase} / 3", 338, 176, 11, ICE, bold=True)
+        if world.keeper:
+            detail = "Lower section complete / upper tower awaits" if world.level_completed else "The Keeper / frost briefly halts him, then 3s resistance"
+        elif world.intermission > 0:
+            detail = f"Next phase in {world.intermission:.1f}s / " + ("boss encounter forming" if world.phase == 2 and not world.level_data.menagerie else f"{world.level_data.phase_counts[world.phase]} spawners forming")
         elif world.exit_open:
             detail = "Floor cleared / collect your loot, then enter the portal"
-        elif world.phase == 3:
+        elif world.phase == 3 and not world.level_data.menagerie:
             detail = f"Final encounter / {sum(bool(e.boss_role) for e in world.enemies)} guardians remain"
         else:
             detail = f"{len(world.spawners)} / {world.phase_spawner_count} spawners remain"
         self.text(detail, 492, 176, 11, GOLD if world.intermission > 0 else WHITE)
-        self.text(f"MOB SPEED {PHASE_SPEEDS[world.phase - 1]:.0%}   /   SURVIVORS {len(world.enemies)}", 1085, 176, 10, MUTED)
-        boss = next((e for e in world.enemies if e.boss_role == "boss"), None)
+        status = (f"SUMMONS {len(world.keeper.live_summons)} / {world.keeper.tuning.summon_cap}   /   DUTIES {len(world.keeper.active_kinds)} / 2"
+                  if world.keeper else f"MOB SPEED {PHASE_SPEEDS[world.phase - 1]:.0%}   /   SURVIVORS {len(world.enemies)}")
+        self.text(status, 1085, 176, 10, MUTED)
+        boss = next((e for e in world.enemies if e.boss_role in ("boss", "keeper")), None)
         if boss:
             self.bar(600, 206, 440, 6, boss.hp / boss.max_hp, GOLD)
             self.text(f"{boss.name}  /  {boss.hp:.0f} HP", 820, 217, 10, GOLD, center=True)
+            if world.keeper:
+                for threshold in world.keeper.tuning.thresholds:
+                    x = round(600 + 440 * threshold)
+                    pygame.draw.line(self.screen, INK, (x, 205), (x, 213), 2)
 
     def overlay(self, world, mode):
         veil = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
@@ -1108,8 +1158,8 @@ class Renderer:
             subtitle = f"Next: {level_for_depth(world.level + 1).name}. Your gear carries forward."
             action = "ENTER  /  CLIMB TO NEXT FLOOR"
         elif world.state == "won":
-            kicker, title = "TO BE CONTINUED", "The first three floors yield."
-            subtitle = "The Tower rises twenty stories. Floors 4 and 5 await another chapter."
+            kicker, title = "TO BE CONTINUED", "The lower five floors yield."
+            subtitle = "Fifteen stories remain above. Floor 6 is not yet available. Your story continues."
             action = "ENTER  /  MAIN MENU"
         elif mode == "paused":
             kicker, title, subtitle = "TAKE A BREATH", "The Tower can wait.", "Your adventure is paused."
@@ -1122,7 +1172,7 @@ class Renderer:
         self.text(title, center, 333, 35, WHITE, serif=True, center=True)
         self.text(subtitle, center, 393, 14, MUTED, center=True)
         self.text("Right click or hold to move   ·   Left click to select enemies", center, 438, 12, WHITE, center=True)
-        self.text("Q Frost Bolt   ·   W Frost Nova   ·   E Ice Wall   ·   R Glacial Prison", center, 465, 12, WHITE, center=True)
+        self.text("Q Frost Bolt   ·   W Frost Nova   ·   E Ice Patch   ·   R Glacial Prison", center, 465, 12, WHITE, center=True)
         self.button = pygame.Rect(center - 183, 529, 366, 51)
         pygame.draw.rect(self.screen, (64, 77, 69), self.button, border_radius=4)
         pygame.draw.rect(self.screen, GOLD, self.button, 1, border_radius=4)
