@@ -25,6 +25,14 @@ def click(button, point):
                               pos=(round(point[0] * 8 / 9), round(point[1] * 8 / 9)))
 
 
+def motion(point):
+    return pygame.event.Event(pygame.MOUSEMOTION, pos=click(1, point).pos)
+
+
+def release(button, point):
+    return pygame.event.Event(pygame.MOUSEBUTTONUP, button=button, pos=click(button, point).pos)
+
+
 class DesktopTests(unittest.TestCase):
     def run_app(self, script, observer=None, profile_path=None, extra_args=()):
         worlds, frames = [], []
@@ -468,6 +476,67 @@ class DesktopTests(unittest.TestCase):
         self.assertEqual(player.gold, sum(item.sell_value for item in sold))
         self.assertEqual(player.inventory.worn("chest").rank, 2)
         self.assertEqual([(item.slot, item.rank) for item in player.inventory.backpack], [("gloves", 3)])
+
+    def test_drag_equipped_gear_to_enchant_slot_then_enchant_through_desktop_events(self):
+        snapshots = []
+        def observer(frame, world, renderer):
+            if frame == 1:
+                world.player.gold = 1000
+                inv = world.player.inventory
+                inv.add(inv.create("helm", 0, "shop"))
+            snapshots.append((renderer.armory.dragging, renderer.armory.enchant_uid,
+                              world.player.gold, world.player.inventory.worn("helm").rank))
+        slot, target, upgrade = (350, 298), (1061, 308), (1060, 597)
+        script = [[key(pygame.K_RETURN)], [key(pygame.K_b)], [click(1, slot)],
+                  [motion(target)], [release(1, target)], [click(1, upgrade)], [release(1, upgrade)]]
+        worlds, frames = self.run_app(script, observer)
+        self.assertTrue(snapshots[3][0])
+        self.assertEqual(snapshots[4][1:], (1, 1000, 0))
+        self.assertEqual(snapshots[5][1:], (1, 950, 1))
+        self.assertTrue(all(time == frames[0][1] for _, time in frames))
+        self.assertEqual(len(worlds[0].player.inventory.items), 1)
+        self.assertEqual(worlds[0].player.inventory.worn("helm").set_id, "frostweave")
+
+    def test_drag_from_inventory_over_enchanter_tab_to_target_preserves_backpack_ownership(self):
+        targets = []
+        def observer(frame, world, renderer):
+            if frame == 1:
+                world.player.gold = 123
+                inv = world.player.inventory
+                inv.add(inv.create("helm", 1), auto_equip=False)
+            targets.append(renderer.armory.enchant_uid)
+        target = (1061, 308)
+        script = [[key(pygame.K_RETURN)], [key(pygame.K_i)], [click(1, (550, 300))],
+                  [motion((505, 190))], [motion(target)], [release(1, target)]]
+        worlds, frames = self.run_app(script, observer)
+        self.assertEqual(frames[2][0], "inventory")
+        self.assertEqual(frames[3][0], "shop")
+        self.assertEqual(targets[-1], 1)
+        inv = worlds[0].player.inventory
+        self.assertIsNone(inv.worn("helm"))
+        self.assertEqual(len(inv.backpack), 1)
+        self.assertEqual(worlds[0].player.gold, 123)
+
+    def test_escape_and_focus_loss_cancel_drags_without_loading_or_losing_items(self):
+        state = []
+        def observer(frame, world, renderer):
+            if frame == 1:
+                inv = world.player.inventory
+                inv.add(inv.create("helm", 3, "shop"))
+            state.append((renderer.armory.dragging, renderer.armory.enchant_uid))
+        slot, target = (350, 298), (1061, 308)
+        script = [[key(pygame.K_RETURN)], [key(pygame.K_b)],
+                  [click(1, slot)], [motion(target)], [key(pygame.K_ESCAPE)], [release(1, target)],
+                  [click(1, slot)], [motion(target)], [pygame.event.Event(pygame.WINDOWFOCUSLOST)],
+                  [release(1, target)]]
+        worlds, frames = self.run_app(script, observer)
+        self.assertEqual(state[3], (True, None))
+        self.assertEqual(state[4], (False, None))
+        self.assertEqual(state[7], (True, None))
+        self.assertEqual(state[8], (False, None))
+        self.assertTrue(all(mode == "shop" for mode, _ in frames[1:]))
+        self.assertEqual(len(worlds[0].player.inventory.items), 1)
+        self.assertEqual(worlds[0].player.inventory.worn("helm").rank, 3)
 
 
 if __name__ == "__main__":

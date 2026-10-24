@@ -75,6 +75,8 @@ def main():
             world = World(args.seed, player=earned, level=level)
         controls = Controls(world)
         renderer.armory.cancel_confirmation()
+        renderer.armory.cancel_drag()
+        renderer.armory.enchant_uid = None
         renderer.armory.selected_uid = None
         renderer.armory.page = 0
         renderer.menu.notice = ""
@@ -139,6 +141,7 @@ def main():
             return
         controls.cancel()
         renderer.armory.cancel_confirmation()
+        renderer.armory.cancel_drag()
         if mode == tab:
             mode = menu_return
         else:
@@ -169,9 +172,11 @@ def main():
             for event in events:
                 if event.type == pygame.QUIT:
                     running = False
-                elif event.type == pygame.WINDOWFOCUSLOST and mode == "playing" and not args.headless:
-                    mode = "paused"
-                    controls.cancel()
+                elif event.type == pygame.WINDOWFOCUSLOST:
+                    renderer.armory.cancel_drag()
+                    if mode == "playing" and not args.headless:
+                        mode = "paused"
+                        controls.cancel()
                 elif event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_ESCAPE:
                         if mode == "howto":
@@ -181,7 +186,7 @@ def main():
                         elif mode == "title":
                             running = False
                         elif mode in ("inventory", "shop"):
-                            if not renderer.armory.cancel_confirmation():
+                            if not renderer.armory.cancel_confirmation() and not renderer.armory.cancel_drag():
                                 mode = menu_return
                         elif not controls.cancel():
                             mode = "playing" if mode == "paused" else "paused"
@@ -208,6 +213,13 @@ def main():
                             world.stop()
                 elif event.type == pygame.MOUSEBUTTONUP and event.button == 3:
                     controls.right_up()
+                elif event.type == pygame.MOUSEBUTTONUP and event.button == 1:
+                    if mode in ("inventory", "shop"):
+                        point = logical(getattr(event, "pos", pygame.mouse.get_pos()))
+                        renderer.armory.mouse_up(world, point, mode)
+                elif event.type == pygame.MOUSEMOTION and mode in ("inventory", "shop"):
+                    point = logical(getattr(event, "pos", pygame.mouse.get_pos()))
+                    mode = renderer.armory.mouse_motion(point, mode)
                 elif event.type == pygame.MOUSEBUTTONDOWN:
                     point = logical(getattr(event, "pos", pygame.mouse.get_pos()))
                     if mode in FRONTEND_MODES or mode == "paused":
@@ -216,7 +228,7 @@ def main():
                         continue
                     if mode in ("inventory", "shop"):
                         if event.button == 1:
-                            action = renderer.armory.click(world, point, mode)
+                            action = renderer.armory.mouse_down(world, point, mode)
                             mode = menu_return if action == "close" else action
                         continue
                     if event.button == 1 and renderer.gear_button.collidepoint(point):

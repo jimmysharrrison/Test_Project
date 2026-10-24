@@ -1,4 +1,4 @@
-# Embervault — Thornveil Forest
+# Embervault — Frostweave Enchanter
 
 A Python 3.14 desktop action dungeon crawler inspired by Gauntlet and Diablo.
 Play a female Ice Mage in Frostfall Glade: move with the mouse, control crowds
@@ -65,7 +65,7 @@ level. The game stays paused while you read instructions or browse levels.
 | Hold right mouse button | Continually follow the cursor, routing around obstacles |
 | Left click an enemy or rift | Select it; inspect health and active effects |
 | Left click empty ground | Clear selection |
-| Q / hold Q | Cast / repeat Ice Bolt toward the cursor |
+| Q / hold Q | Cast / repeat Frost Bolt toward the cursor |
 | W | Cast Frost Nova around the mage |
 | E | Place Ice Wall at the cursor |
 | R | Enter Glacial Prison |
@@ -93,7 +93,7 @@ are now spells; healing moved to 1 and restarting moved to Enter.
 
 | Key | Spell | Effect | Mana | Cooldown |
 | --- | --- | --- | --- | --- |
-| Q | Ice Bolt | 24 damage; chills movement by 40% for 2 seconds | 0 | 0.35s |
+| Q | Frost Bolt | 24 damage; chills movement by 40% for 2 seconds | 0 | 0.35s |
 | W | Frost Nova | 14 damage within 2.8 tiles; freezes movement and attacks for 2.25 seconds | 25 | 8s |
 | E | Ice Wall | Three-tile barrier lasting 6 seconds; blocks characters and projectiles | 30 | 14s |
 | R | Glacial Prison | Stationary and immune to damage for 2.5 seconds; shatters for 90 damage within 3.2 tiles and freezes survivors for 2 seconds | 45 | 45s |
@@ -121,6 +121,38 @@ enchanter. Both menus pause combat. Hover an item for its stats, rank, and next
 enchantment price. Click a backpack item and then **Equip Item**; click an
 already-equipped item and **Unequip** to return it to the backpack.
 
+The enchanter's Rank 0 blanks are the **Frostweave set**: Crown, Vestment,
+Leggings, Grips, and Treads. Equip all five pieces at Rank 3 or higher to give
+**Q / Frost Bolt** a chance to freeze a surviving enemy for **1 second**:
+
+| Lowest equipped Frostweave rank | Freeze chance per hit |
+| --- | ---: |
+| 3 | 15% |
+| 4 | 25% |
+| 5 | 40% |
+
+The lowest-ranked piece determines the set tier. Backpack pieces do not count.
+Missing a piece, wearing non-set gear, or dropping below Rank 3 disables the
+bonus. Item tooltips explain the set, character stats show its progress, and
+the Frost Bolt tooltip shows the active chance. Enchanting preserves set
+membership, and the set identity saves with the character. Dropped and reward
+equipment remains separate from Frostweave even when enchanted.
+See the [Frostweave freeze preview](docs/frostweave-freeze.png).
+
+On the enchanter page, drag worn or backpack gear into the **Enchanting Slot**,
+then click **Enchant** for the displayed gold cost. Dropping into the slot does
+not spend gold, unequip the item, or remove it from the backpack. The slot keeps
+its target when you select other gear. **Place Selected Item** is an alternative
+to dragging; **Clear Slot** removes the target. New purchases enter the slot
+automatically. You can also start a drag in inventory and hover the Enchanter
+tab before dropping. Escape or focus loss cancels a drag; dropping elsewhere
+keeps the item. The shop backpack supports paging through all owned spares.
+See the [enchanter preview](docs/enchanter.png).
+
+Older shop blanks are recognized automatically. Previously enchanted items
+without set metadata keep their existing identity: the old format no longer
+records whether those items originally came from the shop or a drop.
+
 Backpack upgrades have a **green border and checkmark** and appear first, with
 the highest ranks first. An upgrade means a higher rank than the piece worn in
 the same slot; helpful gear for an empty slot also counts. Equal ranks and
@@ -147,7 +179,7 @@ See the [bulk-sale confirmation preview](docs/sell-all.png).
 - Boots add movement speed, critical chance, and critical damage. They are the
   rarest random drop and a guaranteed Rank 1 reward for clearing level 1.
 - Dropped equipment is Rank 1–3. Rank 3 has the best dropped stats.
-- The shop sells blank Rank 0 items. Enchant them one rank at a time through
+- The shop sells Frostweave Rank 0 items. Enchant them one rank at a time through
   Rank 5. The final upgrade costs **15,000 gold**.
 - Items fill empty slots automatically. Other pieces go into the paged backpack.
 - Maximum health increases do not heal you; use food or potions to fill it.

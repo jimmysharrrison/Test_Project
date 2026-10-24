@@ -10,6 +10,12 @@ NAMES = {
     "gloves": "Wintercall Grips",
     "boots": "Everfrost Treads",
 }
+FROSTWEAVE_NAMES = {
+    "helm": "Frostweave Crown", "chest": "Frostweave Vestment",
+    "legs": "Frostweave Leggings", "gloves": "Frostweave Grips", "boots": "Frostweave Treads",
+}
+FROSTWEAVE_CHANCE = {3: .15, 4: .25, 5: .40}
+FROSTWEAVE_FREEZE = 1.0
 SLOT_PURPOSE = {
     "helm": "Increases all spell damage.",
     "chest": "Increases maximum health.",
@@ -40,6 +46,7 @@ class Item:
     slot: str
     rank: int
     source: str = "drop"
+    set_id: str | None = None
 
     def __post_init__(self):
         if self.slot not in SLOTS or type(self.rank) is not int or not 0 <= self.rank <= 5:
@@ -48,10 +55,14 @@ class Item:
             raise ValueError("Invalid item identifier")
         if self.source not in ("drop", "shop", "reward", "enchanted"):
             raise ValueError("Invalid item origin")
+        if self.set_id not in (None, "frostweave"):
+            raise ValueError("Invalid equipment set")
+        if self.source == "shop" and self.set_id is None:
+            object.__setattr__(self, "set_id", "frostweave")
 
     @property
     def name(self):
-        return NAMES[self.slot]
+        return FROSTWEAVE_NAMES[self.slot] if self.set_id == "frostweave" else NAMES[self.slot]
 
     @property
     def lines(self):
@@ -89,6 +100,9 @@ class GearStats:
     speed: float = 0
     crit_chance: float = 0
     crit_damage: float = 0
+    frostweave_pieces: int = 0
+    frostweave_rank: int = 0
+    frostweave_freeze_chance: float = 0
 
 
 class Inventory:
@@ -174,18 +188,24 @@ class Inventory:
     @property
     def stats(self):
         if self._stats_revision != self.revision:
-            ranks = {slot: (self.worn(slot).rank if self.worn(slot) else 0) for slot in SLOTS}
+            equipped = [self.worn(slot) for slot in SLOTS]
+            ranks = {slot: item.rank if item else 0 for slot, item in zip(SLOTS, equipped)}
+            frostweave = [item for item in equipped if item and item.set_id == "frostweave"]
+            set_rank = min(item.rank for item in frostweave) if len(frostweave) == 5 else 0
             self._stats = GearStats(
                 damage=VALUES["damage"][ranks["helm"]], health=VALUES["health"][ranks["chest"]],
                 armor=VALUES["armor"][ranks["legs"]], cooldown=VALUES["cooldown"][ranks["gloves"]],
                 speed=VALUES["speed"][ranks["boots"]], crit_chance=VALUES["crit_chance"][ranks["boots"]],
                 crit_damage=VALUES["crit_damage"][ranks["boots"]],
+                frostweave_pieces=len(frostweave), frostweave_rank=set_rank,
+                frostweave_freeze_chance=FROSTWEAVE_CHANCE.get(set_rank, 0),
             )
             self._stats_revision = self.revision
         return self._stats
 
     def to_dict(self):
-        return {"items": [{"uid": i.uid, "slot": i.slot, "rank": i.rank, "source": i.source} for i in self.items],
+        return {"items": [{"uid": i.uid, "slot": i.slot, "rank": i.rank, "source": i.source,
+                           "set_id": i.set_id} for i in self.items],
                 "equipped": dict(self.equipped), "next_uid": self.next_uid}
 
     @classmethod
@@ -196,7 +216,8 @@ class Inventory:
         for raw in data["items"]:
             if not isinstance(raw, dict):
                 raise ValueError("Invalid item")
-            inv.add(Item(raw["uid"], raw["slot"], raw["rank"], raw.get("source", "drop")), auto_equip=False)
+            inv.add(Item(raw["uid"], raw["slot"], raw["rank"], raw.get("source", "drop"),
+                         raw.get("set_id")), auto_equip=False)
         equipped = data.get("equipped", {})
         if not isinstance(equipped, dict) or set(equipped) - set(SLOTS):
             raise ValueError("Invalid equipment")

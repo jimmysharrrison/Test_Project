@@ -1,4 +1,4 @@
-# Embervault — Ice Mage and Thornveil Forest
+# Embervault — Ice Mage and Frostweave Enchanter
 
 ## Direction
 
@@ -42,7 +42,7 @@ screens suspend simulation and accept mouse or keyboard navigation.
 
 | Slot | Ability | Role |
 | --- | --- | --- |
-| Q | Ice Bolt | Free repeatable skill shot; damage and chill |
+| Q | Frost Bolt | Free repeatable skill shot; damage and chill |
 | W | Frost Nova | Close-range damage and a hard freeze for breathing room |
 | E | Ice Wall | Temporary terrain to redirect a crowd |
 | R | Glacial Prison | Long-cooldown defensive stasis followed by a damaging shatter |
@@ -59,6 +59,20 @@ Five slots: Helm (damage), Chest (maximum health), Legs (flat armor), Gloves
 are 1–3; enchanting purchased Rank 0 blanks or existing loot can reach Rank 5.
 The final upgrade costs 15,000 gold. Rank 1 boots are guaranteed once for the
 first level clear, while higher-rank boots remain rare drops or costly enchants.
+
+Enchanter blanks form the Frostweave set. All five pieces must be equipped at
+Rank 3+; backpack ownership does not count. The lowest equipped piece sets a
+15% / 25% / 40% Frost Bolt freeze chance at full-set Rank 3 / 4 / 5. Freeze lasts
+one second and preserves any longer existing freeze. Set identity survives
+enchants and saves and is separate from dropped/reward gear. Old shop blanks
+are recognized; old enchanted items without origin metadata are not retagged.
+
+The enchanter uses an explicit target slot. Worn or backpack gear can be dragged
+there, with a selected-item button as an alternative. The target is a UID
+reference, so placement does not move or unequip the item. Enchant charges the
+displayed cost only when pressed and applies only to the loaded target. Future
+enchantments can build on this target selection. The shop includes a paged
+backpack and accepts drags that hover the Enchanter tab from inventory.
 
 Inventory, tooltips, live effective stats, a paged backpack, and the enchanter
 are available in paused menus. Spare items can be sold for a rank-based gold

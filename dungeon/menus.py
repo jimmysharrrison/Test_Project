@@ -165,7 +165,7 @@ class Menus:
                                   "Left click an enemy to inspect health and effects.",
                                   "Aim skill shots with the mouse. S stops movement.")):
             renderer.text(line, 282, 286 + i * 25, 12, white)
-        spells = (("Q", "Ice Bolt", "Hold Q to fire. Damages and slows enemies."),
+        spells = (("Q", "Frost Bolt", "Hold Q to fire. Damages and slows enemies."),
                   ("W", "Frost Nova", "Freeze nearby enemies and stop their attacks."),
                   ("E", "Ice Wall", "Block enemies and arrows with a temporary wall."),
                   ("R", "Glacial Prison", "Become immune, then shatter for area damage."))

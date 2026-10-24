@@ -19,7 +19,7 @@ contributes bonuses. Spare pieces do not stack.
 | Boots: additional crit multiplier | +0.10× | +0.20× | +0.35× | +0.50× | +0.75× |
 
 For example, Rank 3 boots yield 3.565 movement speed, 11% critical chance, and a
-2.35× critical multiplier. With a Rank 3 helm, a normal Ice Bolt deals 31 damage
+2.35× critical multiplier. With a Rank 3 helm, a normal Frost Bolt deals 31 damage
 and a critical bolt with those boots deals 73 damage (rounded after bonuses).
 
 A Rank 5 chest gives 230 maximum HP. Equipping or enchanting a chest does not
@@ -47,6 +47,14 @@ duration. Gear cannot be changed or enchanted while Glacial Prison is active.
 Press **B** for the enchanter or **I** for inventory. Both menus pause combat.
 Blank gear starts at Rank 0 with no bonuses.
 
+All purchased blanks belong to the Frostweave set. Their names are Frostweave
+Crown, Frostweave Vestment, Frostweave Leggings, Frostweave Grips, and Frostweave
+Treads. Set identity is independent of rank and persists through every enchant
+and save. Enchanting dropped or reward gear does not convert it into Frostweave.
+Existing shop blanks migrate automatically. Legacy enchanted items lacking set
+metadata remain ordinary equipment, because their original shop/drop origin
+was not retained in the previous format.
+
 | Blank item | Price |
 | --- | ---: |
 | Helm | 40 gold |
@@ -70,6 +78,37 @@ Enchanting a blank all the way to Rank 5 costs 18,150 gold, plus the blank's
 purchase price. Rank 5 is intentionally an expensive long-term target. Existing
 Rank 1–3 loot can also be enchanted, saving the cost of the lower upgrades.
 Purchases and enchants check funds before changing ownership or taking gold.
+
+Drag equipment from the worn slots or the shop's paged backpack into the
+Enchanting Slot, then press Enchant to pay for the next rank. The slot refers
+to the owned item; placing or clearing it does not transfer ownership, unequip,
+duplicate, or destroy gear. Selecting a different item does not change the
+loaded target. Place Selected Item is the click-only alternative. New purchases
+are loaded automatically. A drag can start in inventory, hover the Enchanter
+tab to switch views, and finish in the slot. Escape, focus loss, and invalid
+drops cancel safely. Only the loaded item receives the enchant, with the normal
+gold, rank, death, and Glacial Prison checks.
+
+## Frostweave set bonus
+
+All five different slots must have Frostweave pieces **equipped** at Rank 3 or
+higher. Owning pieces in the backpack does not satisfy the requirement. The
+lowest equipped piece controls the full-set rank, so a mixed Rank 3/4/5 set
+uses the Rank 3 bonus until every piece reaches Rank 4.
+
+| Full-set rank | Frost Bolt freeze chance | Freeze duration |
+| --- | ---: | ---: |
+| Below 3 or incomplete | 0% | — |
+| 3 | 15% | 1 second |
+| 4 | 25% | 1 second |
+| 5 | 40% | 1 second |
+
+The roll occurs when Q / Frost Bolt hits a surviving enemy and uses the set
+equipped at that instant. The normal chill still applies. Freeze stops movement
+and attacks and interrupts an archer's bow draw; it never shortens a longer
+freeze already on the target. Spawners, misses, killing blows, enemy arrows,
+and other spells do not trigger this bonus. Set progress appears in character
+stats, set details in item tooltips, and the active chance in Q's tooltip.
 
 ## Selling and destroying spare gear
 

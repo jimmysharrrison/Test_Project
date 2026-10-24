@@ -7,7 +7,7 @@ from random import Random
 
 from .abilities import ABILITIES
 from .geometry import Vec
-from .items import BLANK_COST, Inventory, Item, SLOTS
+from .items import BLANK_COST, FROSTWEAVE_FREEZE, Inventory, Item, SLOTS
 from .levels import FROSTFALL, level_for_depth
 from .navigation import find_path, flood, neighbors
 
@@ -126,6 +126,7 @@ class Projectile:
     life: float = 1.05
     damage: int = 24
     hostile: bool = False
+    spell: str = "q"
 
 
 @dataclass(slots=True)
@@ -151,6 +152,7 @@ class World:
         self.seed = seed
         self.rng = Random(seed)
         self.combat_rng = Random(seed)
+        self.proc_rng = Random(None if seed is None else seed + 8727)
         self.loot_rng = Random(None if seed is None else seed + 1937)
         self.player = player if player is not None else Player()
         self.level = level
@@ -327,7 +329,7 @@ class World:
         if not reason and key == "e":
             cells, reason = self.wall_preview(target)
         if not reason and key == "q" and (target - self.player.pos).length() < 0.1:
-            reason = "Aim Ice Bolt away from yourself."
+            reason = "Aim Frost Bolt away from yourself."
         if reason:
             if feedback:
                 self.announce(reason)
@@ -507,6 +509,12 @@ class World:
                     self._hit(target, shot.damage)
                     if isinstance(target, Enemy) and target.hp > 0:
                         target.chilled = max(target.chilled, ABILITIES["q"].duration)
+                        chance = self.player.inventory.stats.frostweave_freeze_chance if shot.spell == "q" else 0
+                        if chance and self.proc_rng.random() < chance:
+                            target.frozen = max(target.frozen, FROSTWEAVE_FREEZE)
+                            target.windup, target.shot_target = 0, None
+                            self.effects.append(Effect(target.pos, "freeze", .5, .5, "FROZEN!"))
+                            self.events.append("freeze")
                     shot.life = 0
                     break
             if shot.life <= 0:

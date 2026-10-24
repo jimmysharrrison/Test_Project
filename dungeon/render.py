@@ -7,7 +7,7 @@ import pygame
 
 from .abilities import ABILITIES
 from .armory import Armory, item_icon
-from .items import RANK_COLORS
+from .items import FROSTWEAVE_FREEZE, RANK_COLORS
 from .menus import FRONTEND_MODES, Menus
 from .geometry import Vec, project
 
@@ -707,12 +707,14 @@ class Renderer:
             ability = ABILITIES[hover]
             rect = self.ability_rects[hover]
             x = min(rect.x, 980)
-            box = pygame.Rect(x, 665, 406, 106)
+            chance = world.player.inventory.stats.frostweave_freeze_chance if hover == "q" else 0
+            height = 130 if chance else 106
+            box = pygame.Rect(x, 771 - height, 406, height)
             pygame.draw.rect(self.screen, (20, 33, 46), box, border_radius=6)
             pygame.draw.rect(self.screen, (75, 111, 138), box, 1, border_radius=6)
-            self.text(f"{hover.upper()}  {ability.name}", x + 14, 679, 17, ICE, serif=True)
+            self.text(f"{hover.upper()}  {ability.name}", x + 14, box.y + 14, 17, ICE, serif=True)
             # Wrap the short description using the same font as the rendered text.
-            words, line, yy = ability.description.split(), "", 710
+            words, line, yy = ability.description.split(), "", box.y + 45
             for word in words:
                 candidate = (line + " " + word).strip()
                 if self.font(11).size(candidate)[0] > 376:
@@ -721,6 +723,8 @@ class Renderer:
                 else:
                     line = candidate
             self.text(line, x + 14, yy, 11, WHITE)
+            if chance:
+                self.text(f"Frostweave: {chance:.0%} chance to freeze for {FROSTWEAVE_FREEZE:g}s.", x + 14, 724, 11, ICE)
             self.text(f"{world.player.cooldown_for(hover):.2f}s cooldown · {int(ability.mana)} mana", x + 14, 748, 10, MUTED)
 
     def pine(self, x, y, size, forest=False):
@@ -866,7 +870,7 @@ class Renderer:
         self.text(title, center, 333, 35, WHITE, serif=True, center=True)
         self.text(subtitle, center, 393, 14, MUTED, center=True)
         self.text("Right click or hold to move   ·   Left click to select enemies", center, 438, 12, WHITE, center=True)
-        self.text("Q Ice Bolt   ·   W Frost Nova   ·   E Ice Wall   ·   R Glacial Prison", center, 465, 12, WHITE, center=True)
+        self.text("Q Frost Bolt   ·   W Frost Nova   ·   E Ice Wall   ·   R Glacial Prison", center, 465, 12, WHITE, center=True)
         self.button = pygame.Rect(center - 183, 529, 366, 51)
         pygame.draw.rect(self.screen, (64, 77, 69), self.button, border_radius=4)
         pygame.draw.rect(self.screen, GOLD, self.button, 1, border_radius=4)
