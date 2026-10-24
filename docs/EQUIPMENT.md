@@ -112,9 +112,14 @@ Depths 3 onward reuse the forest. Each additional depth adds 15% to base enemy/
 spawner health and gold, and 12% to base enemy attack damage. Each new room has
 its own spawners and enemies. More chapters and bosses are future work.
 
-Equipment, enchantments, gold, potions, kills, unlocked depth, and the claimed
-boot reward are saved locally. A new session starts a fresh room at the highest
-unlocked depth with full health and mana. Death keeps earned equipment and gold.
+Equipment, enchantments, gold, potions, kills, current level, highest reached
+depth, and the claimed boot reward are saved locally. Launching shows the title
+menu. Continue loads a fresh room at the current level with full health and
+mana. Level Select replays reached levels while keeping gear and unlocks.
+New destinations unlock on entry through the portal, rather than on clearing
+the previous room. Start Game resets the character, including gear and unlocks,
+after confirmation. Death keeps earned equipment and gold and retries the
+current level.
 The exact positions of enemies, temporary walls, and projectiles are not saved.
 
 Default save location:

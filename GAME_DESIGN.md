@@ -8,6 +8,13 @@ The playable hero is a female Ice Mage who controls crowds through cold.
 
 ## Current playable loop
 
+The title screen offers Start Game, Continue, Level Select, How to Play, and
+Quit. Start Game creates a fresh level-1 character and asks before replacing an
+existing one. Continue uses the current level, separately from the highest
+unlocked level. Level Select preserves gear and permits only reached levels.
+Escape opens a pause menu with Resume, How to Play, and Main Menu. Frontend
+screens suspend simulation and accept mouse or keyboard navigation.
+
 1. Enter Frostfall Glade, a forest ruin occupied by molten skeletons and skitters.
 2. Right click to move, or hold right mouse to continually follow the cursor.
 3. Aim and cast QWER spells; select enemies with left click to inspect them.
@@ -58,7 +65,11 @@ are available in paused menus. Spare items can be sold for a rank-based gold
 value or destroyed after confirmation. Equipped items must be unequipped first.
 Gear cannot be changed during Glacial Prison.
 Chest swaps cannot heal the player. Saves preserve gear, enchants, gold, and
-unlocked depth locally. See `docs/EQUIPMENT.md` for the initial balance tables.
+current level and highest reached depth locally. Entering a new level unlocks
+it permanently for that character; clearing its predecessor only opens the
+portal. Replaying an earlier level keeps the higher unlock. Death retries the
+current level. Existing saves preserve their previous unlocks.
+See `docs/EQUIPMENT.md` for the initial balance tables.
 
 On a clear, remaining equipment and gold are collected. At the exit, the mage
 advances from the original arena to the distinct forest layout. Depths 3 onward

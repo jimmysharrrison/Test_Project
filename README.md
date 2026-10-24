@@ -5,6 +5,8 @@ Play a female Ice Mage in Frostfall Glade: move with the mouse, control crowds
 with ice, collect ranked equipment, enchant it, and destroy three molten rifts
 to enter level 2: Thornveil Forest, with cursed trees, spiders, and skeletal archers.
 
+![Title menu](docs/title.png)
+
 ![Thornveil Forest, level 2](docs/forest.png)
 
 ![Equipment inventory](docs/inventory.png)
@@ -33,8 +35,27 @@ uv run main.py
 
 On Windows, the project folder in the current setup is `C:\Projects\Test_Project`.
 uv selects Python 3.14.8 and installs the locked Pygame CE dependency. A graphical
-desktop is required for interactive play. Press **Enter** or click **Begin
-Descent** on the title screen.
+desktop is required for interactive play. Every normal launch opens the title
+menu and waits for your choice; combat does not run behind it.
+
+## Title menu and starting over
+
+- **Start Game** begins a fresh Ice Mage at level 1. If a character exists, a
+  confirmation explains that starting over replaces its gear, gold, and unlocks.
+- **Continue** resumes your current level with your saved character. A fresh
+  room is loaded after reopening the app; returning from the pause menu keeps
+  the current room. Continue is disabled until a character exists.
+- **Level Select** replays any reached level while keeping equipment and gold.
+  A destination unlocks only after you enter it through the preceding portal.
+  Replaying level 1 retains previously earned unlocks. New characters start
+  with only level 1 available.
+- **How to Play** explains mouse movement, targeting, spells, healing, gear,
+  and portal progression. It is also available from the pause menu.
+- **Quit** closes the game. Merely browsing menus does not create a character.
+
+Click buttons, or use **Up / Down** and **Enter**. Press **Escape** in game,
+then **Main Menu**, to return to the title screen and start over or select a
+level. The game stays paused while you read instructions or browse levels.
 
 ## Controls
 
@@ -58,6 +79,7 @@ Descent** on the title screen.
 | I / click Gear | Open or close inventory |
 | B | Open or close the shop and enchanter |
 | Enter / click the end-screen button | Continue to the next depth, or restart after death |
+| Up / Down + Enter | Navigate title, level, instructions, and pause menus |
 
 Left click selects enemies; it never performs an automatic attack. A selection
 does not redirect skill shots. Q aims where the cursor is pointing. Ice Wall's
@@ -147,17 +169,20 @@ hit apply to arrow damage too. Archers navigate around blocked sight lines.
 
 Depths 3 onward currently reuse the forest with stronger enemies and higher
 gold rewards. Each additional depth adds 15% to base enemy/spawner health and
-gold, and 12% to base attack damage. To try the forest immediately without
-changing your saved character, run `uv run main.py --level 2 --no-save`.
+gold, and 12% to base attack damage. After reaching the forest, choose it from
+**Level Select** to replay it. The optional `--level N` flag can choose a reached
+level, but does not bypass locks in interactive play. Headless previews may
+use any depth, for example `--headless --level 2 --frames 120`.
 
 Gold and equipment can be collected on contact before the clear. Food heals
 injured players. Potions restore up to 40 health, respect your equipped maximum
 health, and are not consumed at full health.
 
-The local character saves equipment, enchantments, gold, potions, kills, and
-unlocked depth automatically. On Windows the save is in
-`%LOCALAPPDATA%\Embervault\profile.json`. A new session starts a fresh room at
-the highest unlocked depth. Use `uv run main.py --no-save` for a temporary
+The local character saves equipment, enchantments, gold, potions, kills, current
+level, and highest reached depth automatically. On Windows the save is in
+`%LOCALAPPDATA%\Embervault\profile.json`. Existing saves retain their unlocks.
+Continue loads your current level, which can differ from your highest unlock.
+Use `uv run main.py --no-save` for a temporary
 character, or `--profile PATH` to choose another save file. Profile errors appear
 in-game; an invalid profile is preserved instead of being overwritten.
 
@@ -191,6 +216,7 @@ headless environment. `--frames` exits after the given frame count.
 - `dungeon/items.py`: ranked equipment, character bonuses, drop values, and prices.
 - `dungeon/armory.py`: inventory, item tooltips, backpack pages, and enchanting UI.
 - `dungeon/profile.py`: local character saves.
+- `dungeon/menus.py`: splash menu, instructions, pause navigation, and level selection.
 - `dungeon/abilities.py`: spell definitions and initial balance values.
 - `dungeon/levels.py`: chapter themes, distinct layouts, and enemy rosters.
 - `dungeon/controls.py`: mouse orders, button targeting, and hotkey casting.

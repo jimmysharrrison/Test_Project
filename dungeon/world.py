@@ -41,6 +41,7 @@ class Player:
     inventory: Inventory = field(default_factory=Inventory)
     first_clear_rewarded: bool = False
     unlocked_level: int = 1
+    current_level: int = 1
 
     @property
     def max_hp(self):
@@ -153,6 +154,8 @@ class World:
         self.loot_rng = Random(None if seed is None else seed + 1937)
         self.player = player if player is not None else Player()
         self.level = level
+        self.player.current_level = level
+        self.player.unlocked_level = max(self.player.unlocked_level, level)
         self.level_data = level_for_depth(level)
         self.layout = self.level_data.layout
         self.level_completed = False
@@ -639,7 +642,6 @@ class World:
             return
         self.level_completed = True
         player = self.player
-        player.unlocked_level = max(player.unlocked_level, self.level + 1)
         if self.level == 1 and not player.first_clear_rewarded:
             reward = player.inventory.create("boots", 1, "reward")
             player.inventory.add(reward)

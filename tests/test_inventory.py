@@ -171,7 +171,7 @@ class InventoryTests(unittest.TestCase):
             self.world.update(1 / 60)
         self.assertEqual(len([i for i in self.world.player.inventory.items if i.source == "reward"]), 1)
         self.assertTrue(self.world.player.first_clear_rewarded)
-        self.assertEqual(self.world.player.unlocked_level, 2)
+        self.assertEqual(self.world.player.unlocked_level, 1)
         self.assertFalse(any(p.kind in ("item", "gold") for p in self.world.pickups))
 
     def test_next_level_carries_gear_gold_and_scales_enemies(self):
@@ -273,6 +273,31 @@ class InventoryTests(unittest.TestCase):
 
 
 class ProfileTests(unittest.TestCase):
+    def test_legacy_save_retains_unlocks_and_uses_last_known_depth(self):
+        with TemporaryDirectory() as folder:
+            path = Path(folder) / "profile.json"
+            store = ProfileStore(path)
+            store.save(Player(unlocked_level=2, gold=77))
+            data = json.loads(path.read_text())
+            del data["current_level"]
+            path.write_text(json.dumps(data))
+            loaded = ProfileStore(path).load()
+            self.assertEqual((loaded.current_level, loaded.unlocked_level, loaded.gold), (2, 2, 77))
+
+    def test_invalid_current_level_preserves_save(self):
+        for invalid in (0, 3, True, "2"):
+            with self.subTest(value=invalid), TemporaryDirectory() as folder:
+                path = Path(folder) / "profile.json"
+                ProfileStore(path).save(Player(unlocked_level=2))
+                data = json.loads(path.read_text())
+                data["current_level"] = invalid
+                contents = json.dumps(data)
+                path.write_text(contents)
+                store = ProfileStore(path)
+                self.assertIsNone(store.load())
+                self.assertFalse(store.save(Player()))
+                self.assertEqual(path.read_text(), contents)
+
     def test_profile_round_trip_preserves_ownership_enchants_gold_and_depth(self):
         player = Player(gold=12345, unlocked_level=4, first_clear_rewarded=True)
         for rank, slot in enumerate(SLOTS, 1):
@@ -286,6 +311,7 @@ class ProfileTests(unittest.TestCase):
             self.assertEqual(loaded.inventory.to_dict(), player.inventory.to_dict())
             self.assertEqual(loaded.gold, 12345)
             self.assertEqual(loaded.unlocked_level, 4)
+            self.assertEqual(loaded.current_level, 1)
             self.assertTrue(loaded.first_clear_rewarded)
             self.assertEqual(loaded.hp, loaded.max_hp)
 

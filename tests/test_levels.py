@@ -59,6 +59,8 @@ class ForestLevelTests(unittest.TestCase):
         world.player.cooldowns["r"] = 20
         self.assertTrue(world.next_level())
         self.assertEqual(world.level, 2)
+        self.assertEqual(player.current_level, 2)
+        self.assertEqual(player.unlocked_level, 2)
         self.assertEqual(world.level_data.name, "Thornveil Forest")
         self.assertIs(world.player, player)
         self.assertEqual(inv.to_dict(), gear)
@@ -76,7 +78,7 @@ class ForestLevelTests(unittest.TestCase):
             world._hit(spawner, 10000)
         self.assertTrue(world.exit_open)
         self.assertTrue(world.enemies)
-        self.assertEqual(world.player.unlocked_level, 3)
+        self.assertEqual(world.player.unlocked_level, 2)
         self.assertFalse(any(item.source == "reward" for item in world.player.inventory.items))
         self.assertFalse(any(p.kind in ("gold", "item") for p in world.pickups))
         world.player.pos = world.exit
@@ -84,6 +86,7 @@ class ForestLevelTests(unittest.TestCase):
         self.assertEqual(world.state, "cleared")
         self.assertTrue(world.next_level())
         self.assertEqual(world.level, 3)
+        self.assertEqual(world.player.unlocked_level, 3)
         self.assertEqual({e.kind for e in world.enemies}, {"tree", "spider", "archer"})
 
 

@@ -26,7 +26,7 @@ def click(button, point):
 
 
 class DesktopTests(unittest.TestCase):
-    def run_app(self, script, observer=None, profile_path=None):
+    def run_app(self, script, observer=None, profile_path=None, extra_args=()):
         worlds, frames = [], []
         pointer = [800, 480]
         buttons = [False, False, False]
@@ -63,6 +63,7 @@ class DesktopTests(unittest.TestCase):
 
         args = ["main.py", "--frames", str(len(script)), "--seed", "7"]
         args += ["--profile", str(profile_path)] if profile_path is not None else ["--no-save"]
+        args += list(extra_args)
         with (
             patch.object(sys, "argv", args),
             patch("dungeon.app.World", side_effect=new_world),
@@ -74,6 +75,150 @@ class DesktopTests(unittest.TestCase):
         ):
             app.main()
         return worlds, frames
+
+    def test_launch_waits_on_splash_and_does_not_create_save_or_accept_gameplay_input(self):
+        from pathlib import Path
+        from tempfile import TemporaryDirectory
+        script = [[], [key(pygame.K_q), key(pygame.K_i), key(pygame.K_b), click(3, (900, 500))], []]
+        with TemporaryDirectory() as folder:
+            path = Path(folder) / "profile.json"
+            worlds, frames = self.run_app(script, profile_path=path)
+            self.assertFalse(path.exists())
+        self.assertEqual(frames, [("title", 0)] * 3)
+        self.assertEqual(worlds[0].projectiles, [])
+        self.assertEqual(worlds[0].path, [])
+
+    def test_splash_with_saved_forest_waits_for_continue(self):
+        from pathlib import Path
+        from tempfile import TemporaryDirectory
+        from dungeon.profile import ProfileStore
+        from dungeon.world import Player
+        with TemporaryDirectory() as folder:
+            path = Path(folder) / "profile.json"
+            ProfileStore(path).save(Player(current_level=2, unlocked_level=2, gold=99))
+            worlds, frames = self.run_app([[], [], [click(1, (970, 364))]], profile_path=path)
+        self.assertEqual(frames[:2], [("title", 0)] * 2)
+        self.assertEqual(frames[2][0], "playing")
+        self.assertEqual(worlds[0].level, 2)
+        self.assertEqual(worlds[0].player.gold, 99)
+
+    def test_howto_returns_to_title_and_keyboard_can_start_game(self):
+        script = [[click(1, (970, 488))], [key(pygame.K_q), key(pygame.K_i)],
+                  [key(pygame.K_RETURN)], [key(pygame.K_RETURN)]]
+        worlds, frames = self.run_app(script)
+        self.assertEqual([mode for mode, _ in frames], ["howto", "howto", "title", "playing"])
+        self.assertEqual([time for _, time in frames[:3]], [0, 0, 0])
+        self.assertEqual(worlds[0].level, 1)
+        self.assertEqual(worlds[0].projectiles, [])
+
+    def test_start_over_can_be_cancelled_then_resets_character_and_save(self):
+        from pathlib import Path
+        from tempfile import TemporaryDirectory
+        from dungeon.profile import ProfileStore
+        from dungeon.world import Player
+        snapshots = []
+        def observer(frame, world, renderer):
+            snapshots.append((world.level, world.player.gold, world.player.unlocked_level,
+                              len(world.player.inventory.items)))
+        with TemporaryDirectory() as folder:
+            path = Path(folder) / "profile.json"
+            player = Player(current_level=2, unlocked_level=2, gold=999, kills=20, potions=0,
+                            first_clear_rewarded=True)
+            player.inventory.add(player.inventory.create("helm", 3))
+            ProfileStore(path).save(player)
+            script = [[click(1, (970, 302))], [key(pygame.K_RETURN)],
+                      [click(1, (970, 302))], [key(pygame.K_ESCAPE)],
+                      [click(1, (970, 302))], [click(1, (915, 554))]]
+            worlds, frames = self.run_app(script, observer, path)
+            saved = ProfileStore(path).load()
+        self.assertEqual([mode for mode, _ in frames],
+                         ["confirm_new", "title", "confirm_new", "title", "confirm_new", "playing"])
+        self.assertEqual(snapshots[:5], [(2, 999, 2, 1)] * 5)
+        self.assertEqual(snapshots[5], (1, 0, 1, 0))
+        self.assertEqual((saved.current_level, saved.unlocked_level, saved.gold, saved.kills, saved.potions),
+                         (1, 1, 0, 0, 3))
+        self.assertFalse(saved.first_clear_rewarded)
+        self.assertEqual(len(worlds), 2)
+
+    def test_locked_level_cannot_be_clicked_or_selected_with_keyboard(self):
+        script = [[click(1, (970, 426))], [click(1, (720, 351))],
+                  [key(pygame.K_DOWN)], [key(pygame.K_RETURN)]]
+        worlds, frames = self.run_app(script)
+        self.assertEqual([mode for mode, _ in frames], ["levels", "levels", "levels", "title"])
+        self.assertTrue(all(time == 0 for _, time in frames))
+        self.assertEqual(len(worlds), 1)
+        self.assertEqual(worlds[0].player.unlocked_level, 1)
+
+    def test_cli_level_cannot_bypass_locked_destination_in_interactive_game(self):
+        notices = []
+        def observer(frame, world, renderer):
+            notices.append(renderer.menu.notice)
+        worlds, frames = self.run_app([[], [click(1, (970, 426))], [click(1, (720, 351))]],
+                                     observer, extra_args=("--level", "2"))
+        self.assertEqual(worlds[0].level, 1)
+        self.assertIn("locked", notices[0])
+        self.assertEqual(frames[-1][0], "levels")
+
+    def test_unlocked_level_replay_keeps_gear_and_highest_unlock_across_reload(self):
+        from pathlib import Path
+        from tempfile import TemporaryDirectory
+        from dungeon.profile import ProfileStore
+        from dungeon.world import Player
+        with TemporaryDirectory() as folder:
+            path = Path(folder) / "profile.json"
+            player = Player(current_level=2, unlocked_level=2, gold=444, first_clear_rewarded=True)
+            player.inventory.add(player.inventory.create("boots", 2))
+            ProfileStore(path).save(player)
+            worlds, frames = self.run_app([[click(1, (970, 426))], [click(1, (720, 283))]], profile_path=path)
+            saved = ProfileStore(path).load()
+            reload_worlds, reload_frames = self.run_app([[], [click(1, (970, 364))]], profile_path=path)
+        replay = worlds[-1]
+        self.assertEqual((replay.level, saved.current_level, saved.unlocked_level, saved.gold), (1, 1, 2, 444))
+        self.assertEqual(saved.inventory.worn("boots").rank, 2)
+        self.assertTrue(saved.first_clear_rewarded)
+        self.assertEqual(frames[1][0], "playing")
+        self.assertEqual(reload_frames[0], ("title", 0))
+        self.assertEqual(reload_worlds[0].level, 1)
+
+    def test_first_portal_arrival_unlocks_forest_for_level_select(self):
+        snapshots = []
+        def observer(frame, world, renderer):
+            snapshots.append((world.level, world.player.unlocked_level))
+            if frame == 1:
+                world.spawners.clear()
+                world.player.pos = world.exit
+        script = [[key(pygame.K_RETURN)], [], [key(pygame.K_RETURN)],
+                  [key(pygame.K_ESCAPE)], [click(1, (852, 614))],
+                  [click(1, (970, 426))], [click(1, (720, 351))]]
+        worlds, frames = self.run_app(script, observer)
+        self.assertEqual(snapshots[:2], [(1, 1), (1, 1)])
+        self.assertEqual(snapshots[2], (2, 2))
+        self.assertEqual(frames[4][0], "title")
+        self.assertEqual(frames[5][0], "levels")
+        self.assertEqual(frames[6][0], "playing")
+        self.assertEqual(worlds[-1].level, 2)
+
+    def test_pause_help_main_menu_and_continue_do_not_tick_simulation(self):
+        script = [[key(pygame.K_RETURN)], [key(pygame.K_ESCAPE)],
+                  [click(1, (852, 487))], [key(pygame.K_ESCAPE)],
+                  [click(1, (852, 614))], [], [click(1, (970, 364))]]
+        worlds, frames = self.run_app(script)
+        self.assertEqual([mode for mode, _ in frames],
+                         ["playing", "paused", "howto", "paused", "title", "title", "playing"])
+        self.assertEqual(len({time for _, time in frames[:6]}), 1)
+        self.assertGreater(frames[-1][1], frames[0][1])
+        self.assertEqual(len(worlds), 1)
+
+    def test_death_retries_current_level_instead_of_highest_unlocked_level(self):
+        def observer(frame, world, renderer):
+            if frame == 1:
+                world.player.unlocked_level = 2
+                world.state = "dead"
+                world.player.hp = 0
+        worlds, _ = self.run_app([[key(pygame.K_RETURN)], [key(pygame.K_RETURN)]], observer)
+        self.assertEqual(worlds[-1].level, 1)
+        self.assertEqual(worlds[-1].player.unlocked_level, 2)
+        self.assertEqual(worlds[-1].player.hp, worlds[-1].player.max_hp)
 
     def test_entering_portal_loads_forest_floor_and_resets_input(self):
         layouts, floors = [], []
@@ -220,10 +365,13 @@ class DesktopTests(unittest.TestCase):
             profile = Path(folder) / "profile.json"
             self.run_app([[key(pygame.K_RETURN)]], observer, profile)
             self.assertTrue(profile.exists())
-            worlds, _ = self.run_app([[key(pygame.K_RETURN)]], profile_path=profile)
+            worlds, frames = self.run_app([[], [click(1, (970, 364))]], profile_path=profile)
             self.assertEqual(worlds[0].player.gold, 321)
             self.assertEqual(worlds[0].player.inventory.worn("helm").rank, 3)
-            self.assertEqual(worlds[0].level, 2)
+            self.assertEqual(worlds[0].level, 1)
+            self.assertEqual(worlds[0].player.unlocked_level, 2)
+            self.assertEqual(frames[0], ("title", 0))
+            self.assertEqual(frames[1][0], "playing")
 
 
     def test_sell_and_destroy_confirmation_cancel_then_confirm(self):

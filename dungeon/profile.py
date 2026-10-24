@@ -36,10 +36,14 @@ class ProfileStore:
             for key, value in values.items():
                 if type(value) is not int or not (1 if key == "unlocked_level" else 0) <= value <= 1_000_000_000:
                     raise ValueError("Invalid saved player values")
+            # Older saves only tracked the highest depth; retain that progress.
+            current = data.get("current_level", values["unlocked_level"])
+            if type(current) is not int or not 1 <= current <= values["unlocked_level"]:
+                raise ValueError("Invalid current level")
             rewarded = data.get("first_clear_rewarded", False)
             if type(rewarded) is not bool:
                 raise ValueError("Invalid reward state")
-            player = Player(inventory=inv, first_clear_rewarded=rewarded, **values)
+            player = Player(inventory=inv, first_clear_rewarded=rewarded, current_level=current, **values)
             player.hp = player.max_hp
             self._last = data
             return player
@@ -52,6 +56,7 @@ class ProfileStore:
         if not self.writable:
             return False
         data = {"version": 1, "gold": player.gold, "unlocked_level": player.unlocked_level,
+                "current_level": player.current_level,
                 "potions": player.potions, "kills": player.kills,
                 "first_clear_rewarded": player.first_clear_rewarded,
                 "inventory": player.inventory.to_dict()}

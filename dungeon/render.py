@@ -8,6 +8,7 @@ import pygame
 from .abilities import ABILITIES
 from .armory import Armory, item_icon
 from .items import RANK_COLORS
+from .menus import FRONTEND_MODES, Menus
 from .geometry import Vec, project
 
 WIDTH, HEIGHT = 1440, 900
@@ -40,6 +41,7 @@ class Renderer:
         self.glows = {}
         self.sound_enabled = True
         self.armory = Armory()
+        self.menu = Menus()
         self.gear_button = pygame.Rect(1109, 113, 137, 28)
         self.profile_notice = ""
         self.armed = None
@@ -750,6 +752,9 @@ class Renderer:
                 pygame.draw.line(self.screen, (93, 166, 207), (start[0], start[1] - 15), (end[0], end[1] - 15), 1)
 
     def draw(self, world, mouse=None, mode="playing"):
+        if mode in FRONTEND_MODES:
+            self.menu.draw(self, world, mouse, mode)
+            return
         if self.floor_key != (world.layout, world.level_data.theme):
             self._build_floor(world)
         forest = world.level_data.forest
@@ -817,6 +822,8 @@ class Renderer:
             self.text(self.profile_notice, 325, 735, 10, GOLD)
         if mode in ("inventory", "shop"):
             self.armory.draw(self, world, mouse, mode)
+        elif mode == "paused":
+            self.menu.draw(self, world, mouse, mode)
         elif mode != "playing" or world.state != "playing":
             self.overlay(world, mode)
         elif mouse and self.world_area(mouse):

@@ -16,7 +16,7 @@ def main():
     parser.add_argument("--frames", type=int, help="Exit after this many frames")
     parser.add_argument("--screenshot", type=Path, help="Save the final frame as a PNG")
     parser.add_argument("--seed", type=int, help="Use a repeatable simulation")
-    parser.add_argument("--level", type=int, help="Start at a specific level instead of your unlocked depth")
+    parser.add_argument("--level", type=int, help="Choose a reached level; headless previews may use any level")
     parser.add_argument("--no-save", action="store_true", help="Do not load or save a local character")
     parser.add_argument("--profile", type=Path, help="Use an explicit character profile path")
     args = parser.parse_args()
@@ -31,6 +31,7 @@ def main():
     import pygame
 
     from .audio import Audio
+    from .menus import FRONTEND_MODES
     from .render import HEIGHT, ORIGIN, WIDTH, Renderer
 
     pygame.display.init()
@@ -41,16 +42,46 @@ def main():
     audio = Audio()
     store = None if args.no_save or (args.headless and args.profile is None) else ProfileStore(args.profile)
     player = store.load() if store else None
-    start_level = args.level if args.level is not None else player.unlocked_level if player else 1
+    has_character = player is not None or args.headless
+    current_level = player.current_level if player else 1
+    unlocked_level = player.unlocked_level if player else 1
+    locked_request = args.level is not None and args.level > unlocked_level and not args.headless
+    start_level = args.level if args.level is not None and not locked_request else current_level
     world = World(args.seed, player=player, level=start_level)
     controls = Controls(world)
     renderer = Renderer(canvas, world)
+    renderer.menu.has_character = has_character
+    if locked_request:
+        renderer.menu.notice = f"Level {args.level} is locked. Reach it through the portal first."
     clock = pygame.time.Clock()
     mode = "playing" if args.headless else "title"
     menu_return = "playing"
+    help_return = "title"
     save_timer = 0
     running = True
     frame = 0
+
+    def begin_level(level, fresh=False):
+        nonlocal world, controls, mode, menu_return, has_character
+        if fresh:
+            world = World(args.seed)
+        else:
+            earned = world.player
+            earned.hp, earned.mana = earned.max_hp, 100
+            earned.pos = Vec(3.5, 13.5)
+            earned.stasis = earned.cast_time = earned.flash = 0
+            earned.invincible = 1
+            earned.cooldowns = dict.fromkeys(earned.cooldowns, 0.0)
+            world = World(args.seed, player=earned, level=level)
+        controls = Controls(world)
+        renderer.armory.cancel_destroy()
+        renderer.armory.selected_uid = None
+        renderer.armory.page = 0
+        renderer.menu.notice = ""
+        renderer.menu.has_character = has_character = True
+        mode = menu_return = "playing"
+        if store:
+            store.save(world.player)
 
     def enter_or_restart():
         nonlocal world, controls, mode
@@ -58,20 +89,53 @@ def main():
             world.next_level()
             controls = Controls(world)
         elif world.state != "playing":
-            earned = world.player
-            earned.hp, earned.mana = earned.max_hp, 100
-            earned.pos = Vec(3.5, 13.5)
-            earned.stasis = earned.cast_time = earned.flash = 0
-            earned.invincible = 1
-            earned.cooldowns = dict.fromkeys(earned.cooldowns, 0.0)
-            retry_level = args.level if args.level is not None else earned.unlocked_level
-            world = World(args.seed, player=earned, level=retry_level)
-            controls = Controls(world)
+            begin_level(world.level)
         mode = "playing"
+
+    def menu_action(action):
+        nonlocal mode, help_return, running, has_character
+        if action == "start":
+            if has_character:
+                mode = "confirm_new"
+            else:
+                # The initial level is already prepared, but has never ticked.
+                mode = "playing"
+                renderer.menu.has_character = has_character = True
+                renderer.menu.notice = ""
+        elif action == "confirm_new":
+            begin_level(1, fresh=True)
+        elif action == "cancel_new":
+            mode = "title"
+        elif action == "continue" and has_character:
+            mode = "playing"
+        elif action == "levels":
+            renderer.menu.page = 0
+            mode = "levels"
+        elif action and action.startswith("level:"):
+            level = int(action.split(":")[1])
+            if 1 <= level <= world.player.unlocked_level:
+                begin_level(level)
+        elif action == "howto":
+            help_return, mode = mode, "howto"
+        elif action == "back":
+            mode = help_return if mode == "howto" else "title"
+        elif action == "resume":
+            mode = "playing"
+        elif action == "main_menu":
+            controls.cancel()
+            controls.right_up()
+            world.stop()
+            mode = "title"
+        elif action == "previous":
+            renderer.menu.page = max(0, renderer.menu.page - 1)
+        elif action == "next":
+            renderer.menu.page += 1
+        elif action == "quit":
+            running = False
 
     def open_armory(tab):
         nonlocal mode, menu_return
-        if mode == "title":
+        if mode in FRONTEND_MODES:
             return
         controls.cancel()
         renderer.armory.cancel_destroy()
@@ -110,18 +174,28 @@ def main():
                     controls.cancel()
                 elif event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_ESCAPE:
-                        if mode in ("inventory", "shop"):
+                        if mode == "howto":
+                            mode = help_return
+                        elif mode in ("levels", "confirm_new"):
+                            mode = "title"
+                        elif mode == "title":
+                            running = False
+                        elif mode in ("inventory", "shop"):
                             if not renderer.armory.cancel_destroy():
                                 mode = menu_return
                         elif not controls.cancel():
-                            if mode == "title":
-                                running = False
-                            else:
-                                mode = "playing" if mode == "paused" else "paused"
-                    elif event.key in (pygame.K_i, pygame.K_b):
-                        open_armory("inventory" if event.key == pygame.K_i else "shop")
+                            mode = "playing" if mode == "paused" else "paused"
                     elif event.key == pygame.K_m:
                         audio.toggle()
+                    elif mode in FRONTEND_MODES or mode == "paused":
+                        if event.key in (pygame.K_UP, pygame.K_DOWN):
+                            renderer.menu.move_focus(world, mode, -1 if event.key == pygame.K_UP else 1)
+                        elif event.key in (pygame.K_RETURN, pygame.K_SPACE):
+                            menu_action(renderer.menu.activate(world, mode))
+                        elif mode == "paused" and event.key in (pygame.K_i, pygame.K_b):
+                            open_armory("inventory" if event.key == pygame.K_i else "shop")
+                    elif event.key in (pygame.K_i, pygame.K_b):
+                        open_armory("inventory" if event.key == pygame.K_i else "shop")
                     elif event.key == pygame.K_RETURN and mode not in ("inventory", "shop"):
                         enter_or_restart()
                     elif mode == "playing" and world.state == "playing":
@@ -136,6 +210,10 @@ def main():
                     controls.right_up()
                 elif event.type == pygame.MOUSEBUTTONDOWN:
                     point = logical(getattr(event, "pos", pygame.mouse.get_pos()))
+                    if mode in FRONTEND_MODES or mode == "paused":
+                        if event.button == 1:
+                            menu_action(renderer.menu.click(world, mode, point))
+                        continue
                     if mode in ("inventory", "shop"):
                         if event.button == 1:
                             action = renderer.armory.click(world, point, mode)
@@ -172,7 +250,7 @@ def main():
                                 repeat_q=bool(keys[pygame.K_q]) and in_world)
                 world.update(dt, controls.aim)
             save_timer += elapsed
-            if store and save_timer >= 0.5:
+            if store and has_character and save_timer >= 0.5:
                 store.save(world.player)
                 save_timer = 0
             audio.play(world.events)
@@ -194,7 +272,7 @@ def main():
             pygame.image.save(canvas, str(args.screenshot))
             print(f"Screenshot saved to {args.screenshot}")
     finally:
-        if store:
+        if store and has_character:
             store.save(world.player)
             if store.error:
                 print(store.error)
