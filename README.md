@@ -142,6 +142,10 @@ uses original procedural artwork and synthesized sound. The generated reference
 image files were not available through the chat reader. Detailed animated
 sprites and final environmental art remain future work.
 
+Below 35% of maximum health, a dark red vignette grows around the screen edges.
+It strengthens as health falls and clears when healed above the threshold. The
+center, HUD, and menus remain readable; chest bonuses count toward maximum health.
+
 The game pauses on focus loss and supports resizing with a fixed aspect ratio.
 Sound falls back to silence when no audio device is available.
 

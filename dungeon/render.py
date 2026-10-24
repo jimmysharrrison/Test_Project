@@ -24,6 +24,7 @@ RED = (215, 96, 99)
 VIOLET = (240, 136, 91)
 ICE = (139, 216, 248)
 SILVER = (203, 219, 229)
+LOW_HEALTH_THRESHOLD = 0.35
 
 
 def iso(pos):
@@ -49,8 +50,29 @@ class Renderer:
         self.button = pygame.Rect(669, 529, 366, 51)
         self.floor = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
         self._build_floor(world)
+        self.health_vignette = self._build_health_vignette()
         rng = Random(21)
         self.dust = [(rng.uniform(340, 1395), rng.uniform(190, 760), rng.uniform(0, 6)) for _ in range(45)]
+
+    @staticmethod
+    def _build_health_vignette():
+        # Build a small gradient once, then scale it; no per-pixel work during play.
+        mask = pygame.Surface((180, 112), pygame.SRCALPHA)
+        for y in range(mask.get_height()):
+            for x in range(mask.get_width()):
+                edge = max(abs(2 * x / (mask.get_width() - 1) - 1),
+                           abs(2 * y / (mask.get_height() - 1) - 1))
+                falloff = max(0, (edge - .25) / .75) ** 1.6
+                mask.set_at((x, y), (95, 0, 12, round(220 * falloff)))
+        return pygame.transform.smoothscale(mask, (WIDTH, HEIGHT))
+
+    def low_health_warning(self, player):
+        fraction = player.hp / max(1, player.max_hp)
+        if fraction >= LOW_HEALTH_THRESHOLD:
+            return
+        strength = min(1, max(0, (LOW_HEALTH_THRESHOLD - fraction) / LOW_HEALTH_THRESHOLD))
+        self.health_vignette.set_alpha(round(255 * strength))
+        self.screen.blit(self.health_vignette, (0, 0))
 
     def font(self, size, serif=False, bold=False):
         key = (size, serif, bold)
@@ -566,6 +588,8 @@ class Renderer:
             px = round(x + sin(world.time * 0.15 + phase) * 10)
             py = round(y - (world.time * 3 + phase * 10) % 40)
             pygame.draw.circle(self.screen, (92, 122, 131), (px, py), 1)
+        if mode == "playing" and world.state == "playing":
+            self.low_health_warning(world.player)
         self.targeting(world, mouse)
         self.hud(world)
         self.spellbar(world, mouse)
