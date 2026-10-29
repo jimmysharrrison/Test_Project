@@ -1,6 +1,7 @@
 """Active-play timing and versioned, separate campaign/practice records."""
 from dataclasses import asdict, dataclass, field
 from math import isfinite
+from .levels import PLAYABLE_FLOORS
 
 RULES = "active-v1-balance-2"
 
@@ -92,11 +93,11 @@ class Timing:
                 raise ValueError("Invalid timing value")
         if timer.previous_best is not None and (type(timer.previous_best) not in (int, float) or not isfinite(timer.previous_best) or timer.previous_best < 0):
             raise ValueError("Invalid previous best")
-        if timer.category not in ("campaign", "practice") or type(timer.floor) is not int or not 1 <= timer.floor <= 5:
+        if timer.category not in ("campaign", "practice") or type(timer.floor) is not int or not 1 <= timer.floor <= PLAYABLE_FLOORS:
             raise ValueError("Invalid timing category/floor")
         if any(type(x) is not bool for x in (timer.eligible, timer.stopped, timer.new_best, timer.new_run_best)):
             raise ValueError("Invalid timing flags")
-        if not isinstance(timer.cleared, list) or any(type(x) is not int or not 1 <= x <= 5 for x in timer.cleared):
+        if not isinstance(timer.cleared, list) or any(type(x) is not int or not 1 <= x <= PLAYABLE_FLOORS for x in timer.cleared):
             raise ValueError("Invalid timing clears")
         if timer.rules != RULES:
             timer.eligible = False

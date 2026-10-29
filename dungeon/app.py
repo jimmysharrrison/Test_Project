@@ -9,6 +9,7 @@ from pathlib import Path
 from .controls import Controls
 from .geometry import Vec, unproject
 from .profile import ProfileStore
+from .saves import SaveSlots
 from .levels import PLAYABLE_FLOORS
 from .world import World
 from .telemetry import RunRecorder
@@ -65,13 +66,26 @@ def main():
     canvas = pygame.Surface((WIDTH, HEIGHT))
     audio = Audio()
     store = None if args.no_save or (args.headless and args.profile is None) else ProfileStore(args.profile)
+    slots = SaveSlots(args.profile) if store else None
     player = store.load() if store else None
+    active_slot = 1 if player else None
     has_character = player is not None or args.headless
     current_level = player.current_level if player else 1
     unlocked_level = player.unlocked_level if player else 1
     locked_request = args.level is not None and args.level > unlocked_level and not args.headless
     start_level = args.level if args.level is not None and not locked_request else current_level
     world = World(args.seed, player=player, level=start_level, **presentation)
+    if slots and player and args.level is None and not args.headless:
+        try:
+            has_snapshot = "game_state" in slots.read(slots.store(1))
+        except (OSError, ValueError, RecursionError):
+            has_snapshot = True  # Let the slot loader report the error without rewriting it.
+        if has_snapshot:
+            restored = slots.load(1, seed=args.seed, presentation=presentation)
+            if restored is not None:
+                world = restored
+            else:
+                active_slot = None
     if args.level is not None:
         world.player.timing.restart(start_level, campaign=False)
         world.player.achievement_run.invalidate()
@@ -84,6 +98,9 @@ def main():
     renderer.codex = Codex(args.development_mode)
     renderer.codex_key = args.codex_key
     renderer.menu.has_character = has_character
+    renderer.menu.save_enabled = slots is not None
+    renderer.menu.save_slots = slots.summaries() if slots else []
+    renderer.menu.active_slot = active_slot
     if locked_request:
         renderer.menu.notice = f"Level {args.level} is locked. Reach it through the portal first."
     clock = pygame.time.Clock()
@@ -96,6 +113,64 @@ def main():
     tutorial = None
     suspended_armory = None
     practice_save_guard = False
+    session_started = args.headless
+    slots_return = "title"
+    pending_slot = None
+
+    def refresh_slots():
+        renderer.menu.save_slots = slots.summaries() if slots else []
+        renderer.menu.active_slot = active_slot
+
+    def persist_game():
+        if not store or not has_character or practice_save_guard or not session_started:
+            return
+        # Explicit desktop slots are checkpoints: only the Save Game flow writes them.
+        # Keep the legacy player-only autosave contract for headless tools.
+        if args.headless:
+            store.save(world.player)
+
+    def reset_input():
+        nonlocal controls
+        controls = Controls(world)
+        renderer.armory.cancel_confirmation()
+        renderer.armory.cancel_drag()
+        renderer.armory.enchant_uid = renderer.armory.selected_uid = None
+        renderer.armory.page = 0
+
+    def load_slot(slot):
+        nonlocal world, mode, menu_return, active_slot, has_character, session_started, practice_save_guard, save_timer
+        restored = slots.load(slot, seed=args.seed, presentation=presentation)
+        if restored is None:
+            renderer.menu.notice = slots.error
+            mode = "load_slots"
+            refresh_slots()
+            return
+        recorder.end_attempt(world, "load_game")
+        world = restored
+        recorder.attach(world, "load_game")
+        active_slot = slot
+        has_character = renderer.menu.has_character = session_started = True
+        renderer.menu.can_resume = True
+        practice_save_guard = False
+        save_timer = 0
+        reset_input()
+        renderer.menu.notice = ""
+        store.error = ""
+        refresh_slots()
+        mode = menu_return = "playing"
+
+    def save_slot(slot, overwrite=False):
+        nonlocal active_slot, mode, save_timer
+        if slots.save(slot, world, overwrite=overwrite):
+            active_slot = slot
+            save_timer = 0
+            renderer.menu.notice = f"Game saved to Slot {slot}."
+            store.error = ""
+            mode = slots_return
+        else:
+            renderer.menu.notice = slots.error
+            mode = "save_slots"
+        refresh_slots()
 
     def start_tutorial(from_new_game=False):
         nonlocal tutorial, suspended_armory, world, controls, mode, menu_return, practice_save_guard
@@ -107,9 +182,10 @@ def main():
         world = tutorial.world
         controls = Controls(world)
         mode = menu_return = "playing"
+        renderer.menu.save_enabled = False
 
     def leave_tutorial(start_game=False):
-        nonlocal tutorial, world, controls, mode, menu_return, save_timer, practice_save_guard
+        nonlocal tutorial, world, controls, mode, menu_return, save_timer, practice_save_guard, session_started
         fresh = (tutorial.from_new_game or not has_character) and start_game
         world = tutorial.normal_world
         renderer.armory = suspended_armory
@@ -119,6 +195,9 @@ def main():
         mode = "playing" if start_game else "title"
         menu_return = "playing"
         practice_save_guard = not start_game
+        renderer.menu.save_enabled = slots is not None
+        if start_game:
+            session_started = renderer.menu.can_resume = True
         if fresh:
             begin_level(1, fresh=True)
 
@@ -149,10 +228,12 @@ def main():
             mode = "inventory"
 
     def begin_level(level, fresh=False, reason="retry"):
-        nonlocal world, controls, mode, menu_return, has_character, practice_save_guard
+        nonlocal world, controls, mode, menu_return, has_character, practice_save_guard, active_slot, session_started
         practice_save_guard = False
         recorder.end_attempt(world, "new_game" if fresh else reason)
         if fresh:
+            persist_game()
+            active_slot = None
             notifications = world.player.achievement_notifications.copy()
             badges = world.player.achievements.copy()
             records = world.player.timing.records.copy()
@@ -190,9 +271,11 @@ def main():
         renderer.armory.page = 0
         renderer.menu.notice = ""
         renderer.menu.has_character = has_character = True
+        session_started = True
+        renderer.menu.can_resume = True
+        renderer.menu.active_slot = active_slot
         mode = menu_return = "playing"
-        if store:
-            store.save(world.player)
+        persist_game()
 
     def enter_or_restart():
         nonlocal world, controls, mode
@@ -207,8 +290,45 @@ def main():
         mode = "playing"
 
     def menu_action(action):
-        nonlocal mode, help_return, running, has_character, practice_save_guard
-        if action == "start":
+        nonlocal mode, help_return, running, has_character, practice_save_guard, session_started, slots_return, pending_slot
+        if action in ("save_game", "load_game") and slots and not tutorial:
+            persist_game()
+            refresh_slots()
+            controls.cancel()
+            controls.right_up()
+            slots_return = mode
+            renderer.menu.notice = ""
+            renderer.menu.pending_slot = pending_slot = None
+            mode = "save_slots" if action == "save_game" else "load_slots"
+        elif action and action.startswith("save_slot:") and slots and has_character:
+            pending_slot = int(action.split(":")[1])
+            renderer.menu.pending_slot = pending_slot
+            if slots.store(pending_slot).path.exists():
+                renderer.menu.focus["confirm_overwrite"] = "cancel_slot"
+                mode = "confirm_overwrite"
+            else:
+                save_slot(pending_slot)
+        elif action == "overwrite_slot" and mode == "confirm_overwrite" and pending_slot is not None:
+            save_slot(pending_slot, overwrite=True)
+            pending_slot = None
+        elif action and action.startswith("load_slot:") and slots:
+            pending_slot = int(action.split(":")[1])
+            renderer.menu.pending_slot = pending_slot
+            if session_started:
+                renderer.menu.focus["confirm_load"] = "cancel_slot"
+                mode = "confirm_load"
+            else:
+                load_slot(pending_slot)
+        elif action == "confirm_load_slot" and mode == "confirm_load" and pending_slot is not None:
+            load_slot(pending_slot)
+            pending_slot = None
+        elif action == "cancel_slot":
+            pending_slot = renderer.menu.pending_slot = None
+            mode = "save_slots" if mode == "confirm_overwrite" else "load_slots"
+        elif action == "slots_back":
+            mode = slots_return
+            renderer.menu.notice = ""
+        elif action == "start":
             if has_character:
                 mode = "confirm_new"
             else:
@@ -227,11 +347,10 @@ def main():
                 mode = "playing"
                 renderer.menu.has_character = has_character = True
                 renderer.menu.notice = ""
+                session_started = True
+                renderer.menu.can_resume = True
         elif action == "cancel_new":
             mode = "title"
-        elif action == "continue" and has_character:
-            practice_save_guard = False
-            mode = "playing"
         elif action == "levels":
             renderer.menu.page = 0
             mode = "levels"
@@ -253,8 +372,8 @@ def main():
             if tutorial:
                 leave_tutorial()
                 return
-            if world.keeper and not world.level_completed:
-                begin_level(5, reason="main_menu")
+            persist_game()
+            refresh_slots()
             controls.cancel()
             controls.right_up()
             world.stop()
@@ -340,7 +459,11 @@ def main():
                             audio.toggle()
                         continue
                     if event.key == pygame.K_ESCAPE:
-                        if mode in ("howto", "story", "journal", "achievements"):
+                        if mode in ("save_slots", "load_slots"):
+                            menu_action("slots_back")
+                        elif mode in ("confirm_overwrite", "confirm_load"):
+                            menu_action("cancel_slot")
+                        elif mode in ("howto", "story", "journal", "achievements"):
                             mode = help_return
                         elif mode in ("levels", "confirm_new", "tutorial_offer"):
                             mode = "title"
@@ -456,12 +579,12 @@ def main():
                 key = world.player.achievement_notifications.pop(0)
                 renderer.menu.notice = "Badge unlocked: " + DEFINITIONS.get(key, {"title": key})["title"]
             save_timer += elapsed
-            if store and has_character and not practice_save_guard:
-                store.save(world.player)
+            if store and has_character and not practice_save_guard and (args.headless or save_timer >= 5):
+                persist_game()
                 save_timer = 0
             audio.play(world.events)
             world.events.clear()
-            renderer.profile_notice = (store.error if store else "") or recorder.notice
+            renderer.profile_notice = (slots.error if slots else "") or (store.error if store else "") or recorder.notice
             renderer.sound_enabled = audio.enabled
             renderer.armed = controls.armed
             renderer.aim = controls.aim
@@ -485,10 +608,9 @@ def main():
         raise
     finally:
         try:
-            if store and has_character and not practice_save_guard:
-                store.save(world.player)
-                if store.error:
-                    print(store.error)
+            persist_game()
+            if (slots and slots.error) or (store and store.error):
+                print((slots.error if slots else "") or store.error)
         finally:
             recorder.close(tutorial.normal_world if tutorial else world, crashed=crashed)
             pygame.quit()

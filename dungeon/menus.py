@@ -6,7 +6,8 @@ import pygame
 
 from .levels import FOCUS_FLOORS, MOTTO, PHASE_SPEEDS, PLAYABLE_FLOORS, TOWER_FLOORS, floor_name
 
-FRONTEND_MODES = {"title", "levels", "howto", "confirm_new", "tutorial_offer", "story", "journal", "achievements"}
+FRONTEND_MODES = {"title", "levels", "howto", "confirm_new", "tutorial_offer", "story", "journal", "achievements",
+                  "save_slots", "load_slots", "confirm_overwrite", "confirm_load"}
 
 
 @dataclass(frozen=True, slots=True)
@@ -23,22 +24,40 @@ class Menus:
         self.page = 0
         self.focus = {}
         self.notice = ""
+        self.save_enabled = False
+        self.save_slots = []
+        self.active_slot = None
+        self.pending_slot = None
+        self.can_resume = False
 
     @staticmethod
     def level_count(world):
-        return FOCUS_FLOORS
+        return PLAYABLE_FLOORS
 
     def buttons(self, world, mode):
         if mode == "title":
             return [Button(action, label, pygame.Rect(800, 278 + i * 62, 340, 48), enabled)
                     for i, (action, label, enabled) in enumerate((
-                        ("start", "Start Game", True),
-                        ("continue", "Continue", self.has_character),
+                        ("start", "New Game", True),
+                        ("load_game", "Load Game", any(row["occupied"] for row in self.save_slots)),
                         ("levels", "Level Select", True),
                         ("howto", "How to Play", True),
                         ("story", "The Story", True),
                         ("quit", "Quit", True),
-                    ))] + [Button("codex", "Codex", pygame.Rect(800, 735, 160, 38)), Button("achievements", "Achievements", pygame.Rect(974, 735, 166, 38)), Button("tutorial", "Tutorial / Drearamore Practice", pygame.Rect(310, 725, 340, 48))]
+                    ))] + [Button("save_game", "Save Game", pygame.Rect(800, 660, 340, 38), self.save_enabled and self.has_character),
+                           Button("resume", "Resume Current Game", pygame.Rect(310, 660, 340, 44), self.can_resume),
+                           Button("codex", "Codex", pygame.Rect(800, 735, 160, 38)), Button("achievements", "Achievements", pygame.Rect(974, 735, 166, 38)), Button("tutorial", "Tutorial / Drearamore Practice", pygame.Rect(310, 725, 340, 48))]
+        if mode in ("save_slots", "load_slots"):
+            rows = self.save_slots or [{"slot": i, "occupied": False, "valid": False, "label": "Empty", "detail": ""} for i in range(1, 5)]
+            action = "save_slot" if mode == "save_slots" else "load_slot"
+            return [Button(f"{action}:{row['slot']}", f"Slot {row['slot']} / {row['label']}" + (" / Current" if row['slot'] == self.active_slot else ""),
+                           pygame.Rect(336, 265 + i * 91, 768, 74),
+                           self.save_enabled if mode == "save_slots" else row["valid"])
+                    for i, row in enumerate(rows)] + [Button("slots_back", "Back", pygame.Rect(552, 728, 336, 46))]
+        if mode in ("confirm_overwrite", "confirm_load"):
+            return [Button("cancel_slot", "Cancel", pygame.Rect(370, 530, 310, 48)),
+                    Button("overwrite_slot" if mode == "confirm_overwrite" else "confirm_load_slot",
+                           "Overwrite Save" if mode == "confirm_overwrite" else "Load Game", pygame.Rect(760, 530, 310, 48))]
         if mode == "tutorial_offer":
             return [Button("learn_first", "Play Tutorial", pygame.Rect(370, 530, 310, 48)),
                     Button("skip_tutorial", "Skip / Start Game", pygame.Rect(760, 530, 310, 48))]
@@ -50,7 +69,9 @@ class Menus:
         if mode == "paused":
             return [Button("codex", "Codex", pygame.Rect(669, 414, 366, 38)), Button("resume", "Resume", pygame.Rect(669, 529, 366, 51)),
                     Button("howto", "How to Play", pygame.Rect(669, 465, 366, 44)),
-                    Button("main_menu", "Main Menu", pygame.Rect(669, 592, 366, 44))]
+                    Button("main_menu", "Main Menu", pygame.Rect(669, 592, 366, 44)),
+                    Button("save_game", "Save Game", pygame.Rect(493, 465, 164, 44), self.save_enabled),
+                    Button("load_game", "Load Game", pygame.Rect(1047, 465, 164, 44), any(row["occupied"] for row in self.save_slots))]
         if mode == "levels":
             total = self.level_count(world)
             self.page = min(self.page, (total - 1) // 6)
@@ -98,6 +119,10 @@ class Menus:
             pygame.draw.rect(renderer.screen, edge, button.rect, 1, border_radius=5)
             renderer.text(button.label, button.rect.centerx, button.rect.y + 13,
                           15, color, center=True)
+            if mode in ("save_slots", "load_slots") and ":" in button.action:
+                row = self.save_slots[int(button.action.split(":")[1]) - 1] if self.save_slots else None
+                if row and row["detail"]:
+                    renderer.text(row["detail"], button.rect.centerx, button.rect.y + 46, 12, (145, 164, 174), center=True)
 
     def background(self, renderer):
         renderer.screen.fill((9, 15, 22))
@@ -110,6 +135,7 @@ class Menus:
         renderer.glow(720, 420, (69, 132, 172), 330, 30)
         renderer.text("FROST MAGE", 720, 48, 48, (218, 233, 242), serif=True, center=True)
         renderer.text("THE TOWER", 720, 112, 13, (139, 216, 248), center=True)
+        renderer.character_portrait((488, 79), 60)
         pygame.draw.rect(renderer.screen, (17, 26, 35), (236, 164, 968, 642), border_radius=14)
         pygame.draw.rect(renderer.screen, (57, 77, 91), (236, 164, 968, 642), 1, border_radius=14)
 
@@ -121,8 +147,11 @@ class Menus:
             renderer.screen.blit(veil, (0, 0))
             pygame.draw.rect(renderer.screen, (20, 29, 36), (477, 254, 750, 416), border_radius=12)
             pygame.draw.rect(renderer.screen, (57, 77, 91), (477, 254, 750, 416), 1, border_radius=12)
+            renderer.character_portrait((852, 281), 44, world.player)
             renderer.text("The Tower can wait.", 852, 315, 34, white, serif=True, center=True)
             renderer.text("Your adventure is paused.", 852, 381, 15, muted, center=True)
+            if self.notice:
+                renderer.text(self.notice, 852, 648, 12, ice, center=True)
         else:
             self.background(renderer)
         if mode == "title":
@@ -130,19 +159,29 @@ class Menus:
             renderer.text("WINTER HAS A CHAMPION", 480, 223, 13, ice, center=True)
             renderer.glow(480, 410, ice, 130, 43)
             pygame.draw.circle(renderer.screen, (47, 75, 95), (480, 414), 118, 1)
-            renderer.player(world.player, 0, (480, 504), 3.8)
+            renderer.character_portrait((480, 414), 236, world.player)
             renderer.text("A Nameless Wanderer", 480, 551, 29, white, serif=True, center=True)
             renderer.text("Trained at Drearamore. Drawn to The Tower.", 480, 604, 13, muted, center=True)
             renderer.text(MOTTO, 480, 641, 17, ice, serif=True, center=True)
-            renderer.text("Faithful to the elements. Far from home.", 480, 678, 12, muted, center=True)
             renderer.text("YOUR ASCENT", 970, 223, 13, ice, center=True)
-            if self.has_character:
-                renderer.text(f"Continue: Floor {world.player.current_level} · {world.level_data.name}",
-                              970, 660, 12, muted, center=True)
-            else:
-                renderer.text("Start Game begins on the ground floor.", 970, 660, 13, muted, center=True)
-            renderer.text("Start Game creates a fresh character.", 970, 690, 12, muted, center=True)
-            renderer.text("Level Select keeps your equipment and gold.", 970, 714, 12, muted, center=True)
+            label = f"Active: Slot {self.active_slot}" if self.active_slot else "New game / choose a slot to save"
+            renderer.text(label if self.has_character else "Four save slots / start a new adventure", 970, 708, 12, muted, center=True)
+        elif mode in ("save_slots", "load_slots"):
+            renderer.text("Save Game" if mode == "save_slots" else "Load Game", 720, 190, 30, white, serif=True, center=True)
+            renderer.text("Choose one of four slots. Existing saves require overwrite confirmation." if mode == "save_slots" else
+                          "Choose a saved adventure. Empty or unreadable slots cannot be loaded.", 720, 235, 14, muted, center=True)
+            renderer.text("Use Save Game to update a slot. New games leave your saved adventures intact." if mode == "save_slots" else
+                          "Loading restores the saved encounter, health, equipment, and progress.", 720, 667, 13, ice, center=True)
+        elif mode in ("confirm_overwrite", "confirm_load"):
+            renderer.text(f"Overwrite Slot {self.pending_slot}?" if mode == "confirm_overwrite" else f"Load Slot {self.pending_slot}?",
+                          720, 270, 35, white, serif=True, center=True)
+            row = next((r for r in self.save_slots if r["slot"] == self.pending_slot), None)
+            if row:
+                renderer.text(f"Slot {self.pending_slot}: {row['label']}", 720, 353, 18, ice, center=True)
+            renderer.text("This replaces the saved adventure in this slot." if mode == "confirm_overwrite" else
+                          "This leaves the current adventure. Progress without a save slot will be lost.",
+                          720, 401, 15, muted, center=True)
+            renderer.text("Cancel returns without changing your game or any save file.", 720, 434, 14, muted, center=True)
         elif mode == "achievements":
             from .achievements import DEFINITIONS
             renderer.text("Achievements / Cosmetic Badges", 720, 195, 29, white, center=True)
@@ -155,7 +194,7 @@ class Menus:
                 renderer.text(definition["description"], 360, y + 34, 12, muted)
                 renderer.text(f"Unlocked: {date[:10]} (UTC)" if date else "Locked", 360, y + 60, 14, ice)
         elif mode == "levels":
-            renderer.text("The Tower / First Five Floors", 720, 188, 29, white, serif=True, center=True)
+            renderer.text(f"The Tower / {PLAYABLE_FLOORS} Playable Floors", 720, 188, 29, white, serif=True, center=True)
             renderer.text("Twenty stories rise above you. Reach a floor to unlock it; replays keep your gear.",
                           720, 229, 13, muted, center=True)
             renderer.text(f"Page {self.page + 1} / {(self.level_count(world) + 5) // 6}", 720, 696, 12, muted, center=True)
@@ -168,7 +207,7 @@ class Menus:
         elif mode == "confirm_new":
             renderer.text("Begin a new ascent?", 720, 270, 35, white, serif=True, center=True)
             renderer.text("Start on the ground floor with a fresh Frost Mage.", 720, 353, 18, ice, center=True)
-            renderer.text("This replaces your saved character, equipment, gold, and level unlocks.",
+            renderer.text("Saved slots are kept. Progress without a save slot will be lost.",
                           720, 401, 15, muted, center=True)
             renderer.text("Choose Keep Current Game to return without changing anything.",
                           720, 434, 14, muted, center=True)
@@ -267,6 +306,13 @@ class Menus:
             renderer.text(label,
                           282, y, 12, (139, 216, 248))
             self.paragraph(renderer, text, y + 29, size=12)
-        footer = "Defeat the Keeper. Fifteen upper floors remain unexplored." if world.keeper else "Break nine containment devices. Take time to collect your loot." if world.level_data.menagerie else "Break five spawners and defeat the boss and its companions. Collect loot before entering the portal."
+        footer = ("The Devourer stays fixed. Run outward before gravity activates; control the summons. R resists the pull." if world.level == 10 else
+                  "Safe practice teaches R. Each Stopped Hour restores a reserved cast. Failure returns to the boss checkpoint." if world.level == 9 else
+                  "Break the seals, defeat the Oracle, and climb to the observatory. R is optional." if world.level == 7 else
+                  "Break the foci and defeat the Astronomer. React to the arrows; R resists gravity." if world.level == 8 else
+                  "Defeat the Keeper to reach Broken Containment on floor 6." if world.keeper else
+                  "Break five binding circles, then defeat the Voidwalker. Darkness expires; R is optional." if world.void else
+                  "Break nine containment devices. Take time to collect your loot." if world.level_data.menagerie else
+                  "Break five spawners and defeat the boss and its companions. Collect loot before entering the portal.")
         renderer.text(footer,
                       720, 685, 12, (145, 164, 174), center=True)

@@ -88,8 +88,9 @@ encounter and can earn its reward again, matching replay rewards on other floors
 Death clears mechanics, summons and hostile projectiles. Retry, replay and
 leaving an unfinished Keeper encounter for the title create fresh boss state.
 Floors 1–3 retain their existing menu behavior. After victory, the upper stair
-is visibly sealed; approaching it shows the section ending. Floor 6 is not
-loaded, and the story explicitly continues for fifteen more floors.
+opens into Floor 6, Broken Containment. The Keeper had been containing the void;
+his focus on that barrier explains the lack of oversight below. The chapter
+ending now follows Floor 6; see [its encounter notes](VOID_FLOOR_6.md).
 
 ## Validation
 

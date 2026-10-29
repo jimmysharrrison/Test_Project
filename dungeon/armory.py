@@ -373,6 +373,7 @@ class Armory:
         pygame.draw.rect(r.screen, LINE, (190, 80, 1060, 740), 1, border_radius=12)
         r.spaced("FROSTBOUND ARMORY", 222, 105, 22, ICE, 1)
         r.text("Equipment & enchantments", 222, 145, 12, MUTED)
+        r.character_portrait((894, 130), 56, world.player)
         r.text(f"{world.player.gold:,} GOLD", 955, 113, 21, GOLD, serif=True)
         self.button(r, self.close_rect, "X")
         self.button(r, self.inventory_tab, "I  /  INVENTORY", active=tab == "inventory")

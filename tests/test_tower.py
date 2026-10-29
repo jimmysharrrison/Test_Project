@@ -7,7 +7,7 @@ import unittest
 from unittest.mock import Mock
 
 from dungeon.geometry import Vec
-from dungeon.levels import COLUMNS, FLOORS, MOTTO, PHASE_COUNTS, PHASE_DELAY, PHASE_SPEEDS, level_for_depth
+from dungeon.levels import COLUMNS, FLOORS, MOTTO, PHASE_COUNTS, PHASE_DELAY, PHASE_SPEEDS, PLAYABLE_FLOORS, level_for_depth
 from dungeon.menus import Menus
 from dungeon.navigation import flood
 from dungeon.profile import ProfileStore
@@ -160,8 +160,8 @@ class TowerTests(unittest.TestCase):
             self.assertGreaterEqual((spawner.pos - world.enemies[0].pos).length(), .8)
         self.assertEqual(len({spawner.pos for spawner in world.spawners}), 3)
 
-    def test_five_authored_floors_and_third_floor_now_leads_to_menagerie(self):
-        for invalid in (0, 6, 20):
+    def test_ten_authored_floors_and_third_floor_now_leads_to_menagerie(self):
+        for invalid in (0, 11, 20):
             with self.assertRaises(ValueError):
                 World(7, level=invalid)
         world = World(7, level=3)
@@ -179,8 +179,8 @@ class TowerTests(unittest.TestCase):
         self.assertEqual(world.player.unlocked_level, 4)
         menu = Menus()
         choices = [b for b in menu.buttons(world, "levels") if b.action.startswith("level:")]
-        self.assertEqual(len(choices), 5)
-        self.assertEqual([b.enabled for b in choices], [True, True, True, True, False])
+        self.assertEqual(len(choices), 6)
+        self.assertEqual([b.enabled for b in choices], [True, True, True, True, False, False])
         self.assertIn("LOCKED", choices[4].label)
         self.assertIn("story", [b.action for b in menu.buttons(world, "title")])
 
@@ -192,7 +192,7 @@ class TowerTests(unittest.TestCase):
             path = Path(folder) / "profile.json"
             ProfileStore(path).save(player)
             loaded = ProfileStore(path).load()
-        self.assertEqual((loaded.current_level, loaded.unlocked_level, loaded.gold), (5, 5, 12345))
+        self.assertEqual((loaded.current_level, loaded.unlocked_level, loaded.gold), (PLAYABLE_FLOORS, PLAYABLE_FLOORS, 12345))
         self.assertEqual(loaded.inventory.to_dict(), player.inventory.to_dict())
         self.assertTrue(loaded.first_clear_rewarded)
 

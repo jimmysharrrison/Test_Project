@@ -14,7 +14,7 @@ Existing Warden shield: x0.65 = 1035 damage while any living support is unfrozen
 
 The six-second patch permits the 2.5-second Prison: activate R less than 3.5 seconds after patch placement, allowing for cast lock. Combined cost: 75 mana. Longest remaining patch wins, ties follow insertion order. Object identity prevents replacement substitution. Lifetime is checked at the actual explosion instant within the tick, before field aging; expiry equality fails. Patch boundary is inclusive with 1e-9 coordinate tolerance.
 
-Pause stops simulation. Profiles save gear/progress, not active combat. Reload preserves the set but creates no patch, stasis, or armed capstone.
+Pause stops simulation. Save Game captures active combat, including patches, stasis, and the identity of the patch linked to a pending capstone. Load Game restores that relationship and the remaining lifetimes. Legacy character-only profiles preserve the set but rebuild the room without active spells.
 
 Rank 3-5 Frost Bolt freeze bonuses remain. R tooltip explains both equipment checks, same-patch setup and expiry, guaranteed critical then 3x, radius 6.4, and normal fallback. Armory points to R. Blast adds a thick gold ring and a distinct synthesized sound.
 

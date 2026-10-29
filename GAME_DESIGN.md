@@ -7,9 +7,21 @@ Drearamore, a college focused on the elemental arts, whose motto is
 **elementis fidelis est**. Her travels bring her to **The Tower**, a twenty-story
 structure where each floor conceals a different kind of magical disorder.
 
-The opening story arc focuses on the first five floors. This build authors all
-five. The Keeper completes this section; fifteen more stories remain. His upper
-stair is sealed until a future chapter, rather than loading a placeholder floor.
+The lower tower occupies floors 1–5. The Keeper was holding back the void;
+his attention to containment left those floors without oversight. His defeat
+opens Floor 6, Broken Containment, where the Arcanist Wizard's researchers have
+lost control of a captive Voidwalker. The Arcanist controls floors 11–15 and
+oversaw the experiments. Floors 7 and 8 are now implemented: the Many-Eyed
+Oracle commands enthralled wizards and tentacles, and the Fallen Astronomer
+manipulates gravity from his ruined observatory. Floor 9, The Fractured Hour,
+introduces elven portal wardens, single-shot echoes, projectile stasis circles,
+and the Hourless Breach's three-cycle Glacial Prison survival puzzle. The lesson
+is safe; failed real attempts return to a nearby boss checkpoint. Floor 10,
+The Maw Between Worlds, closes the void arc with the Threshold Devourer: an
+immobile giant torso halfway through the floor, summoning the previous void
+creatures and drawing the mage toward its core with gravity. Its health stages
+add tentacle strikes and strengthen the pull. The upper stair on Floor 10 ends
+the current build; the Arcanist's Floors 11–15 remain the next chapter.
 The title's Story screen introduces the setting. Each floor has a journal
 opened with J, a story subtitle, and phase-specific narrative announcements.
 
@@ -98,7 +110,7 @@ the windup. Terrain blocks their shots; Glacial Prison absorbs them.
 - Glacial Prison prevents movement, casting, potion use, and damage until shatter.
 - Escape pauses, focus loss pauses, I opens gear, B opens the shop, and J opens the journal.
 - Enter climbs after a floor clear, retries the current floor after death, or returns
-  to the title after the lower five-floor section.
+  to the title after the last implemented floor (currently Floor 10).
 
 | Key | Ability | Role |
 | --- | --- | --- |
@@ -136,7 +148,7 @@ Chest swaps cannot heal the mage. Saves preserve equipment, gold, potions, kills
 current floor, highest reached floor, and the first-clear reward state. Replays
 keep unlocks; entering the next floor unlocks it. Rooms and phases restart when
 loading or retrying, except a saved defeated Keeper room, which stays cleared
-until an explicit replay. Old endless depths above 5 map to floor 5 without losing
+until an explicit replay. Old endless depths beyond the authored floors map to floor 10 without losing
 gear or gold. The legacy save location remains to preserve local characters.
 See `docs/EQUIPMENT.md` for the complete balance and economy tables.
 

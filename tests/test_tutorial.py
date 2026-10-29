@@ -318,23 +318,8 @@ class TutorialDesktopTests(unittest.TestCase):
                 elif finish == "exit":
                     script += [[click(1, (1259, 881))]]
                 worlds, frames = self.run_app(script, observer, path)
-                if finish == "resume":
-                    # Resuming actual gameplay now persists active seconds.
-                    import json
-                    prior = json.loads(before)
-                    after = json.loads(path.read_bytes())
-                    self.assertGreater(after["timing"]["total_seconds"], prior["timing"]["total_seconds"])
-                    # The resumed normal World also records genuinely visible
-                    # enemies. No practice actor may contribute to that history.
-                    self.assertTrue(all(record["defeats"] == 0 for record in after["bestiary"].values()))
-                    self.assertTrue(all(record["floors"] == [2] for record in after["bestiary"].values()))
-                    prior.pop("bestiary")
-                    after.pop("bestiary")
-                    prior.pop("timing")
-                    after.pop("timing")
-                    self.assertEqual(after, prior)
-                else:
-                    self.assertEqual(path.read_bytes(), before)
+                # Resuming play also leaves a manual checkpoint unchanged.
+                self.assertEqual(path.read_bytes(), before)
                 self.assertIs(seen[0], seen[1])
                 self.assertEqual(worlds[0].player.gold, 876)
                 if finish != "abandon":
@@ -392,11 +377,11 @@ class TutorialDesktopTests(unittest.TestCase):
             script += [[click(1, (449, 881))]]
             worlds, frames = self.run_app(script, profile_path=path)
             self.assertEqual(frames[-1][0], "playing")
-            saved = ProfileStore(path).load()
-            self.assertEqual(saved.gold, 0)
-            self.assertEqual(saved.potions, 3)
-            self.assertEqual(saved.inventory.items, [])
-            self.assertEqual(saved.unlocked_level, 1)
+            self.assertFalse(path.exists())  # Save Game selects a destination later.
+            self.assertEqual(worlds[-1].player.gold, 0)
+            self.assertEqual(worlds[-1].player.potions, 3)
+            self.assertEqual(worlds[-1].player.inventory.items, [])
+            self.assertEqual(worlds[-1].player.unlocked_level, 1)
             self.assertIsNot(worlds[-1], worlds[0])
 
 

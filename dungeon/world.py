@@ -10,6 +10,11 @@ from .abilities import (ABILITIES, MAX_MANA, BASE_MANA_REGEN, ICE_PATCH_RADIUS, 
 from .encounters import COMPANIONS, MINIBOSS_IDS, BOSSES, MINIBOSS_GOLD, MINIBOSS_OPENING_DELAY, signature, update_hazards
 from .creatures import KINDS, interrupt, update_creature
 from .keeper import KeeperFight, TUNING
+from .void import (VoidFloor, VOID_KINDS, VOID_HEALTH, VOID_FREEZE_CAP,
+                   VOID_FROST_RESISTANCE, POPULATION_CAP, interrupt_void)
+from .void_depths import VoidDepths, DEPTH_STATS, BOSS_HEALTH, ORACLE_PROTECTION
+from .temporal import TemporalFloor, TEMPORAL_STATS, FIXED_HEALTH
+from .maw import MawFloor, MAW_STATS, MAW_HEALTH
 from .geometry import Vec
 from .items import (DEFINITIONS, stock_price, TRAIL_LIFE, TRAIL_SPACING, TRAIL_RADIUS,
                     THORN_DURATION, THORN_COOLDOWN, PLAYER_SLOW_PULSE)
@@ -36,7 +41,13 @@ ENEMY_STATS = {
     "predator": ("Runeclaw Prowler", 32, 1.5, 11),
     "arcane": ("Arcane Drifter", 38, 1.0, 12),
     "keeper": ("The Keeper", TUNING.health, 0, 0),
+    "voidling": ("Escaped Voidling", 32, 1.45, 8),
+    "binder": ("Void Binder", 48, 1.0, 10),
+    "voidwalker": ("The Unbound Voidwalker", VOID_HEALTH, 1.35, 24),
 }
+ENEMY_STATS.update(DEPTH_STATS)
+ENEMY_STATS.update(TEMPORAL_STATS)
+ENEMY_STATS.update(MAW_STATS)
 ARCHER_RANGE = RANGED["archer"]["reach"]
 ARCHER_WINDUP = RANGED["archer"]["warning"]
 ARCHER_COOLDOWN = RANGED["archer"]["interval"]
@@ -51,6 +62,9 @@ class Player:
     gold: int = 0
     kills: int = 0
     facing: Vec = field(default_factory=lambda: Vec(1, -1).unit())
+    visual_facing: Vec = field(default_factory=lambda: Vec(1, 1).unit())
+    walk_distance: float = 0.0
+    walking: bool = False
     cooldowns: dict = field(default_factory=lambda: dict.fromkeys(ABILITIES, 0.0))
     cast_time: float = 0
     stasis: float = 0
@@ -131,8 +145,9 @@ class Enemy:
     recovery: float = 0
     action: str = ""
     action_time: float = 0
-    attack_direction: Vec = Vec()
-    attack_origin: Vec = Vec()
+    # New spawns keep their default aim independent in restored actor graphs.
+    attack_direction: Vec = field(default_factory=Vec)
+    attack_origin: Vec = field(default_factory=Vec)
     frost_resistance: float = 0
     summoned: bool = False
     summon_life: float = 0
@@ -147,6 +162,14 @@ class Enemy:
 
     @property
     def max_hp(self):
+        if self.kind in FIXED_HEALTH:
+            return FIXED_HEALTH[self.kind]
+        if self.kind == "devourer":
+            return MAW_HEALTH
+        if self.kind in BOSS_HEALTH:
+            return BOSS_HEALTH[self.kind]
+        if self.kind == "voidwalker":
+            return VOID_HEALTH
         if self.kind == "keeper":
             return TUNING.health
         base = MINIBOSS_HEALTH if self.boss_role == "boss" else COMPANION_HEALTH if self.boss_role else ENEMY_STATS[self.kind][1]
@@ -188,6 +211,16 @@ class Spawner:
 
     @property
     def name(self):
+        if self.level == 6:
+            return "Fractured Binding Circle"
+        if self.level == 7:
+            return "Enthrallment Seal"
+        if self.level == 8:
+            return "Celestial Focus"
+        if self.level == 9:
+            return "Chronal Rift"
+        if self.level == 10:
+            return "Breach Seal"
         return "Containment Device" if self.menagerie else "Unstable Alembic" if self.alchemist else "Blighted Heart" if self.forest else "Molten Rift"
 
     @property
@@ -322,6 +355,8 @@ class World:
         self._path_tile = None
         self._distances = {}
         self.keeper = KeeperFight(self) if self.level_data.keeper else None
+        self.void = (MawFloor(self) if level == 10 else TemporalFloor(self) if level == 9 else VoidDepths(self)
+                     if level in (7, 8) else VoidFloor(self)) if self.level_data.void else None
         if not self.keeper:
             self._activate_phase(1, initial=True)
 
@@ -356,14 +391,18 @@ class World:
                                            life=life, damage=damage, hostile=True, spell=spell, source=enemy.kind, attacker=enemy))
 
     def _freeze(self, enemy, duration):
-        if enemy.kind == "keeper":
+        if enemy.kind == "hourless_breach":
+            return False
+        if enemy.kind in ("keeper", "voidwalker", "devourer", *BOSS_HEALTH):
             if enemy.frost_resistance > 0:
                 self._record("freeze_resisted", target=self._actor_info(enemy))
                 return False
-            duration = min(duration, TUNING.freeze_cap)
-            enemy.frost_resistance = TUNING.frost_resistance
+            duration = min(duration, TUNING.freeze_cap if enemy.kind == "keeper" else VOID_FREEZE_CAP)
+            enemy.frost_resistance = TUNING.frost_resistance if enemy.kind == "keeper" else VOID_FROST_RESISTANCE
             self.effects.append(Effect(enemy.pos, "freeze", .7, .7, "BRIEF FREEZE / RESISTANCE"))
         enemy.frozen = max(enemy.frozen, duration)
+        if enemy.kind in VOID_KINDS:
+            interrupt_void(self, enemy)
         self._record("freeze_applied", target=self._actor_info(enemy), duration=duration)
         return True
 
@@ -414,6 +453,8 @@ class World:
         return True
 
     def _activate_boss(self):
+        if self.void:
+            return self.void.activate_boss()
         name, kind, move = BOSSES[self.level]
         reached = flood((floor(self.player.pos.x), floor(self.player.pos.y)), self.blocked)
         positions = sorted((Vec(x + .5, y + .5) for x, y in reached),
@@ -502,8 +543,13 @@ class World:
     def stop(self):
         self.path.clear()
         self.destination = None
+        self.player.walking = False
 
     def _follow_path(self, dt):
+        if isinstance(self.void, TemporalFloor) and self.void.stage_name == "retry":
+            return
+        if isinstance(self.void, VoidDepths) and self.void.rooted:
+            return
         distance = self.player.move_speed * dt * (self.player.slow_factor if self.player.slow_time > 0 else 1)
         while self.path and distance > 0:
             delta = self.path[0] - self.player.pos
@@ -514,6 +560,11 @@ class World:
             step = delta.unit() * min(distance, length)
             before = self.player.pos
             self.player.pos = self.move(self.player.pos, step)
+            travelled = self.player.pos - before
+            if travelled.length() > 1e-8:
+                self.player.visual_facing = travelled.unit()
+                self.player.walk_distance += travelled.length()
+                self.player.walking = True
             strength = self.player.inventory.stats.trail_slow
             if strength:
                 travelled = (self.player.pos - before).length()
@@ -559,6 +610,11 @@ class World:
             return "This ascent has ended."
         if player.stasis > 0:
             return "Encased in ice. Wait for the shatter."
+        if isinstance(self.void, TemporalFloor):
+            if self.void.stage_name == "retry":
+                return "The checkpoint is reforming."
+            if key == "r" and self.void.reserved_prison:
+                return ""
         if player.cooldowns[key] > 0:
             return f"{ABILITIES[key].name} is cooling down."
         if player.cast_time > 0:
@@ -620,7 +676,10 @@ class World:
         player = self.player
         frost_multiplier = self.frost_multiplier
         ability = ABILITIES[key]
-        mana_cost = player.mana_cost_for(key)
+        reserved = key == "r" and isinstance(self.void, TemporalFloor) and self.void.reserved_prison
+        mana_cost = 0 if reserved else player.mana_cost_for(key)
+        if reserved:
+            self.void.free_prison = False
         player.mana = max(0, player.mana - mana_cost)
         self._cast_sequence += 1
         cast_id = self._cast_sequence
@@ -632,6 +691,8 @@ class World:
         if key == "q":
             direction = (target - player.pos).unit()
             player.facing = direction
+            if not self.path:
+                player.visual_facing = direction
             self.projectiles.append(Projectile(player.pos + direction * 0.35, direction * 10, damage=ability.damage, frost_multiplier=frost_multiplier, cast_id=cast_id, source="mage"))
             self.effects.append(Effect(player.pos + direction * 0.4, "cast", 0.2, 0.2))
             self.events.append("bolt")
@@ -770,6 +831,8 @@ class World:
 
     def _hurt_player(self, amount, source="unknown", attack="contact", attacker=None):
         player = self.player
+        if isinstance(self.void, TemporalFloor) and self.void.harmless:
+            return False
         if self.debug_invulnerable or self.state != "playing" or self.level_completed or player.invincible > 0 or player.stasis > 0:
             return False
         damage = max(1, (amount - player.inventory.stats.armor) * (1 - player.inventory.stats.damage_reduction))
@@ -788,6 +851,10 @@ class World:
         self.events.append("hurt")
         self.effects.append(Effect(player.pos, "hurt", .4, .4))
         if player.hp <= 0:
+            if isinstance(self.void, TemporalFloor) and self.void.checkpoint_active:
+                self.void.fail("combat_death")
+                return True
+            player.walking = False
             self.state = "dead"
             player.achievement_run.deaths += 1
             player.achievement_run.invalidate()
@@ -796,6 +863,8 @@ class World:
             self._record("player_died", source=source, attack=attack)
             if self.keeper:
                 self.keeper.cleanup()
+            if self.void:
+                self.void.cleanup()
             self.hazards.clear()
             self.ice_patches.clear()
             self.rime_trails.clear()
@@ -804,7 +873,7 @@ class World:
             self.events.append("dead")
         return True
 
-    def _hit(self, target, damage, frost_multiplier=1, spell="unknown", cast_id=0, *, capstone=False):
+    def _hit(self, target, damage, frost_multiplier=1, spell="unknown", cast_id=0, *, capstone=False, environmental=False):
         active_targets = self.spawners if isinstance(target, Spawner) else self.enemies
         if self._keeper_defeated and getattr(target, "summoned", False):
             return
@@ -813,8 +882,12 @@ class World:
         if isinstance(target, Enemy):
             from .codex import observe_enemy
             observe_enemy(self, target)
-        critical = capstone or self.combat_rng.random() < self.player.crit_chance
-        amount = damage * (1 + self.player.inventory.stats.damage) * frost_multiplier
+            if isinstance(self.void, TemporalFloor) and not self.void.can_damage(target, spell):
+                return
+        critical = not environmental and (capstone or self.combat_rng.random() < self.player.crit_chance)
+        amount = damage if environmental else damage * (1 + self.player.inventory.stats.damage) * frost_multiplier
+        if isinstance(self.void, VoidDepths) and target is self.void.boss and self.void.protected:
+            amount *= ORACLE_PROTECTION
         if isinstance(target, Enemy) and target.boss_role == "boss":
             if target.recovery > 0:
                 amount *= RECOVERY_DAMAGE_MULTIPLIER
@@ -854,6 +927,8 @@ class World:
                 self._record("enemy_defeated", target=self._actor_info(target), spell=spell)
                 self.enemies.remove(target)
                 self.player.kills += 1
+                if isinstance(self.void, TemporalFloor) and self.void.actor_defeated(target):
+                    return
                 if target.kind == "keeper":
                     if self._in_tick:
                         self._keeper_defeated = True
@@ -861,6 +936,8 @@ class World:
                         self.events.append("keeper_victory")
                         self.keeper.defeated()
                     return
+                if target.kind in ("voidwalker", "hourless_breach", "devourer", *BOSS_HEALTH) and self.void:
+                    self.void.cleanup(clear_projectiles=not self._in_tick)
                 if target.boss_role == "boss":
                     self.events.append("miniboss_victory")
                     self._miniboss_notice = [self.miniboss_delay_ms / 1000, target.boss_name or "Miniboss"]
@@ -876,6 +953,8 @@ class World:
             return
         for shot in self.projectiles[:]:
             if shot not in self.projectiles:
+                continue
+            if isinstance(self.void, TemporalFloor) and self.void.shot_stopped(shot):
                 continue
             travel = min(dt, max(0, shot.life))
             shot.life -= dt
@@ -933,18 +1012,28 @@ class World:
             spawner.timer -= dt
             if spawner.timer <= 0:
                 spawner.timer = self.rng.uniform(4.5, 6.5)
-                if len(self.enemies) >= (14 if self.level_data.menagerie else 40):
+                # Reserve the Voidwalker's three authored arrival slots.
+                if len(self.enemies) >= (POPULATION_CAP - 3 if self.void else 14 if self.level_data.menagerie else 40):
                     continue
                 options = [Vec(0.8, 0), Vec(-0.8, 0), Vec(0, 0.8), Vec(0, -0.8)]
                 self.rng.shuffle(options)
                 for offset in options:
                     pos = spawner.pos + offset
-                    if self.walkable(pos):
-                        if self.level_data.forest or self.level_data.alchemist or self.level_data.menagerie:
+                    if self.walkable(pos) and (not self.void or ((pos - self.player.pos).length() >= 1.5
+                            and all((pos - e.pos).length() >= .65 for e in self.enemies))):
+                        if self.level_data.forest or self.level_data.alchemist or self.level_data.menagerie or self.void:
                             kind = self.rng.choices(self.level_data.spawn_kinds,
                                                     weights=self.level_data.spawn_weights)[0]
                         else:
                             kind = "skitter" if self.rng.random() < .35 else "husk"
+                        if self.void and kind == "binder" and sum(e.kind == "binder" for e in self.enemies) >= 3:
+                            kind = "voidling"
+                        if kind in ("thrall", "grasper", "anchor") and sum(e.kind == kind for e in self.enemies) >= (3 if kind == "thrall" else 2):
+                            kind = "lasher"
+                        if kind in ("gravity_adept", "repulsor") and sum(e.kind == kind for e in self.enemies) >= 2:
+                            kind = "star_fragment"
+                        if kind == "chronal_scholar" and sum(e.kind == kind for e in self.enemies) >= 2:
+                            kind = "rift_warden"
                         enemy = Enemy(pos, kind, level=self.level, cooldown=1 if kind in ("archer", "fairy") else 0,
                                       spawn_phase=spawner.spawn_phase)
                         enemy.hp = enemy.max_hp
@@ -989,7 +1078,7 @@ class World:
             self._keeper_defeated = False
             self.events.append("keeper_victory")
             self.keeper.defeated()
-        if self._completion_requested and not self.enemies and not self.spawners:
+        if self._completion_requested and not self.spawners and (not self.enemies or (self.void and self.void.finished)):
             self._completion_requested = False
             self._complete_level()
         if self.level_completed and not self.enemies and not self.spawners and not self.floor_clear_notified:
@@ -1020,6 +1109,7 @@ class World:
         self.message_time = max(0, self.message_time - dt)
         player = self.player
         start_pos = player.pos
+        player.walking = False
         player.thorn_cooldown = max(0, player.thorn_cooldown - dt)
         player.slow_time = max(0, player.slow_time - dt)
         player.slow_pulse = max(0, player.slow_pulse - dt)
@@ -1058,16 +1148,17 @@ class World:
             self._follow_path(dt)
         self._last_mana_regen = self.mana_regen_rate(stationary=(player.pos - start_pos).length() < 1e-9)
         player.mana = max(0, min(player.max_mana, player.mana + self._last_mana_regen * dt))
+        scene_stopped = isinstance(self.void, TemporalFloor) and self.void.stopped
         for trail in self.rime_trails:
-            trail.life -= dt
+            trail.life -= 0 if scene_stopped else dt
         self.rime_trails[:] = [trail for trail in self.rime_trails if trail.life > 1e-8]
         if aim is not None and (aim - player.pos).length() > 0.1:
             player.facing = (aim - player.pos).unit()
         for effect in self.effects:
-            effect.life -= dt
+            effect.life -= 0 if scene_stopped else dt
         self.effects = [effect for effect in self.effects if effect.life > 0]
         for patch in self.ice_patches:
-            patch.life -= dt
+            patch.life -= 0 if scene_stopped else dt
         self.ice_patches = [patch for patch in self.ice_patches if patch.life > 1e-8]
         for enemy in self.enemies:
             self.refresh_patch_status(enemy)
@@ -1077,11 +1168,15 @@ class World:
         self._update_distances()
         self._spawn(dt)
         update_hazards(self, dt)
+        if self.void:
+            self.void.update(dt)
         if self.keeper:
             self.keeper.update(dt)
         if self.state == "dead":
             return
         for enemy in self.enemies[:]:
+            if isinstance(self.void, TemporalFloor) and self.void.stopped:
+                continue
             self.refresh_patch_status(enemy)
             enemy.gear_slows[:] = [(strength, life - dt) for strength, life in enemy.gear_slows if life - dt > 1e-8]
             enemy.gear_slow, enemy.gear_slow_time = max(enemy.gear_slows, default=(0, 0))
@@ -1101,6 +1196,11 @@ class World:
                     interrupt(enemy)
                 continue
             if enemy.kind == "keeper":
+                continue
+            if enemy.kind in VOID_KINDS:
+                self.void.update_enemy(enemy, dt)
+                if self.state == "dead":
+                    return
                 continue
             if enemy.kind in KINDS:
                 update_creature(self, enemy, dt)
@@ -1215,7 +1315,14 @@ class World:
         else:
             self.announce(f"Floor {self.level} cleared! All three phases defeated. The stair portal is open.")
         if self.level_data.keeper:
-            self.announce("The lower five floors are complete. The upper tower continues beyond the sealed stair.")
+            self.announce("The Keeper's barrier falls silent. The open stair leads to Broken Containment on floor 6.")
+        if self.void:
+            self.void.cleanup()
+            self.announce({6: "The Voidwalker falls. The open stair leads to the Consuming Dark.",
+                           7: "The Oracle falls silent. The open stair leads to the Fallen Observatory.",
+                           8: "The Astronomer's instrument collapses. The open stair leads to the Fractured Hour.",
+                           9: "Three anchors sealed. The Hourless Breach closes. The stair leads to the Maw Between Worlds.",
+                           10: "The Threshold Devourer sinks into the breach. The void arc is sealed; the Arcanist's floors await."}[self.level])
         self.hazards.clear()
         self._record("floor_cleared", hp_remaining=player.hp, gold=player.gold)
 
@@ -1243,6 +1350,7 @@ class World:
         player.hp, player.mana = player.max_hp, player.max_mana
         player.slow_time = player.slow_pulse = player.thorn_cooldown = 0
         player.stasis = player.cast_time = player.flash = 0
+        player.walking = False
         player.invincible = 1
         player.cooldowns = dict.fromkeys(ABILITIES, 0.0)
         seed = None if self.seed is None else self.seed + 1
@@ -1253,6 +1361,8 @@ class World:
             recorder.attach(self, "next_floor")
         if self.keeper:
             self.keeper.world = self
+        if self.void:
+            self.void.world = self
         self.announce(f"Floor {self.level}: {self.level_data.phase_lines[0]}")
         return True
 

@@ -178,7 +178,7 @@ class DesktopTests(unittest.TestCase):
         self.assertEqual(worlds[0].projectiles, [])
         self.assertEqual(worlds[0].path, [])
 
-    def test_splash_with_saved_forest_waits_for_continue(self):
+    def test_splash_with_saved_forest_waits_for_slot_selection(self):
         from pathlib import Path
         from tempfile import TemporaryDirectory
         from dungeon.profile import ProfileStore
@@ -186,9 +186,10 @@ class DesktopTests(unittest.TestCase):
         with TemporaryDirectory() as folder:
             path = Path(folder) / "profile.json"
             ProfileStore(path).save(Player(current_level=2, unlocked_level=2, gold=99))
-            worlds, frames = self.run_app([[], [], [click(1, (970, 364))]], profile_path=path)
+            worlds, frames = self.run_app([[], [], [click(1, (970, 364))], [click(1, (720, 302))]], profile_path=path)
         self.assertEqual(frames[:2], [("title", 0)] * 2)
-        self.assertEqual(frames[2][0], "playing")
+        self.assertEqual(frames[2][0], "load_slots")
+        self.assertEqual(frames[3][0], "playing")
         self.assertEqual(worlds[0].level, 2)
         self.assertEqual(worlds[0].player.gold, 99)
 
@@ -201,7 +202,7 @@ class DesktopTests(unittest.TestCase):
         self.assertEqual(worlds[0].level, 1)
         self.assertEqual(worlds[0].projectiles, [])
 
-    def test_start_over_can_be_cancelled_then_resets_character_and_save(self):
+    def test_start_over_can_be_cancelled_then_resets_character_but_preserves_save(self):
         from pathlib import Path
         from tempfile import TemporaryDirectory
         from dungeon.profile import ProfileStore
@@ -226,8 +227,8 @@ class DesktopTests(unittest.TestCase):
         self.assertEqual(snapshots[:5], [(2, 999, 2, 1)] * 5)
         self.assertEqual(snapshots[5], (1, 0, 1, 0))
         self.assertEqual((saved.current_level, saved.unlocked_level, saved.gold, saved.kills, saved.potions),
-                         (1, 1, 0, 0, 3))
-        self.assertFalse(saved.first_clear_rewarded)
+                         (2, 2, 999, 20, 0))
+        self.assertTrue(saved.first_clear_rewarded)
         self.assertEqual(len(worlds), 2)
 
     def test_locked_level_cannot_be_clicked_or_selected_with_keyboard(self):
@@ -259,15 +260,17 @@ class DesktopTests(unittest.TestCase):
             player = Player(current_level=2, unlocked_level=2, gold=444, first_clear_rewarded=True)
             player.inventory.add(player.inventory.create("boots", 2))
             ProfileStore(path).save(player)
-            worlds, frames = self.run_app([[click(1, (970, 426))], [click(1, (720, 283))]], profile_path=path)
+            worlds, frames = self.run_app([[click(1, (970, 426))], [click(1, (720, 283))],
+                                          [key(pygame.K_ESCAPE)], [click(1, (570, 487))],
+                                          [click(1, (720, 302))], [click(1, (915, 554))]], profile_path=path)
             saved = ProfileStore(path).load()
-            reload_worlds, reload_frames = self.run_app([[], [click(1, (970, 364))]], profile_path=path)
+            reload_worlds, reload_frames = self.run_app([[], [click(1, (970, 364))], [click(1, (720, 302))]], profile_path=path)
         replay = worlds[-1]
         self.assertEqual((replay.level, saved.current_level, saved.unlocked_level, saved.gold), (1, 1, 2, 444))
         self.assertEqual(saved.inventory.worn("boots").rank, 2)
         self.assertTrue(saved.first_clear_rewarded)
         self.assertEqual(frames[1][0], "playing")
-        self.assertEqual(reload_frames[0], ("title", 0))
+        self.assertEqual(reload_frames[0][0], "title")
         self.assertEqual(reload_worlds[0].level, 1)
 
     def test_first_portal_arrival_unlocks_forest_for_level_select(self):
@@ -291,7 +294,7 @@ class DesktopTests(unittest.TestCase):
     def test_pause_help_main_menu_and_continue_do_not_tick_simulation(self):
         script = [[key(pygame.K_RETURN)], [key(pygame.K_ESCAPE)],
                   [click(1, (852, 487))], [key(pygame.K_ESCAPE)],
-                  [click(1, (852, 614))], [], [click(1, (970, 364))]]
+                  [click(1, (852, 614))], [], [click(1, (480, 682))]]
         worlds, frames = self.run_app(script)
         self.assertEqual([mode for mode, _ in frames],
                          ["playing", "paused", "howto", "paused", "title", "title", "playing"])
@@ -449,6 +452,8 @@ class DesktopTests(unittest.TestCase):
         from pathlib import Path
         from tempfile import TemporaryDirectory
         def observer(frame, world, renderer):
+            if frame != 1:
+                return
             inv = world.player.inventory
             inv.add(inv.create("helm", 3))
             world.player.gold = 321
@@ -456,15 +461,17 @@ class DesktopTests(unittest.TestCase):
             world.player.first_clear_rewarded = True
         with TemporaryDirectory() as folder:
             profile = Path(folder) / "profile.json"
-            self.run_app([[key(pygame.K_RETURN)]], observer, profile)
+            self.run_app([[key(pygame.K_RETURN)], [key(pygame.K_ESCAPE)],
+                          [click(1, (570, 487))], [click(1, (720, 302))]], observer, profile)
             self.assertTrue(profile.exists())
-            worlds, frames = self.run_app([[], [click(1, (970, 364))]], profile_path=profile)
+            worlds, frames = self.run_app([[], [click(1, (970, 364))], [click(1, (720, 302))]], profile_path=profile)
             self.assertEqual(worlds[0].player.gold, 321)
             self.assertEqual(worlds[0].player.inventory.worn("helm").rank, 3)
             self.assertEqual(worlds[0].level, 1)
             self.assertEqual(worlds[0].player.unlocked_level, 2)
-            self.assertEqual(frames[0], ("title", 0))
-            self.assertEqual(frames[1][0], "playing")
+            self.assertEqual(frames[0][0], "title")
+            self.assertEqual(frames[1][0], "load_slots")
+            self.assertEqual(frames[2][0], "playing")
 
 
     def test_sell_and_destroy_confirmation_cancel_then_confirm(self):
@@ -552,12 +559,13 @@ class DesktopTests(unittest.TestCase):
                   [key(pygame.K_b)], [click(1, (350, 747))], [click(1, (830, 515))]]
         with TemporaryDirectory() as folder:
             profile = Path(folder) / "profile.json"
-            _, frames = self.run_app(script, observer, profile)
+            _, frames = self.run_app(script + [[key(pygame.K_ESCAPE)], [key(pygame.K_ESCAPE)],
+                                              [click(1, (570, 487))], [click(1, (720, 302))]], observer, profile)
             player = ProfileStore(profile).load()
         self.assertEqual(pending[3:9], [21, 0, 21, 0, 21, 0])
         self.assertEqual(frames[4][0], "inventory")
         self.assertEqual(frames[6][0], "shop")
-        self.assertTrue(all(value == 0 for value in gold[:-1]))
+        self.assertTrue(all(value == 0 for value in gold[:8]))
         self.assertEqual(player.gold, sum(item.sell_value for item in sold))
         self.assertEqual(player.inventory.worn("chest").rank, 2)
         self.assertEqual([(item.slot, item.rank) for item in player.inventory.backpack], [("gloves", 3)])
@@ -634,7 +642,7 @@ class DesktopTests(unittest.TestCase):
         self.assertEqual(frames[3][1], frames[4][1])
         self.assertGreater(frames[5][1], frames[4][1])
 
-    def test_keeper_main_menu_leaves_a_fresh_encounter_for_continue(self):
+    def test_keeper_main_menu_and_resume_keep_the_active_encounter(self):
         from pathlib import Path
         from tempfile import TemporaryDirectory
         from dungeon.profile import ProfileStore
@@ -642,22 +650,22 @@ class DesktopTests(unittest.TestCase):
         seen = []
 
         def observer(frame, world, renderer):
-            if frame == 1:
+            if frame == 2:
                 world.keeper.boss.hp = 100
                 world.keeper.start("cleaning")
-            if frame == 3:
+            if frame == 4:
                 seen.append((world.keeper.boss.hp, len(world.keeper.mechanics), len(world.keeper.live_summons)))
 
         with TemporaryDirectory() as folder:
             path = Path(folder) / "profile.json"
             ProfileStore(path).save(Player(current_level=5, unlocked_level=5))
-            worlds, frames = self.run_app([[click(1, (970, 364))], [key(pygame.K_ESCAPE)],
-                                          [click(1, (852, 614))], [click(1, (970, 364))]], observer, path)
+            worlds, frames = self.run_app([[click(1, (970, 364))], [click(1, (720, 302))], [key(pygame.K_ESCAPE)],
+                                          [click(1, (852, 614))], [click(1, (480, 682))]], observer, path)
         from dungeon.keeper import TUNING
-        self.assertEqual(seen, [(TUNING.health, 0, 0)])
+        self.assertEqual(seen, [(100, 1, 0)])
         self.assertEqual(frames[-1][0], "playing")
 
-    def test_keeper_victory_is_saved_before_next_frame(self):
+    def test_keeper_victory_is_persisted_when_explicitly_saved(self):
         from pathlib import Path
         from tempfile import TemporaryDirectory
         from dungeon.profile import ProfileStore
@@ -668,13 +676,14 @@ class DesktopTests(unittest.TestCase):
             ProfileStore(path).save(Player(current_level=5, unlocked_level=5))
 
             def observer(frame, world, renderer):
-                if frame == 1:
-                    world._hit(world.keeper.boss, 10000)
                 if frame == 2:
+                    world._hit(world.keeper.boss, 10000)
+                if frame == 6:
                     loaded = ProfileStore(path).load()
                     snapshots.append((loaded.cleared_floor, loaded.lower_tower_completed, loaded.gold))
 
-            self.run_app([[click(1, (970, 364))], []], observer, path)
+            self.run_app([[click(1, (970, 364))], [click(1, (720, 302))], [key(pygame.K_ESCAPE)],
+                          [click(1, (570, 487))], [click(1, (720, 302))], [click(1, (915, 554))]], observer, path)
         from dungeon.keeper import TUNING
         self.assertEqual(snapshots, [(5, True, TUNING.completion_gold)])
 

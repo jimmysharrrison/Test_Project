@@ -1,0 +1,191 @@
+[
+  {
+    "level": 10,
+    "seed": 3,
+    "loadout": "keeper_reward",
+    "state": "won",
+    "seconds": 67.98,
+    "hp": 69.36,
+    "potions": 3,
+    "phase": 3,
+    "boss_hp": 0,
+    "boss_always_fixed": true,
+    "peak_enemies": 6,
+    "peak_minions": 3,
+    "peak_arrivals": 3,
+    "peak_forces": 1,
+    "peak_fields": 0,
+    "peak_echoes": 1,
+    "damage_events": 6,
+    "patterns": [
+      "lash",
+      "pull",
+      "slam",
+      "summon"
+    ],
+    "summoned_kinds": [
+      "binder",
+      "gravity_adept",
+      "lasher",
+      "rift_warden",
+      "thrall",
+      "voidling"
+    ],
+    "used_glacial_prison": false
+  },
+  {
+    "level": 10,
+    "seed": 7,
+    "loadout": "keeper_reward",
+    "state": "won",
+    "seconds": 70.9,
+    "hp": 79.99,
+    "potions": 0,
+    "phase": 3,
+    "boss_hp": 0,
+    "boss_always_fixed": true,
+    "peak_enemies": 4,
+    "peak_minions": 3,
+    "peak_arrivals": 3,
+    "peak_forces": 1,
+    "peak_fields": 0,
+    "peak_echoes": 1,
+    "damage_events": 9,
+    "patterns": [
+      "lash",
+      "pull",
+      "slam",
+      "summon"
+    ],
+    "summoned_kinds": [
+      "binder",
+      "gravity_adept",
+      "lasher",
+      "rift_warden",
+      "thrall",
+      "voidling"
+    ],
+    "used_glacial_prison": false
+  },
+  {
+    "level": 10,
+    "seed": 19,
+    "loadout": "keeper_reward",
+    "state": "won",
+    "seconds": 69.62,
+    "hp": 32.66,
+    "potions": 0,
+    "phase": 3,
+    "boss_hp": 0,
+    "boss_always_fixed": true,
+    "peak_enemies": 4,
+    "peak_minions": 3,
+    "peak_arrivals": 3,
+    "peak_forces": 1,
+    "peak_fields": 1,
+    "peak_echoes": 1,
+    "damage_events": 11,
+    "patterns": [
+      "lash",
+      "pull",
+      "slam",
+      "summon"
+    ],
+    "summoned_kinds": [
+      "binder",
+      "gravity_adept",
+      "lasher",
+      "rift_warden",
+      "thrall",
+      "voidling"
+    ],
+    "used_glacial_prison": false
+  },
+  {
+    "level": 10,
+    "seed": 3,
+    "loadout": "frostweave",
+    "state": "won",
+    "seconds": 49.38,
+    "hp": 160,
+    "potions": 3,
+    "phase": 3,
+    "boss_hp": 0,
+    "boss_always_fixed": true,
+    "peak_enemies": 4,
+    "peak_minions": 3,
+    "peak_arrivals": 3,
+    "peak_forces": 1,
+    "peak_fields": 1,
+    "peak_echoes": 1,
+    "damage_events": 1,
+    "patterns": [
+      "pull",
+      "slam",
+      "summon"
+    ],
+    "summoned_kinds": [
+      "gravity_adept",
+      "thrall",
+      "voidling"
+    ],
+    "used_glacial_prison": false
+  },
+  {
+    "level": 10,
+    "seed": 7,
+    "loadout": "frostweave",
+    "state": "won",
+    "seconds": 46.83,
+    "hp": 127,
+    "potions": 2,
+    "phase": 3,
+    "boss_hp": 0,
+    "boss_always_fixed": true,
+    "peak_enemies": 4,
+    "peak_minions": 0,
+    "peak_arrivals": 3,
+    "peak_forces": 1,
+    "peak_fields": 0,
+    "peak_echoes": 1,
+    "damage_events": 5,
+    "patterns": [
+      "lash",
+      "pull",
+      "slam",
+      "summon"
+    ],
+    "summoned_kinds": [],
+    "used_glacial_prison": false
+  },
+  {
+    "level": 10,
+    "seed": 19,
+    "loadout": "frostweave",
+    "state": "won",
+    "seconds": 52.5,
+    "hp": 160,
+    "potions": 3,
+    "phase": 3,
+    "boss_hp": 0,
+    "boss_always_fixed": true,
+    "peak_enemies": 4,
+    "peak_minions": 3,
+    "peak_arrivals": 3,
+    "peak_forces": 1,
+    "peak_fields": 0,
+    "peak_echoes": 1,
+    "damage_events": 2,
+    "patterns": [
+      "pull",
+      "slam",
+      "summon"
+    ],
+    "summoned_kinds": [
+      "gravity_adept",
+      "thrall",
+      "voidling"
+    ],
+    "used_glacial_prison": false
+  }
+]

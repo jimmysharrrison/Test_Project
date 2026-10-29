@@ -30,10 +30,11 @@ record. This is not a future full-tower record. Nondefault mana regeneration is
 ineligible. Balance/timing changes must bump the rules ID; old records remain
 stored under their original ID and are not compared to current records.
 
-Continue restores accumulated floor/run seconds and eligibility; it adds no
-offline time. The existing save system rebuilds the current encounter, rather
-than restoring enemies or their health. Replayed active seconds add to the saved
-times, so Continue never grants an artificially fast record. A saved successful
+Load Game restores accumulated floor/run seconds and eligibility; it adds no
+offline time. New slot snapshots also restore live enemies, health, and encounter
+state. Manual saves are checkpoints and change only through Save Game with
+overwrite confirmation. Legacy character-only saves rebuild the current room;
+replayed active seconds add to their saved times. A saved successful
 floor stays stopped for floor timing and cannot commit its record twice. Old
 schema-1 saves have unknown prior time and remain ineligible until a new campaign
 or practice attempt starts. Unknown rules versions also remain ineligible.

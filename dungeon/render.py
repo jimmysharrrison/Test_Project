@@ -7,6 +7,8 @@ import pygame
 
 from .abilities import ABILITIES, ICE_PATCH_RADIUS
 from .tower_art import containment, decorate_floor, duty_status, low_enclosure, new_enemy, telegraphs
+from . import void_art, void_depth_art, temporal_art, maw_art
+from .character_art import mage_portrait, mage_sprite, mage_view, mage_walk_frame, MAGE_HEIGHT
 from .armory import Armory, item_icon
 from .items import FROSTWEAVE_FREEZE, RANK_COLORS
 from .menus import FRONTEND_MODES, Menus
@@ -31,6 +33,7 @@ LEAF = (130, 191, 104)
 BLIGHT = (177, 111, 214)
 POTION = (178, 221, 109)
 LOW_HEALTH_THRESHOLD = 0.35
+FROST_BOLT_HEIGHT = MAGE_HEIGHT - 8  # Crystal center near the top of her staff.
 
 
 def iso(pos):
@@ -133,6 +136,10 @@ class Renderer:
                         (34 + noise, 54 + noise, 37 + noise)) if forest else (40 + noise, 51 + noise, 59 + noise)
                 if alchemy:
                     base = (60 + noise, 49 + noise, 65 + noise) if (x + y) % 2 else (49 + noise, 45 + noise, 57 + noise)
+                if world.level_data.void:
+                    base = (44 + noise, 38 + noise, 58 + noise)
+                    if world.level == 8:
+                        base = (36 + noise, 46 + noise, 65 + noise)
                 if (x, y) in world.walls:
                     base = (25, 39, 28) if forest else (28, 37, 45)
                 pygame.draw.polygon(self.floor, base, polygon)
@@ -165,6 +172,15 @@ class Renderer:
                     px, py = iso(Vec(x + 0.5, y + 0.5))
                     pygame.draw.line(self.floor, (76, 74, 62), (px - 4, py), (px + 4, py), 1)
         decorate_floor(self, world)
+        if world.void:
+            if world.level == 10:
+                maw_art.decorate(self)
+            elif world.level == 9:
+                temporal_art.decorate(self)
+            elif world.level in (7, 8):
+                void_depth_art.decorate(self, world)
+            else:
+                void_art.decorate(self)
         # The entrance is picked out in brass rather than a separate image asset.
         for pos in (Vec(2.5, 13.5), Vec(3.5, 13.5), Vec(4.5, 13.5)):
             px, py = iso(pos)
@@ -181,6 +197,9 @@ class Renderer:
         pygame.draw.ellipse(self.screen, (22, 29, 35), (x - width // 2, y - 4, width, 10))
 
     def wall(self, tile, world):
+        if world.void and 0 < tile[0] < 16 and 0 < tile[1] < 16:
+            void_art.pillar(self, Vec(tile[0] + .5, tile[1] + .5), broken=True)
+            return
         if 0 < tile[0] < 16 and 0 < tile[1] < 16 and (world.level_data.menagerie or world.level_data.keeper):
             low_enclosure(self, tile, keeper=world.level_data.keeper)
             return
@@ -227,7 +246,9 @@ class Renderer:
         for actor in [world.player] + world.enemies + world.spawners:
             if actor.pos.x + actor.pos.y < sum(tile) + 1:
                 ax, ay = iso(actor.pos)
-                if box.colliderect(pygame.Rect(ax - 14, ay - 43, 28, 48)):
+                actor_box = (pygame.Rect(ax - 30, ay - MAGE_HEIGHT, 60, MAGE_HEIGHT + 6)
+                             if actor is world.player else pygame.Rect(ax - 14, ay - 43, 28, 48))
+                if box.colliderect(actor_box):
                     surface.set_alpha(100)
                     break
         self.screen.blit(surface, (x - 33, y - 108))
@@ -288,7 +309,9 @@ class Renderer:
         for actor in [world.player] + world.enemies + world.spawners:
             if actor.pos.x + actor.pos.y < tx + ty + 1:
                 ax, ay = iso(actor.pos)
-                if canopy.colliderect(pygame.Rect(ax - 15, ay - 46, 30, 48)):
+                actor_box = (pygame.Rect(ax - 30, ay - MAGE_HEIGHT, 60, MAGE_HEIGHT + 6)
+                             if actor is world.player else pygame.Rect(ax - 15, ay - 46, 30, 48))
+                if canopy.colliderect(actor_box):
                     obscures_actor = True
                     break
         self.foliage.set_alpha(85 if obscures_actor else 255)
@@ -296,7 +319,33 @@ class Renderer:
         pygame.draw.lines(self.screen, (88, 68, 112), False,
                           [(x + 6, y - 5), (x + 2, y - 17), (x + 8, y - 27)], 2)
 
+    def character_portrait(self, center, size, player=None):
+        portrait = mage_portrait(size)
+        if portrait is not None:
+            self.screen.blit(portrait, portrait.get_rect(center=center))
+        elif player is not None:
+            self.player(player, 0, (center[0], center[1] + size * .36), size / 55)
+        else:
+            self.snowflake(*center, size // 3, ICE)
+        pygame.draw.circle(self.screen, (74, 108, 132), center, size // 2, 1)
+
     def player(self, player, time, at=None, scale=1):
+        back, mirrored = mage_view(player.visual_facing)
+        frame = mage_walk_frame(player.walk_distance) if player.walking and player.stasis <= 0 else None
+        sprite = mage_sprite(back, mirrored, max(1, round(MAGE_HEIGHT * scale)), player.flash > 0, frame)
+        if sprite is None:
+            self._legacy_player(player, time, at, scale)
+            return
+        x, y = at or iso(player.pos)
+        self.shadow(x, y, round(33 * scale))
+        self.glow(x, y - round(24 * scale), ICE, round(35 * scale), 20)
+        self.screen.blit(sprite, sprite.get_rect(midbottom=(round(x), round(y + scale))))
+        if scale == 1:
+            pygame.draw.ellipse(self.screen, ICE, (x - 13, y - 4, 26, 12), 1)
+        if player.stasis > 0:
+            self._prison_shell(player, x, y, scale, illustrated=True)
+
+    def _legacy_player(self, player, time, at=None, scale=1):
         x, y = at or iso(player.pos)
         def p(dx, dy):
             return round(x + dx * scale), round(y + dy * scale)
@@ -325,18 +374,24 @@ class Renderer:
         if scale == 1:
             pygame.draw.ellipse(self.screen, ICE, (x - 13, y - 4, 26, 12), 1)
         if player.stasis > 0:
-            self.glow(x, y - round(22 * scale), ICE, round(54 * scale), 60)
-            shell = [p(-17, -3), p(-18, -32), p(-7, -51), p(9, -52), p(20, -28), p(17, 0), p(0, 8)]
-            left, top = min(px for px, _ in shell), min(py for _, py in shell)
-            width = max(px for px, _ in shell) - left + 1
-            height = max(py for _, py in shell) - top + 1
-            glass = pygame.Surface((width, height), pygame.SRCALPHA)
-            pygame.draw.polygon(glass, (130, 217, 251, 80), [(px - left, py - top) for px, py in shell])
-            self.screen.blit(glass, (left, top))
-            pygame.draw.polygon(self.screen, ICE, shell, max(1, round(scale)))
-            pygame.draw.lines(self.screen, (211, 246, 255), False, [p(-7, -51), p(-3, -22), p(17, 0)], max(1, round(scale)))
-            if scale == 1:
-                self.text(f"{player.stasis:.1f}s", x, y - 72, 12, ICE, center=True)
+            self._prison_shell(player, x, y, scale)
+
+    def _prison_shell(self, player, x, y, scale, illustrated=False):
+        def p(dx, dy):
+            return round(x + dx * scale), round(y + dy * scale)
+        self.glow(x, y - round(22 * scale), ICE, round(54 * scale), 60)
+        shell = ([p(-29, -3), p(-31, -44), p(-14, -72), p(15, -75), p(32, -40), p(29, 0), p(0, 8)]
+                 if illustrated else [p(-17, -3), p(-18, -32), p(-7, -51), p(9, -52), p(20, -28), p(17, 0), p(0, 8)])
+        left, top = min(px for px, _ in shell), min(py for _, py in shell)
+        width = max(px for px, _ in shell) - left + 1
+        height = max(py for _, py in shell) - top + 1
+        glass = pygame.Surface((width, height), pygame.SRCALPHA)
+        pygame.draw.polygon(glass, (130, 217, 251, 80), [(px - left, py - top) for px, py in shell])
+        self.screen.blit(glass, (left, top))
+        pygame.draw.polygon(self.screen, ICE, shell, max(1, round(scale)))
+        pygame.draw.lines(self.screen, (211, 246, 255), False, [p(-7, -51), p(-3, -22), p(17, 0)], max(1, round(scale)))
+        if scale == 1:
+            self.text(f"{player.stasis:.1f}s", x, y - (92 if illustrated else 72), 12, ICE, center=True)
 
     def enemy(self, enemy, time):
         x, y = iso(enemy.pos)
@@ -347,7 +402,7 @@ class Renderer:
         ember = ICE if frozen or enemy.chilled > 0 else POTION if alchemy else BLIGHT if enemy.kind == "tree" else LEAF if forest else (245, 120, 61)
         color = WHITE if enemy.flash > 0 else (150, 178, 193) if frozen else (133, 104, 93)
         self.glow(x, y - 15, ember, 30, 24)
-        if new_enemy(self, enemy, time):
+        if maw_art.enemy(self, enemy, time) or temporal_art.enemy(self, enemy, time) or void_depth_art.enemy(self, enemy, time) or void_art.enemy(self, enemy, time) or new_enemy(self, enemy, time):
             pass
         elif enemy.boss_name == "Animated Shield":
             shield = [(x - 17, y - 40), (x, y - 47), (x + 17, y - 40),
@@ -408,8 +463,9 @@ class Renderer:
         elif enemy.chilled > 0:
             pygame.draw.ellipse(self.screen, ICE, (x - 15, y - 5, 30, 14), 1)
         if enemy.boss_role:
-            self.radius(enemy.pos, .55 if enemy.boss_role == "boss" else .35, GOLD, 2)
-            if enemy.boss_role == "boss":
+            if enemy.kind != "devourer":
+                self.radius(enemy.pos, .55 if enemy.boss_role == "boss" else .35, GOLD, 2)
+            if enemy.boss_role == "boss" and enemy.kind not in ("voidwalker", "oracle", "astronomer", "hourless_breach", "devourer"):
                 if enemy.kind == "tree":
                     self.glow(x, y - 28, BLIGHT, 38, 55)
                     pygame.draw.circle(self.screen, ICE if frozen else BLIGHT, (x, y - 29), 9)
@@ -417,10 +473,13 @@ class Renderer:
                 pygame.draw.lines(self.screen, GOLD, False,
                                   [(x - 13, y - 64), (x - 15, y - 75), (x - 5, y - 70),
                                    (x, y - 80), (x + 5, y - 70), (x + 15, y - 75), (x + 13, y - 64)], 2)
-            self.text(enemy.name, x, y - 96, 10, GOLD, center=True)
-            if enemy.boss_role == "boss" and enemy.recovery > 0:
-                self.text("RECOVERING / +35% DAMAGE", x, y - 111, 10, TEAL, center=True)
-        if enemy.hp < enemy.max_hp:
+            label_height = 184 if enemy.kind == "devourer" else 96
+            if enemy.kind != "devourer":
+                self.text(enemy.name, x, y - label_height, 10, GOLD, center=True)
+            if enemy.boss_role == "boss" and enemy.recovery > 0 and enemy.kind != "voidwalker":
+                recovery_y = y + 54 if enemy.kind == "devourer" else y - label_height - 15
+                self.text("RECOVERING / +35% DAMAGE", x, recovery_y, 10, TEAL, center=True)
+        if enemy.hp < enemy.max_hp and enemy.kind != "devourer":
             self.bar(x - 15, y - (62 if enemy.kind == "tree" else 49 if enemy.kind == "archer" else 44),
                      30, 3, enemy.hp / enemy.max_hp, ember)
 
@@ -571,6 +630,20 @@ class Renderer:
         pygame.draw.circle(self.screen, color, (round(end.x), round(end.y - 15)), 7, 1)
 
     def spawner(self, spawner, time):
+        if spawner.level in (6, 7, 8, 9, 10):
+            x, y = iso(spawner.pos)
+            color = WHITE if spawner.flash else void_depth_art.SKY if spawner.level == 8 else void_art.VIOLET
+            self.radius(spawner.pos, .7, color, 2)
+            self.radius(spawner.pos, .48, void_art.PALE, 1)
+            self.glow(x, y - 12, color, 50, 32)
+            for i in range(6):
+                angle = i * pi / 3 + time * .3
+                px, py = x + cos(angle) * 29, y + sin(angle) * 14
+                pygame.draw.lines(self.screen, color, False, [(px - 3, py - 5), (px + 4, py), (px - 1, py + 4)], 2)
+            pygame.draw.polygon(self.screen, (39, 26, 57), [(x - 11, y - 12), (x, y - 32), (x + 11, y - 12), (x, y + 2)])
+            pygame.draw.line(self.screen, void_art.PALE, (x, y - 27), (x, y - 4), 2)
+            self.bar(x - 25, y - 45, 50, 3, spawner.hp / spawner.max_hp, color)
+            return
         if spawner.menagerie:
             containment(self, spawner, time)
             return
@@ -678,7 +751,7 @@ class Renderer:
                 pygame.draw.lines(self.screen, (83, 112, 63), False,
                                   [(x + side * 29, y - 4), (x + side * 20, y - 23),
                                    (x + side * 27, y - 44), (x + side * 19, y - 59)], 3)
-        if world.exit_open and world.level_data.keeper:
+        if world.exit_open and world.level == PLAYABLE_FLOORS:
             self.text("UPPER FLOORS SEALED", x, y - 92, 10, GOLD, center=True)
             self.text("Approach to finish this section", x, y + 20, 10, GOLD, center=True)
             return
@@ -736,6 +809,9 @@ class Renderer:
                 pygame.draw.line(self.screen, SILVER, (tail.x + direction.x * 3, tail.y + direction.y * 3),
                                  (feather.x, feather.y), 1)
             return
+        # Projectile positions stay on the combat plane; lift the frost art to
+        # the illustrated mage's staff height without shifting its hit path.
+        y -= FROST_BOLT_HEIGHT - 15
         self.glow(x, y - 15, ICE, 28, 44)
         pygame.draw.line(self.screen, (76, 139, 183), (x - direction.x * 22, y - 15 - direction.y * 22), (x, y - 15), 3)
         pygame.draw.polygon(self.screen, ICE, [(x + direction.x * 12, y - 15 + direction.y * 12),
@@ -777,6 +853,8 @@ class Renderer:
 
     def effect(self, effect):
         x, y = iso(effect.pos)
+        if effect.kind == "cast":
+            y -= FROST_BOLT_HEIGHT
         age = 1 - effect.life / effect.duration
         color = POTION if effect.kind == "potion_splash" else TEAL if effect.kind == "heal" else GOLD if effect.kind in ("gold", "critical") else VIOLET if effect.kind in ("spawn", "burst") else RED if effect.kind == "hurt" else ICE
         if effect.kind in ("nova", "shatter", "frostweave_shatter"):
@@ -822,7 +900,9 @@ class Renderer:
         for target in world.enemies + world.spawners:
             x, y = iso(target.pos)
             width, height = ((52, 68) if target in world.spawners else
-                             (90, 98) if target.kind == "keeper" else
+                             (330, 190) if target.kind == "devourer" else
+                             (110, 100) if target.kind in ("keeper", "voidwalker", "oracle", "astronomer", "hourless_breach") else
+                             (60, 74) if target.kind == "dimensional_anchor" else
                              (56, 60) if target.kind == "crystal" else
                              (54, 60) if target.kind == "arcane" else
                              (54, 39) if target.kind == "predator" else
@@ -867,7 +947,7 @@ class Renderer:
         self.spaced("YOUR CHAMPION", 48, 140, 10)
         pygame.draw.circle(self.screen, (26, 41, 59), (153, 217), 49)
         pygame.draw.circle(self.screen, (74, 108, 132), (153, 217), 49, 1)
-        self.player(player, world.time, (153, 253), 1.8)
+        self.character_portrait((153, 217), 98, player)
         self.text("The Frost Mage", 153, 280, 24, WHITE, serif=True, center=True)
         self.text(MOTTO, 153, 318, 10, ICE, serif=True, center=True)
         self.spaced("VITALITY", 48, 346, 10)
@@ -893,7 +973,7 @@ class Renderer:
         if world.keeper:
             objectives = [("Keeper stage", f"{world.phase} / 3", world.level_completed),
                           ("Duties active", f"{len(world.keeper.active_kinds)} / 2", world.level_completed),
-                          ("Upper stair", "SEALED", world.level_completed)]
+                          ("Upper stair", "OPEN" if world.exit_open else "SEALED", world.level_completed)]
         for i, (label, value, done) in enumerate(objectives):
             yy = 696 + i * 27
             pygame.draw.circle(self.screen, TEAL if done else (83, 94, 100), (53, yy + 7), 3, 0 if done else 1)
@@ -934,8 +1014,10 @@ class Renderer:
         hover = None
         for key, rect in self.ability_rects.items():
             ability = ABILITIES[key]
-            cooldown = world.player.cooldowns[key]
-            disabled = cooldown > 0 or world.player.mana < world.player.mana_cost_for(key) or world.player.stasis > 0
+            reserved = key == "r" and getattr(world.void, "reserved_prison", False)
+            cooldown = 0 if reserved else world.player.cooldowns[key]
+            mana_cost = 0 if reserved else world.player.mana_cost_for(key)
+            disabled = cooldown > 0 or world.player.mana < mana_cost or world.player.stasis > 0
             hovered = mouse is not None and rect.collidepoint(mouse)
             if hovered:
                 hover = key
@@ -949,7 +1031,7 @@ class Renderer:
                 self.text(f"{cooldown:.1f}s", rect.x + 59, rect.y + 37, 17, ICE)
                 self.bar(rect.x + 59, rect.y + 61, 130, 2, 1 - cooldown / world.player.cooldown_for(key), ICE)
             else:
-                self.text(f"{world.player.mana_cost_for(key):.1f} MANA" if ability.mana else "FREE · HOLD Q", rect.x + 59, rect.y + 42, 10, RED if world.player.mana < world.player.mana_cost_for(key) else ICE)
+                self.text("RESERVED / FREE CAST" if reserved else f"{mana_cost:.1f} MANA" if ability.mana else "FREE · HOLD Q", rect.x + 59, rect.y + 42, 10, RED if world.player.mana < mana_cost else ICE)
         if hover:
             ability = ABILITIES[hover]
             rect = self.ability_rects[hover]
@@ -1013,6 +1095,7 @@ class Renderer:
             self._build_floor(world)
         forest = world.level_data.forest
         alchemy = world.level_data.alchemist
+        scene_time = getattr(world.void, "scene_time", world.time)
         self.screen.fill(INK)
         pygame.draw.ellipse(self.screen, (17, 30, 23) if forest else (15, 27, 32), (340, 166, 1060, 600))
         self.screen.set_clip(pygame.Rect(300, 166, 1140, 610))
@@ -1032,7 +1115,7 @@ class Renderer:
         for trail in world.rime_trails:
             self.radius(trail.pos, trail.radius, (120, 186, 215), 1)
         for patch in world.ice_patches:
-            self.ice_patch(patch, world.time)
+            self.ice_patch(patch, scene_time)
         if world.frost_multiplier > 1:
             self.radius(world.player.pos, .48, ICE, 2)
         if world.selected:
@@ -1041,6 +1124,10 @@ class Renderer:
             x, y = iso(spawner.pos)
             self.glow(x, y, POTION if alchemy else BLIGHT if forest else VIOLET, 95, 35)
         telegraphs(self, world)
+        if world.level != 10:
+            void_art.telegraphs(self, world)
+            void_depth_art.telegraphs(self, world)
+            temporal_art.telegraphs(self, world)
         if world.intermission > 0:
             for x, y in world.level_data.phase_spawners[world.phase]:
                 self.radius(Vec(x, y), .7, GOLD, 2)
@@ -1081,22 +1168,33 @@ class Renderer:
         objects += [(p.pos.x + p.pos.y, "projectile", p) for p in world.projectiles]
         objects.append((world.player.pos.x + world.player.pos.y, "player", world.player))
         objects.append((world.exit.x + world.exit.y, "gate", None))
+        if world.level == 6:
+            objects += [(p.x + p.y, "void_pillar", (p, i < world.void.broken_pillars))
+                        for i, p in enumerate(void_art.PILLARS)]
         objects += [(p.x + p.y, "potion_lamp" if alchemy else "wisp" if forest else "torch", p)
                     for p in (Vec(2.5, 7.5), Vec(7.5, 2.5), Vec(14.5, 10.5), Vec(8.5, 14.5))]
         for _, kind, obj in sorted(objects, key=lambda item: (item[0], item[1])):
             if kind == "wall":
                 self.wall(obj, world)
             elif kind == "player":
-                self.player(obj, world.time)
+                self.player(obj, scene_time)
             elif kind == "gate":
-                self.gate(world, world.time)
+                self.gate(world, scene_time)
+            elif kind == "void_pillar":
+                void_art.pillar(self, obj[0], obj[1])
             else:
-                getattr(self, kind)(obj, world.time)
+                getattr(self, kind)(obj, scene_time)
         for effect in world.effects:
             self.effect(effect)
+        if world.level == 10:
+            # The oversized torso must not obscure arrival or ground warnings.
+            void_art.telegraphs(self, world)
+            void_depth_art.telegraphs(self, world)
+            temporal_art.telegraphs(self, world)
+            maw_art.telegraphs(self, world)
         for x, y, phase in self.dust:
-            px = round(x + sin(world.time * 0.15 + phase) * 10)
-            py = round(y - (world.time * 3 + phase * 10) % 40)
+            px = round(x + sin(scene_time * 0.15 + phase) * 10)
+            py = round(y - (scene_time * 3 + phase * 10) % 40)
             pygame.draw.circle(self.screen, (140, 169, 88) if forest else (92, 122, 131), (px, py), 1)
         if mode == "playing" and world.state == "playing":
             self.low_health_warning(world.player)
@@ -1136,7 +1234,21 @@ class Renderer:
         pygame.draw.rect(self.screen, PANEL, (324, 168, 1072, 31), border_radius=5)
         pygame.draw.rect(self.screen, LINE, (324, 168, 1072, 31), 1, border_radius=5)
         self.text(f"{'STAGE' if world.keeper else 'PHASE'} {world.phase} / 3", 338, 176, 11, ICE, bold=True)
-        if world.keeper:
+        if world.level == 10 and world.boss_started:
+            f = world.void
+            detail = ("Void arc sealed / the Arcanist's floors await" if f.finished else
+                      f"Threshold Devourer / health stage {f.stage}/3 / " +
+                      {"summon": "clear the portal arrivals", "pull": "run outward from the gravity draw",
+                       "slam": "leave the locked tentacle circles", "lash": "sidestep the tentacle lanes"}.get(f.last_pattern, "watch its warnings"))
+        elif world.level == 9 and world.boss_started:
+            t = world.void
+            detail = {"demonstration": "Safe lesson / watch the warden anchor in ice",
+                      "practice": "Safe practice / press R immediately", "practice_reset": "Safe reset / try R on the next cue",
+                      "lesson_passed": "Ice anchor learned / checkpoint ready", "fracture": "Navigate the portal arrivals",
+                      "exposure": "Break the exposed dimensional anchor", "stop_pending": "Time is stopping / prepare R",
+                      "stopped_hour": "Stopped Hour / use R to anchor", "recovery": "Survived / prepare for the next cycle",
+                      "retry": "Returning to the nearby boss checkpoint", "complete": "Three anchors sealed / collect your reward"}.get(t.stage_name, "")
+        elif world.keeper:
             detail = "Lower section complete / upper tower awaits" if world.level_completed else "The Keeper / frost briefly halts him, then 3s resistance"
         elif world.intermission > 0:
             detail = f"Next phase in {world.intermission:.1f}s / " + ("boss encounter forming" if world.phase == 2 and not world.level_data.menagerie else f"{world.level_data.phase_counts[world.phase]} spawners forming")
@@ -1153,7 +1265,10 @@ class Renderer:
         boss = next((e for e in world.enemies if e.boss_role in ("boss", "keeper")), None)
         if boss:
             self.bar(600, 206, 440, 6, boss.hp / boss.max_hp, GOLD)
-            self.text(f"{boss.name}  /  {boss.hp:.0f} HP", 820, 217, 10, GOLD, center=True)
+            self.text(f"{boss.name} / {world.void.completed_anchors}/3 anchors sealed" if world.level == 9 else
+                      f"{boss.name}  /  {boss.hp:.0f} HP", 820, 217, 10, GOLD, center=True)
+            if getattr(world.void, "protected", False):
+                self.text("PROTECTED / BREAK OR FREEZE THE CHANNELERS", 820, 234, 10, ICE, center=True)
             if world.keeper:
                 for threshold in world.keeper.tuning.thresholds:
                     x = round(600 + 440 * threshold)
@@ -1179,8 +1294,8 @@ class Renderer:
             subtitle = f"Next: {level_for_depth(world.level + 1).name}. Your gear carries forward."
             action = "ENTER  /  CLIMB TO NEXT FLOOR"
         elif world.state == "won":
-            kicker, title = "TO BE CONTINUED", "The lower five floors yield."
-            subtitle = "Fifteen stories remain above. Floor 6 is not yet available. Your story continues."
+            kicker, title = "TO BE CONTINUED", "The void falls silent."
+            subtitle = "The Arcanist's five floors await above. Floor 11 is a future chapter."
             action = "ENTER  /  MAIN MENU"
         elif mode == "paused":
             kicker, title, subtitle = "TAKE A BREATH", "The Tower can wait.", "Your adventure is paused."
@@ -1194,8 +1309,9 @@ class Renderer:
         self.text(subtitle, center, 393, 14, MUTED, center=True)
         if mode == "floor_clear":
             self.text("Press I to open your inventory and compare equipment.", center, 438, 14, GOLD, center=True)
-            self.text("Collect any remaining loot before heading upstairs." if world.level < 5 else
-                      "The Keeper is off duty. The upper tower awaits!", center, 465, 12, WHITE, center=True)
+            self.text("The Keeper's stair now leads to Broken Containment." if world.level == 5 else
+                      "Collect your loot before approaching the upper stair." if world.void else
+                      "Collect any remaining loot before heading upstairs.", center, 465, 12, WHITE, center=True)
         else:
             self.text("Right click or hold to move   ·   Left click to select enemies", center, 438, 12, WHITE, center=True)
             self.text("Q Frost Bolt   ·   W Frost Nova   ·   E Ice Patch   ·   R Glacial Prison", center, 465, 12, WHITE, center=True)

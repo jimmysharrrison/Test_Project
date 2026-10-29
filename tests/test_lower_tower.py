@@ -374,7 +374,7 @@ class KeeperTests(unittest.TestCase):
         self.assertEqual(world.player.gold, 0)
         self.assertFalse(world.player.lower_tower_completed)
 
-    def test_kill_cleans_fight_awards_once_and_terminal_portal_has_no_floor_six(self):
+    def test_kill_cleans_fight_awards_once_and_portal_leads_to_floor_six(self):
         world, fight, boss = keeper()
         fight.start("cleaning")
         world.make_enemy(Vec(12.5, 8.5), "arcane", summoned=True, summon_life=20)
@@ -393,8 +393,11 @@ class KeeperTests(unittest.TestCase):
             world.update(1 / 60)
         world.player.pos = world.exit
         world.update(1 / 60)
-        self.assertEqual(world.state, "won")
-        self.assertFalse(world.next_level())
+        self.assertEqual(world.state, "cleared")
+        self.assertTrue(world.next_level())
+        self.assertEqual(world.level, 6)
+        self.assertIs(world.void.world, world)
+        self.assertTrue(world.player.frostweave_unlocked)
 
     def test_boss_death_during_projectile_iteration_cannot_process_removed_shots(self):
         world, fight, boss = keeper()

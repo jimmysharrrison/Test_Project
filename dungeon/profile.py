@@ -81,7 +81,7 @@ class ProfileStore:
             self.writable = False
             return None
 
-    def save(self, player):
+    def save(self, player, *, snapshot=None):
         if not self.writable:
             return False
         if player.achievement_run.floor != player.current_level:
@@ -94,6 +94,8 @@ class ProfileStore:
                 "potions": player.potions, "kills": player.kills,
                 "first_clear_rewarded": player.first_clear_rewarded,
                 "inventory": player.inventory.to_dict()}
+        if snapshot is not None:
+            data["game_state"] = snapshot
         if data == self._last:
             return True
         temporary = self.path.with_suffix(".tmp")

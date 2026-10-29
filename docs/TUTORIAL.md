@@ -1,6 +1,6 @@
 # Drearamore interactive tutorial
 
-Choose **Tutorial / Drearamore Practice** on the title screen to replay. Start Game offers Play Tutorial or Skip / Start Game; Continue does not show the offer. Practice has its own character and room. Returning to the menu or closing practice does not save or normalize an existing profile, including older version-1 saves. Starting the actual game after a confirmed new-game flow creates the requested fresh character.
+Choose **Tutorial / Drearamore Practice** on the title screen to replay. New Game offers Play Tutorial or Skip / Start Game; Load Game does not show the offer. Practice has its own character and room. Save Game is disabled during practice. Returning to the menu or closing practice does not save or normalize any slot, including older version-1 saves. Starting the actual game after a confirmed new-game flow creates a fresh character without replacing a saved slot; choose Save Game when ready to keep it.
 
 The lessons cover movement, target inspection, Frost Bolt, Frost Nova, Ice Patch, Glacial Prison, potion healing, walking over loot, inspecting and comparing equipment, equipping and swapping, ranks/Frostweave, and a final harmless encounter. Each action has a success indicator and an explicit Next lesson button. Retry Step restores the setup and resources; Skip Step records a skip separately from completion. The final encounter has Restart Practice. Exit Tutorial is always available in the footer. Completion offers Start Game, Return to Menu, and Restart Tutorial.
 

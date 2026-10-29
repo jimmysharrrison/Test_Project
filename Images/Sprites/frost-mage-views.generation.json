@@ -1,0 +1,10 @@
+{
+  "tool": "built-in image_gen",
+  "purpose": "Transparent front and back views for the in-game Frost Mage",
+  "inputs": [
+    "Images/Icons/Characters/Frost Mage/frost mage front view.png",
+    "Images/Icons/Characters/Frost Mage/Frost Mage back view.png"
+  ],
+  "output": "Images/Sprites/frost-mage-views.png",
+  "prompt": "Use case: background-extraction. Asset type: in-game transparent character sprite atlas. Edit targets: image 1 is the supplied Frost Mage front view, image 2 is her supplied back view. Extract these exact two full-body illustrations from their gray studio backgrounds and arrange them side by side, FRONT on the LEFT half and BACK on the RIGHT half of a single wide transparent PNG. Each half must contain one complete figure, including all hair, fur, robe hems, boots and the entire crystal staff, at matching scale, with boot soles on the same baseline. Keep each figure wholly within its own half with a small transparent margin. Preserve her exact identity, face, silver hair, navy-and-silver costume, pale fur, staff, pose, proportions and detailed illustration style. Remove only the gray background, ground plane, and cast floor shadow. No added lettering, labels, frames, platforms, ground, scenery, glow cloud or painted checkerboard. The background and the space between figures must have real alpha transparency. Do not redesign, turn, or animate the figures."
+}

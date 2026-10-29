@@ -1,0 +1,109 @@
+[
+  {
+    "seed": 3,
+    "loadout": "frostweave",
+    "state": "won",
+    "seconds": 34.27,
+    "phase": 3,
+    "hp": 160,
+    "potions": 3,
+    "boss_hp": 0,
+    "pillars_broken": 1,
+    "peak_enemies": 3,
+    "peak_darkness": 2,
+    "damage_events": 0,
+    "damage_sources": [],
+    "used_glacial_prison": false
+  },
+  {
+    "seed": 7,
+    "loadout": "frostweave",
+    "state": "won",
+    "seconds": 37.63,
+    "phase": 3,
+    "hp": 160,
+    "potions": 3,
+    "boss_hp": 0,
+    "pillars_broken": 2,
+    "peak_enemies": 5,
+    "peak_darkness": 3,
+    "damage_events": 1,
+    "damage_sources": [
+      "claw"
+    ],
+    "used_glacial_prison": false
+  },
+  {
+    "seed": 19,
+    "loadout": "frostweave",
+    "state": "won",
+    "seconds": 39.37,
+    "phase": 3,
+    "hp": 155,
+    "potions": 3,
+    "boss_hp": 0,
+    "pillars_broken": 1,
+    "peak_enemies": 3,
+    "peak_darkness": 1,
+    "damage_events": 2,
+    "damage_sources": [
+      "claw"
+    ],
+    "used_glacial_prison": false
+  },
+  {
+    "seed": 3,
+    "loadout": "keeper_reward",
+    "state": "won",
+    "seconds": 48.02,
+    "phase": 3,
+    "hp": 104.8,
+    "potions": 2,
+    "boss_hp": 0,
+    "pillars_broken": 2,
+    "peak_enemies": 6,
+    "peak_darkness": 2,
+    "damage_events": 6,
+    "damage_sources": [
+      "claw",
+      "darkness"
+    ],
+    "used_glacial_prison": false
+  },
+  {
+    "seed": 7,
+    "loadout": "keeper_reward",
+    "state": "won",
+    "seconds": 49.48,
+    "phase": 3,
+    "hp": 101.7,
+    "potions": 3,
+    "boss_hp": 0,
+    "pillars_broken": 2,
+    "peak_enemies": 4,
+    "peak_darkness": 2,
+    "damage_events": 1,
+    "damage_sources": [
+      "claw"
+    ],
+    "used_glacial_prison": false
+  },
+  {
+    "seed": 19,
+    "loadout": "keeper_reward",
+    "state": "won",
+    "seconds": 47.88,
+    "phase": 3,
+    "hp": 97.12,
+    "potions": 1,
+    "boss_hp": 0,
+    "pillars_broken": 2,
+    "peak_enemies": 5,
+    "peak_darkness": 2,
+    "damage_events": 8,
+    "damage_sources": [
+      "claw"
+    ],
+    "used_glacial_prison": false
+  }
+]

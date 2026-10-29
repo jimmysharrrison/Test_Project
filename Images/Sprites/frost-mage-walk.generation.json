@@ -1,0 +1,23 @@
+{
+  "tool": "built-in image_gen",
+  "purpose": "Four-frame looping Frost Mage walk cycles for front and back views",
+  "source": "Images/Sprites/frost-mage-views.png",
+  "outputs": [
+    {
+      "path": "Images/Sprites/frost-mage-walk-front.png",
+      "grid": [
+        2,
+        2
+      ],
+      "prompt": "Use case: identity-preserve. Production sprite animation, true alpha transparency. Make exactly FOUR full-body walking poses of this exact Frost Mage in a square sprite sheet: uniform TWO columns by TWO rows. Reading order: top-left frame 1, top-right frame 2, bottom-left frame 3, bottom-right frame 4, then loop to frame 1. Every pose must fit COMPLETELY inside its own equal square cell, with at least 6% transparent padding on ALL four sides. No head, staff tip, hem or boot may touch a cell boundary or overlap another pose. All four characters must have EXACTLY matching scale, head size, torso location and ground baseline within their cells. Preserve the supplied face, silver hair, navy-and-silver long robe, closed pale fur-trimmed skirt, boots and crystalline staff. Do NOT open or shorten the robe, do NOT expose bare thighs or knees, do NOT change the costume. Animate boots visible below the hem and use changing leg silhouettes/folds to show steps. Four DISTINCT gait poses, not copies: frame 1 LEFT boot advances, RIGHT boot trails; frame 2 left foot beneath hips bearing weight, right boot lifted and passing; frame 3 RIGHT boot advances, LEFT boot trails (CLEAR OPPOSITE OF FRAME 1); frame 4 right foot beneath hips bearing weight, left boot lifted and passing (CLEAR OPPOSITE OF FRAME 2). Free arm swings naturally opposite the stepping leg. Staff hand must move, with a restrained 5-degree forward/back staff sway; same staff hand throughout. Keep torso/head facing the same direction through all frames, gentle body rise on passing poses, restrained robe/fur/hair follow-through. Walk IN PLACE with no translation across cell centers. Smooth looping rhythm 1-2-3-4-1. No text, numbers, frame lines, cast floor shadow, ground, scenery, checkerboard or effects cloud. Only four clean isolated sprites on transparent background. Use ONLY the FRONT-VIEW figure at the LEFT of the supplied reference atlas. All FOUR poses face directly TOWARD the viewer. The back figure is identity reference only; do not include a back pose."
+    },
+    {
+      "path": "Images/Sprites/frost-mage-walk-back.png",
+      "grid": [
+        2,
+        2
+      ],
+      "prompt": "Use case: identity-preserve. Production sprite animation, true alpha transparency. Make exactly FOUR full-body walking poses of this exact Frost Mage in a square sprite sheet: uniform TWO columns by TWO rows. Reading order: top-left frame 1, top-right frame 2, bottom-left frame 3, bottom-right frame 4, then loop to frame 1. Every pose must fit COMPLETELY inside its own equal square cell, with at least 6% transparent padding on ALL four sides. No head, staff tip, hem or boot may touch a cell boundary or overlap another pose. All four characters must have EXACTLY matching scale, head size, torso location and ground baseline within their cells. Preserve the supplied face, silver hair, navy-and-silver long robe, closed pale fur-trimmed skirt, boots and crystalline staff. Do NOT open or shorten the robe, do NOT expose bare thighs or knees, do NOT change the costume. Animate boots visible below the hem and use changing leg silhouettes/folds to show steps. Four DISTINCT gait poses, not copies: frame 1 LEFT boot advances, RIGHT boot trails; frame 2 left foot beneath hips bearing weight, right boot lifted and passing; frame 3 RIGHT boot advances, LEFT boot trails (CLEAR OPPOSITE OF FRAME 1); frame 4 right foot beneath hips bearing weight, left boot lifted and passing (CLEAR OPPOSITE OF FRAME 2). Free arm swings naturally opposite the stepping leg. Staff hand must move, with a restrained 5-degree forward/back staff sway; same staff hand throughout. Keep torso/head facing the same direction through all frames, gentle body rise on passing poses, restrained robe/fur/hair follow-through. Walk IN PLACE with no translation across cell centers. Smooth looping rhythm 1-2-3-4-1. No text, numbers, frame lines, cast floor shadow, ground, scenery, checkerboard or effects cloud. Only four clean isolated sprites on transparent background. Use ONLY the BACK-VIEW figure at the RIGHT of the supplied reference atlas. All FOUR poses face directly AWAY from the viewer. The front figure is costume reference only; do not include a front pose."
+    }
+  ]
+}

@@ -9,10 +9,11 @@ for contents, crash recovery and the `--no-telemetry` option.
 A Python 3.14 desktop action dungeon crawler inspired by Gauntlet and Diablo.
 An as-yet nameless wanderer, trained at Drearamore's elemental college, arrives
 at **The Tower**. She carries its motto, **elementis fidelis est**, into a
-twenty-story mystery. This build completes the first five-floor section: a stone entrance hall, an
+twenty-story mystery. This build includes ten floors: a stone entrance hall, an
 indoor forest atrium, a chaotic alchemy workshop, the escaped specimens of the
-Menagerie, and the lower tower's furious caretaker, the Keeper. Fifteen upper
-floors remain unexplored.
+Menagerie, the lower tower's furious caretaker, the Keeper, **Broken
+Containment**, **The Consuming Dark**, **The Fallen Observatory**,
+**The Fractured Hour**, and **The Maw Between Worlds**. Ten upper floors remain unexplored.
 
 ![Title menu](docs/title.png)
 
@@ -49,11 +50,17 @@ menu and waits for your choice; combat does not run behind it.
 
 ## Title menu and starting over
 
-- **Start Game** begins a fresh Frost Mage on the ground floor. If a character exists, a
-  confirmation explains that starting over replaces its gear, gold, and unlocks.
-- **Continue** resumes your current level with your saved character. A fresh
-  room is loaded after reopening the app; returning from the pause menu keeps
-  the current room. Continue is disabled until a character exists.
+- **New Game** begins a fresh Frost Mage on the ground floor. Existing saved
+  slots are preserved; confirmation warns about leaving unsaved progress.
+- **Load Game** opens four slots showing floor, gold, and save date. Choose an
+  occupied slot to restore its live encounter. Loading during an adventure asks
+  for confirmation before replacing the current session.
+- **Save Game**, on the title and pause menus, lets you select one of four slots.
+  Empty slots save immediately; occupied slots require **Overwrite Save**.
+  Cancel or Escape changes no save file. Save again when you want to update a
+  checkpoint; normal play and exiting do not overwrite it automatically.
+- **Resume Current Game** returns from the title menu to the live session
+  without reloading a saved checkpoint.
 - **Level Select** replays any reached level while keeping equipment and gold.
   A destination unlocks only after you enter it through the preceding portal.
   Replaying level 1 retains previously earned unlocks. New characters start
@@ -277,31 +284,54 @@ additional floor adds 15% to base enemy/spawner health and gold, and 12% to
 base attack damage. Phase speed changes apply to newly spawned mobs; survivors
 keep the speed of their original phase.
 
-Floor 3 now leads to **The Menagerie**, then **The Keeper**. His defeat completes
-this five-floor section. Approach the sealed upper stair to see **To Be Continued**;
-there is no playable floor 6 and the twenty-story mystery continues.
+Floor 3 leads to **The Menagerie**, then **The Keeper**. His defeat completes
+the lower tower and opens the stair to **Floor 6 — Broken Containment**. Defeat
+the Unbound Voidwalker, climb to **The Consuming Dark** on Floor 7, then face
+the Fallen Astronomer in **The Fallen Observatory** on Floor 8, then enter
+**The Fractured Hour** on Floor 9, then face **The Threshold Devourer** in
+**The Maw Between Worlds** on Floor 10. Its upper stair shows **To Be Continued**.
+Floors 11–20 remain unavailable.
 Level Select replays reached floors while preserving gear. The optional
 `--level N` flag chooses a reached floor in interactive play. Headless previews
-can choose any implemented floor (1–5), for example `--headless --level 3 --frames 120`.
+can choose any implemented floor (1–10), for example `--headless --level 10 --frames 120`.
 
 Gold and equipment can be collected on contact before the clear. Food heals
 injured players. Potions restore up to 40 health, respect your equipped maximum
 health, and are not consumed at full health.
 
-The local character saves equipment, enchantments, gold, potions, kills, current
-level, and highest reached depth automatically. On Windows the save is in
-`%LOCALAPPDATA%\Embervault\profile.json`. The legacy folder name is retained to
-preserve existing characters after the rename. Old endless depths above 5 map
-to floor 5, retaining equipment, gold, and the first-clear reward state.
-Continue loads your current level, which can differ from your highest unlock.
+The four local slots save equipment, enchantments, gold, potions, kills, unlocks,
+position, health, mana, cooldowns, enemies, ground loot, active spells, boss
+mechanics, encounter progress, and timers. On Windows Slot 1 remains at
+`%LOCALAPPDATA%\Embervault\profile.json`; Slots 2–4 are `profile-slot-2.json`
+through `profile-slot-4.json` in the same folder. Existing version-1/2 character
+saves appear in Slot 1 and rebuild their current room on load, until explicitly
+saved with the new encounter snapshot. No automatic migration rewrites them.
+Old endless depths beyond the authored floors map to floor 10 while retaining character progress.
 Use `uv run main.py --no-save` for a temporary
 character, or `--profile PATH` to choose another save file. Profile errors appear
-in-game; an invalid profile is preserved instead of being overwritten.
+in-game; unreadable slots are preserved and cannot be loaded. They may be
+replaced only through explicit overwrite confirmation. Practice tutorials never
+write slots. Headless tools retain player-only autosaving when `--profile` is supplied.
 
 The visual direction keeps the blue-and-silver female mage, pale fur collar,
 and original frozen glyph from the earlier art direction, now within the
-interiors of The Tower. This build uses procedural artwork and synthesized
-sound. Detailed animated sprites and final environmental art remain future work.
+interiors of The Tower. The opening page, menus, Codex, and champion panel use
+a shared headshot from the supplied front-view artwork in
+`Images/Icons/Characters/Frost Mage/`. The illustrations are preserved in full;
+the interface fits a cropped portrait into each circular frame. The in-game mage
+uses transparent front/back cutouts from those illustrations, mirrored for left
+and right travel. Her view follows actual movement and holds when she stops;
+an idle Frost Bolt turns her toward its target. Hit flashes and Glacial Prison
+remain visible around the illustrated character. Front and back each have a
+four-frame looping walk cycle with alternating boots, arm swing, staff sway,
+and moving robe folds. Animation advances with actual distance traveled, so
+slows and speed bonuses affect its cadence. Stopping, blocked movement and
+Glacial Prison return her to a standing pose; pauses hold the current frame.
+Live checkpoints preserve the walk cycle, and older saves default to idle.
+The sprite sheets and built-in image-edit prompts are in `Images/Sprites/`.
+See the [animated walking preview](docs/mage-walk.gif). Environment art remains
+procedural, with synthesized sound; further animation and environmental art
+remain future work.
 
 Below 35% of maximum health, a dark red vignette grows around the screen edges.
 It strengthens as health falls and clears when healed above the threshold. The
@@ -325,7 +355,7 @@ headless environment. `--frames` exits after the given frame count.
 
 - `dungeon/items.py`: ranked equipment, character bonuses, drop values, and prices.
 - `dungeon/armory.py`: inventory, item tooltips, backpack pages, and enchanting UI.
-- `dungeon/profile.py`: local character saves.
+- `dungeon/profile.py`, `dungeon/saves.py`: atomic local character persistence and four live-state save slots.
 - `dungeon/menus.py`: splash menu, instructions, pause navigation, and level selection.
 - `dungeon/abilities.py`: spell definitions and initial balance values.
 - `dungeon/levels.py`: chapter themes, distinct layouts, and enemy rosters.
@@ -377,8 +407,8 @@ at most 0.45 seconds and then resists new freezes for three seconds; ordinary
 enemies retain their existing frost behavior. Glacial Prison is optional.
 
 His defeat grants 2,500 gold and a Rank 3 Frostweave Crown on the first victory, recalls summons,
-clears hazards, and immediately saves the completion flag and reward together.
-Continue after reloading restores the defeated room. Selecting floor 5 again
+clears hazards, and updates the completion flag and reward together. Use **Save Game**
+to keep the victory in a slot. Loading that checkpoint restores the defeated room. Selecting floor 5 again
 starts a fresh replay and can earn its gold reward again; the crown is first-victory only. Starting over
 still creates an entirely new character. The original save location and version
 remain compatible; legacy saves need no conversion.
@@ -399,8 +429,8 @@ Zero disables the corresponding delay. Pause and inventory suspend the countdown
 Combat resolves before a clear is committed; player death in that tick takes precedence.
 A confirmed clear blocks further damage while effects animate. Minibosses with surviving
 enemies use a nonblocking notice; a simultaneous floor clear uses only the floor splash.
-Dismiss the splash and use the stair portal to continue. These transient countdowns are
-not saved, and existing character saves keep their format.
+Dismiss the splash and use the stair portal to continue. Slot snapshots retain
+presentation countdowns; legacy character-only saves keep their original behavior.
 
 Gameplay timing and record eligibility: [Timer rules](docs/TIMING.md).
 
@@ -409,3 +439,102 @@ Gameplay timing and record eligibility: [Timer rules](docs/TIMING.md).
 Open **Achievements** from the title menu. **Untouched: Lower Tower** recognizes a fresh, ordered floors 1–5 campaign without actual damage or death/retry. Badges persist across new games and give no gameplay rewards. Continue preserves eligibility; older saves without run history are ineligible. See [achievement rules](docs/ACHIEVEMENTS.md).
 
 Codex: **C** opens the Bestiary and Item Catalog (also available from menu buttons). Use `--codex-key` for an unused alternative and `--development-mode` for optional read-only inspection of undiscovered definitions. See [Codex rules and developer inspection](docs/CODEX.md).
+
+## Floor 6 — Broken Containment
+
+The Keeper was holding back the void, leaving floors 1–5 without oversight.
+Above his barrier, the Arcanist Wizard's researchers tried to subjugate a
+Voidwalker. Their captive has broken loose. The Arcanist rules floors 11–15;
+those floors and void floors 9–10 are future work.
+
+Break two binding circles, then three, before confronting the **Unbound
+Voidwalker**. Binders mark darkness pools; freeze them before release to cancel
+the ritual. Released pools expire, with a brief grace period on entry. Early
+containment pillars warn before discharging beams that can hit enemies too.
+
+The boss locks a lunge lane or sweep fan before striking, then takes 35% extra
+damage during recovery. At two-thirds and one-third health it breaks pillars
+and calls voidlings. Later lunges can leave darkness. Freezes interrupt it for
+up to 0.55s, followed by 3.5s of freeze resistance. Ice Patch slows its movement
+and attack clocks. **Glacial Prison is optional.** Boss attacks can hit binders.
+
+Darkness is capped at four separated pools; total population is capped at 12
+with at most four pillar summons. Summons and hazards clear on victory or death.
+Saves preserve live warnings, fields, boss state and pillar progress. Old
+completed Floor 5 checkpoints can continue through the newly opened stair.
+
+![The Unbound Voidwalker's marked lunge](docs/boss-floor-6.png)
+
+See [Floor 6 mechanics and validation](docs/VOID_FLOOR_6.md).
+
+## Floors 7 and 8 — The Oracle and the Astronomer
+
+**Floor 7 — The Consuming Dark:** lashers mark strike lanes, graspers briefly
+root the mage, and anchor tentacles pull toward expiring darkness. Attack or
+freeze the grasping limb to escape; spells and potions remain available. Enemy
+wizards are mind controlled. The **Many-Eyed Oracle** sweeps a gaze across the
+arena, calls staggered tentacle strikes, and summons anchors. Its channelers
+reduce damage received by 80% while alive and unfrozen; break or freeze them
+to expose the boss. The gaze is cancelled during a grasp.
+
+**Floor 8 — The Fallen Observatory:** gravity adepts place attraction wells,
+repulsion constructs push after a warning, and fragments follow circular paths.
+The **Fallen Astronomer** stays suspended inside a broken celestial instrument,
+alternating inward pulls, outward pulses, orbiting debris and collapsing stars.
+Later health stages combine one gravity field with an orbit. Move outward
+before Convergence, inward before Rejection, and use the recovery intervals.
+
+Both floors follow two-spawner, three-spawner, boss progression, with distinct
+rooms, rosters, journal entries and Codex definitions. Mechanics are capped at
+three concurrent warnings/active patterns and one force field. Grabs and pulls
+cannot start over one another. Walls stop displacement; Glacial Prison resists
+it and remains optional. Saves preserve live warnings, channelers, restraints,
+gravity and orbit clocks. Old Floor 6 ending checkpoints can continue upstairs.
+
+[Oracle preview](docs/boss-floor-7.png) · [Astronomer preview](docs/boss-floor-8.png)
+· [Mechanics and validation](docs/VOID_FLOORS_7_8.md)
+
+## Floor 9 — The Fractured Hour
+
+Elven wardens travel through marked portals and leave pale echoes that repeat
+one locked shot. Chronal scholars create circles that pause both friendly and
+hostile projectiles; the release countdown shows when their original motion
+will resume. Freezing a caster interrupts its pending portal or field.
+
+After two rifts and then three rifts, **The Hourless Breach** becomes an
+environmental boss puzzle. Watch a warden demonstrate the ice anchor, then
+practice R safely. Break an exposed dimensional anchor and survive Stopped
+Hour with Glacial Prison, three times. Each 1.55-second cue reserves a free R
+cast regardless of mana, cooldown or cast recovery. Prison lasts 2.5 seconds;
+casting promptly is safe, and a Prison active before the cue also works.
+
+Failure returns to the nearby boss checkpoint with health, mana, cooldowns and
+checkpoint potions restored. Attempt enemies and anchors produce no loot;
+gold and inventory are preserved. Saves retain the live lesson and puzzle.
+Old Floor 8 ending saves can continue upstairs. Its stair leads to Floor 10.
+
+[Floor 9 mechanics and validation](docs/VOID_FLOOR_9.md)
+
+## Floor 10 — The Maw Between Worlds
+
+The **Threshold Devourer** is a giant tentacled torso lodged halfway through a
+floor rupture. It stays fixed while its tentacles move and creatures emerge
+through marked portals. The summon roster spans all four previous void floors,
+including binders, tentacles, enthralled wizards, gravity servants and elven
+wardens. Their established frost counters and warnings still apply.
+
+Break two breach seals, then three, before facing the 3,600-HP monster.
+It alternates summon calls, inward gravity, locked tentacle slams and lash lanes.
+At two-thirds and one-third health, gravity strengthens and tentacle patterns
+gain additional strikes. Move outward during the pull warning and avoid its
+central core. **Glacial Prison is optional**, with normal cost and cooldown.
+Freezes briefly interrupt pending boss attacks, followed by resistance.
+
+Summons are capped at six living creatures and three pending arrivals. Pulls
+and grabs exclude one another; expired summons return to the breach. Victory
+recalls all summons and clears fields, echoes and warnings. Live saves preserve
+the boss pattern, roster rotation, arrival sources and earlier-floor mechanics.
+Old Floor 9 ending saves can continue into Floor 10. The Arcanist's Floors
+11–15 remain the next story chapter.
+
+[Floor 10 mechanics and validation](docs/VOID_FLOOR_10.md)
